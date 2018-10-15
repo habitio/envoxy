@@ -1,0 +1,7 @@
+{
+    "$log": {
+        "format": "pretty",
+        "level": 7
+    },
+    "boot": {}
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=${description}
+After=syslog.target
+
+[Service]
+LimitNOFILE=65536
+Type=notify
+TimeoutStartSec=10
+TimeoutStopSec=10
+Restart=on-failure
+RemainAfterExit=no
+WatchdogSec=30
+WorkingDirectory=/usr/lib/python3/dist-packages/envoxy/
+ExecStart=/usr/bin/python3.6 /usr/lib/python3/dist-packages/envoxy/monitoring.py
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target

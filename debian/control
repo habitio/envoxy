@@ -1,0 +1,14 @@
+Source: envoxy
+Maintainer: Matheus Santos <vorj.dux@gmail.com>
+Section: Development
+Priority: optional
+Standards-Version: 0.0.1
+Build-Depends: debhelper (>= 9),
+	       python (>= 3.6), 
+	       python3-all
+
+Package: envoxy
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: envoxy
+ Provides envoxy

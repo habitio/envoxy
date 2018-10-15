@@ -1,0 +1,10 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: envoxy
+Upstream-Contact: Matheus Santos, <vorj.dux@gmail.com>
+
+Files: *
+Copyright: 2018, Matheus Santos, <vorj.dux@gmail.com>
+License: (GPL-2+ | LGPL-2 | GPL-3)
+ Full text of licence.
+ .
+ Unless there is a it can be found in /usr/share/common-licenses
