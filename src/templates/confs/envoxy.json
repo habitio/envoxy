@@ -1,0 +1,10 @@
+{
+    "$log": {
+        "format": "pretty",
+        "level": 7
+    },
+    "boot": {},
+    "modules": [
+        "/home/vorjdux/Projects/muzzley/envoxy/src/templates/__init__.py"
+    ]
+}
