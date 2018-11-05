@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Try to install packages function
+try_install() {
+    sudo dpkg -l "$1" | grep -q ^ii && return 1
+    sudo apt-get -y install "$@"
+    return 0
+}
+
+# Get original files of uWSGI and inject the Envoxy custom files and compile the entire uWSGI as envoxyd in the build folder
+envoxyd() {
+
+    echo "-> Removing the old build objects.."
+    rm -rf build/envoxyd
+    echo "-> Creating the build/envoxyd folder.."
+    mkdir -p build/envoxyd
+    echo "-> Copying the original uWSGI submodule to the build folder.."
+    cp -R vendors/uwsgi/* build/envoxyd/
+    echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
+    cp -R src/templates/uwsgi/* build/envoxyd/
+    echo "-> Building uWSGI with Envoxy files"
+    cd build/envoxyd && make flask && cd ../..
+    echo "-> Removing the old bin folder.."
+    rm -rf bin
+    echo "-> Creating the new bin folder.."
+    mkdir bin
+    echo "-> Copying compiled files to the bin folder.."
+    cp build/envoxyd/envoxyd bin/
+    cp -R src/templates/uwsgi/envoxy bin/
+    cp -R build/envoxyd/*.o bin/
+
+}
+
+package() {
+    # Trying to install packages
+    try_install debhelper
+    try_install dh-virtualenv
+    try_install dh-python
+    try_install python-setuptools
+    try_install python3-setuptools
+    try_install python3-all
+    try_install python3-pip
+
+    # Trying to install the python packages
+    sudo pip3.6 install -r requirements.txt
+
+    # Remove all generated dist files previously
+    sudo rm -rf deb_dist dist envoxy-*.tar.gz envoxy.egg-info
+
+    # Packing the project in debian package
+    sudo python3.6 setup.py --command-packages=stdeb.command bdist_deb
+}
+
+$1

@@ -8,7 +8,7 @@ import importlib.util
 
 from flask import Flask
 
-sys.path.append("/home/vorjdux/Projects/muzzley/envoxy/src")
+sys.path.append("/usr/share/envoxy")
 
 from envoxy import Response
 

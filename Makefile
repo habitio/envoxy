@@ -1,0 +1,2 @@
+envoxyd:
+	./.build envoxyd
