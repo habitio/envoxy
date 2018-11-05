@@ -30,8 +30,6 @@ setup(
             find_file('etc/envoxy/envoxy-base.json')
         ]
     },
-    data_files=[
-        ('', ['LICENSE.txt', 'requirements.txt']),
-		('/etc/envoxy', ['etc/envoxy/envoxy-base.json'])
-    ]
+    data_files=[('', ['LICENSE.txt', 'requirements.txt']),
+		('/etc/envoxy', ['etc/envoxy/envoxy-base.json'])]
 )

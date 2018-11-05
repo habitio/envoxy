@@ -4,3 +4,5 @@ POST: str = 'post'
 PUT: str = 'put'
 PATCH: str = 'patch'
 DELETE: str = 'delete'
+
+SERVER_NAME: str = 'Envoxy Server'

@@ -1,11 +1,22 @@
 import envoxy
 
-class HelloWorldView(envoxy.Event):
+
+class HelloWorldView(envoxy.View):
 
     class Meta:
-        protocols = ['http']
         endpoint = '/v3/hello-world'
-        methods = ['get', 'post']
+        protocols = ['http']
 
-    def get(self, request={}) -> envoxy.Response:
-        return envoxy.Response({'text': 'Hello World!'}, 200)
+    def get(self, request: envoxy.Any = None) -> envoxy.Response:
+        return envoxy.Response({'text': 'Hello World!'}, status=200)
+
+    def post(self, request: envoxy.Any = None) -> envoxy.Response:
+        return envoxy.Response(
+            [
+                {
+                    'id': 1,
+                    'name': 'Matheus'
+                }
+            ],
+            status=200
+        )
