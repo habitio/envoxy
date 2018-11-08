@@ -8,12 +8,12 @@ import importlib.util
 
 from flask import Flask
 
-sys.path.append("/usr/share/envoxy")
+sys.path.append("/opt/envoxy")
 
-from envoxy import Response
+import envoxy
 
 app = Flask(__name__)
-app.response_class = Response
+app.response_class = envoxy.Response
 
 app.debug = True
 
@@ -27,22 +27,39 @@ elif 'conf' in uwsgi.opt:
     
     _conf_path = uwsgi.opt['conf'].decode('utf-8')
     
-    print('[OK] Configuration file param found: {}\n'.format(_conf_path))
+    envoxy.log.system('[{}] Configuration file param found: {}\n'.format(
+        envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG),
+        _conf_path
+    ))
     
-    if os.path.exists(_conf_path):
+    if os.path.exists(_conf_path) and os.path.isfile(_conf_path):
 
-        print('[---] Configuration file exists! Trying to parse the file...\n')
+        envoxy.log.system('[{}] Configuration file exists! Trying to parse the file...\n'.format(
+            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG)
+        ))
+
+        _module_name = os.path.basename(_conf_path).replace('.json', '')
 
         # try:
         _conf_file = open(_conf_path, encoding='utf-8')
         _conf_content = json.loads(_conf_file.read(), encoding='utf-8')
-        print('[OK] The configuration file was parsed successfully!\n\n')
+        envoxy.log.system('[{}] The configuration file was parsed successfully!\n\n'.format(
+            envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)
+        ))
+
+        _log_conf = _conf_content.get('log')
+
+        if _log_conf and _log_conf.get('level'):
+            uwsgi.opt['log-level'] = bytes([_log_conf['level']])
 
         _modules_list = _conf_content.get('modules')
 
         for _module_path in _modules_list:
 
-            print('[MMM] Module path: {}\n'.format(_module_path))
+            envoxy.log.system('[{}] Module path: {}\n'.format(
+                envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
+                _module_path
+            ))
 
             #try:
     
@@ -54,12 +71,19 @@ elif 'conf' in uwsgi.opt:
                 
                 if _name == '__loader__' and isinstance(_obj, list) and len(_obj)>0:
 
-                    print('[...] Loader: {}\n'.format(_obj))
+                    envoxy.log.system('[{}] Loader: {}\n'.format(
+                        envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG), 
+                        _obj
+                    ))
         
                     for _view_class in _obj:
                         _instance = _view_class()
                         _instance.set_flask(app)
-                        print('\n[###] Loaded "{}".\n'.format(str(_view_class)))
+                        uwsgi.log('\n')
+                        envoxy.log.system('[{}] Loaded "{}".\n'.format(
+                            envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
+                            str(_view_class)
+                        ))
 
                 # except Exception as _ex:
 
@@ -73,13 +97,13 @@ elif 'conf' in uwsgi.opt:
 
     else:
 
-        print('[!!!] Configuration file not found in this path! Please check if the file exists or the permissions are enough.\n\n')
-        exit(-1)
+        envoxy.log.emergency('Configuration file not found in this path! Please check if the file exists or the permissions are enough.\n\n')
+        exit(-10)
 
 
 
 else:
-    print('[!!!] Configuration file not found! Please use ./envoxy [params] --set conf=<file> or ./envoxy [params] --set mode=test\n\n')
-    exit(-1)
+    envoxy.log.emergency('Configuration file not found! Please use ./envoxy [params] --set conf=<file> or ./envoxy [params] --set mode=test\n\n')
+    exit(-10)
 
-print('\n\n')
+uwsgi.log('\n\n')

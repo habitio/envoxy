@@ -1,6 +1,8 @@
 from typing import Dict, List
-from flask import Response as FlaskResponse, Flask
+from flask import Response as FlaskResponse, Flask, request
 from .containers import Response
+
+from ..utils import Log
 
 
 class View(object):
@@ -29,7 +31,9 @@ class View(object):
                     methods=[_method]
                 )
 
-                print('>>> [HTTP] Added the endpoint "{}" using the method "{}" calling the function "{}"'.format(
+                Log.system('{} [{}] Added the endpoint "{}" using the method "{}" calling the function "{}"'.format(
+                    Log.style.apply('>>>', Log.style.BOLD),
+                    Log.style.apply('HTTP', Log.style.GREEN_FG),
                     getattr(self.Meta, 'endpoint', ''), 
                     _method, 
                     getattr(self, _method, 'Not Found')
@@ -38,6 +42,8 @@ class View(object):
     def _dispatch(self, _method, _protocol):
         
         def _wrapper(*args, **kwargs):
+
+            kwargs['request'] = request
             
             if _protocol == 'http':
                 return getattr(self, _method)(*args, **kwargs)

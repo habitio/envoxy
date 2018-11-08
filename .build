@@ -1,5 +1,33 @@
 #!/bin/bash
 
+# Help
+help() {
+
+    echo
+    echo "ENVOXY HELP"
+    echo "==========="
+    echo
+    echo "Commands available:"
+    echo " $ make help"
+    echo " $ make envoxyd"
+    echo " $ make build"
+    echo " $ sudo make install"
+
+}
+
+clean() {
+    echo "-> Removing the old build objects.."
+    rm -rfv build/envoxyd
+    echo "-> Removing the old bin folder.."
+    rm -rfv bin
+    echo "-> Removing all *.pyc files.."
+    find . -name *.pyc -exec rm -rfv {} \;
+    echo "-> Removing all *.o files.."
+    find . -name *.o -exec rm -rfv {} \;
+    echo "-> Removing all __pycache__ folders.."
+    find . -type d -name __pycache__ -exec rm -rfv {} \;
+}
+
 # Try to install packages function
 try_install() {
     sudo dpkg -l "$1" | grep -q ^ii && return 1
