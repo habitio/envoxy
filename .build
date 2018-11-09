@@ -59,6 +59,34 @@ envoxyd() {
 
 }
 
+envoxyd_install() {
+
+    echo "-> Exporting the envoxyd binary to /opt/envoxy/bin.."
+    sudo cp -R bin/* /opt/envoxy/bin/
+    echo "-> Exporting the envoxyd bootstrap script to /usr/share/bin.."
+    sudo cp scripts/envoxyd /usr//bin/
+    sudo chmod +x /usr/bin/envoxyd
+
+}
+
+envoxy_install() {
+    source /opt/envoxy/bin/activate && python setup.py install
+}
+
+install() {
+
+    echo "-> Installing the envoxy to /opt/envoxy/.."
+    sudo rm -rf /opt/envoxy
+    sudo virtualenv /opt/envoxy -p $(which python3.6)
+    sudo chown -R $(whoami):$(whoami) /opt/envoxy
+    source /opt/envoxy/bin/activate
+    pip install -r requirements.txt
+    python setup.py install
+    envoxyd
+    envoxyd_install
+
+}
+
 package() {
     # Trying to install packages
     try_install debhelper

@@ -7,8 +7,11 @@ clean:
 envoxyd:
 	./.build envoxyd
 
-build:
-	./.build build
+envoxyd_install:
+	./.build envoxyd_install
+
+envoxy_install:
+	./.build envoxy_install
 
 install:
 	./.build install

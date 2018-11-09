@@ -6,7 +6,7 @@ import inspect
 
 import importlib.util
 
-from flask import Flask
+from flask import Flask, request
 
 sys.path.append("/opt/envoxy")
 
@@ -16,6 +16,52 @@ app = Flask(__name__)
 app.response_class = envoxy.Response
 
 app.debug = True
+
+@app.before_request
+def before_request():
+    
+    if envoxy.log.is_gte_log_level(envoxy.log.INFO):
+        
+        envoxy.log.info('{} [{}] {}'.format(
+            envoxy.log.style.apply('> Request', envoxy.log.style.BOLD),
+            envoxy.log.style.apply('HTTP', envoxy.log.style.GREEN_FG),
+            envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG)
+        ))
+
+        if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
+        
+            envoxy.log.verbose(request.headers, False)
+            
+            if request.data:
+                envoxy.log.verbose(json.dumps(request.get_json(), sort_keys=True, indent=4), False)
+
+@app.after_request
+def before_request(response):
+
+    if envoxy.log.is_gte_log_level(envoxy.log.INFO):
+
+        if response.status_code >= 100 and response.status_code <= 299:
+            _status_code_style = envoxy.log.style.GREEN_FG
+        elif response.status_code >= 300 and response.status_code <= 399:
+            _status_code_style = envoxy.log.style.YELLOW_FG
+        else:
+            _status_code_style = envoxy.log.style.RED_FG
+    
+        envoxy.log.info('{} [{}] {} - {}'.format(
+            envoxy.log.style.apply('< Response', envoxy.log.style.BOLD),
+            envoxy.log.style.apply('HTTP', _status_code_style),
+            envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG),
+            envoxy.log.style.apply(str(response.status_code), _status_code_style)
+        ))
+
+        if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
+    
+            envoxy.log.verbose(response.headers, False)
+
+            if response.data:
+                envoxy.log.verbose(json.dumps(response.get_json(), sort_keys=True, indent=4), False)
+    
+    return response
 
 if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
     

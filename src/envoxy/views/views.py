@@ -48,7 +48,7 @@ class View(object):
             if _protocol == 'http':
                 return getattr(self, _method)(*args, **kwargs)
         
-        _wrapper.__name__ = '_wrapper__{}__{}'.format(_method, _protocol)
+        _wrapper.__name__ = '_wrapper__{}__{}__{}'.format(self.__class__.__name__, _method, _protocol)
         
         return _wrapper
         

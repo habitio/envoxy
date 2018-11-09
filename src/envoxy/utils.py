@@ -26,80 +26,101 @@ class Now:
 class LogStyle:
 
     # Reset
-    ENDC = '\033[0m'
+    RESET = '0'
     
     # Decorations
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    BOLD = '1'
+    UNDERLINE = '4'
 
     # Foreground Colors
-    DEFAULT_FG = '\033[39m'
-    BLACK_FG = '\033[30m'
-    RED_FG = '\033[31m'
-    GREEN_FG = '\033[32m'
-    YELLOW_FG = '\033[33m'
-    BLUE_FG = '\033[34m'
-    MAGENTA_FG = '\033[35m'
-    CYAN_FG = '\033[36m'
-    LGRAY_FG = '\033[37m'
-    DGRAY_FG = '\033[90m'
-    LRED_FG = '\033[91m'
-    LGREEN_FG = '\033[92m'
-    LYELLOW_FG = '\033[93m'
-    LBLUE_FG = '\033[94m'
-    LMAGENTA_FG = '\033[95m'
-    LCYAN_FG = '\033[96m'
-    WHITE_FG = '\033[97m'
+    DEFAULT_FG = '39'
+    BLACK_FG = '30'
+    RED_FG = '31'
+    GREEN_FG = '32'
+    YELLOW_FG = '33'
+    BLUE_FG = '34'
+    MAGENTA_FG = '35'
+    CYAN_FG = '36'
+    LGRAY_FG = '37'
+    DGRAY_FG = '90'
+    LRED_FG = '91'
+    LGREEN_FG = '92'
+    LYELLOW_FG = '93'
+    LBLUE_FG = '94'
+    LMAGENTA_FG = '95'
+    LCYAN_FG = '96'
+    WHITE_FG = '97'
 
     # Background colors
-    DEFAULT_BG = '\033[49m'
-    BLACK_BG = '\033[40m'	
-    RED_BG = '\033[41m'
-    GREEN_BG = '\033[42m'
-    YELLOW_BG = '\033[43m'
-    BLUE_BG = '\033[44m'
-    MAGENTA_BG = '\033[45m'
-    CYAN_BG = '\033[46m'
-    LGRAY_BG = '\033[47m'
-    DGRAY_BG = '\033[100m'
-    LRED_BG = '\033[101m'
-    LGREEN_BG = '\033[102m'
-    LYELLOW_BG = '\033[103m'
-    LBLUE_BG = '\033[104m'
-    LMAGENTA_BG = '\033[105m'
-    LCYAN_BG = '\033[106m'
-    WHITE_BG = '\033[107m'
+    DEFAULT_BG = '49'
+    BLACK_BG = '40'	
+    RED_BG = '41'
+    GREEN_BG = '42'
+    YELLOW_BG = '43'
+    BLUE_BG = '44'
+    MAGENTA_BG = '45'
+    CYAN_BG = '46'
+    LGRAY_BG = '47'
+    DGRAY_BG = '100'
+    LRED_BG = '101'
+    LGREEN_BG = '102'
+    LYELLOW_BG = '103'
+    LBLUE_BG = '104'
+    LMAGENTA_BG = '105'
+    LCYAN_BG = '106'
+    WHITE_BG = '107'
     
     # Patterns
-    EMERGENCY_FG = '\033[4;31m'
-    ALERT_FG = '\033[4;31m'
-    CRITICAL_FG = '\033[4;35m'
-    ERROR_FG = '\033[4;35m'
-    WARNING_FG = '\033[4;35m'
-    NOTICE_FG = '\033[4;36m'
-    INFO_FG = '\033[4;37m'
-    DEBUG_FG = '\033[4;33m'
-    TRACE_FG = '\033[4;32m'
-    VERBOSE_FG = '\033[4;32m'
+    EMERGENCY = '4;31'
+    ALERT = '4;31'
+    CRITICAL = '4;35'
+    ERROR = '4;35'
+    WARNING = '4;35'
+    NOTICE = '4;36'
+    INFO = '4;37'
+    DEBUG = '4;33'
+    TRACE = '4;32'
+    VERBOSE = '4;32'
+
+    @staticmethod
+    def generate(_styles):
+        return '\033[{}m'.format(_styles if not isinstance(_styles, list) else ';'.join(_styles))
     
     @staticmethod
-    def apply(_text, _style=DEFAULT_FG):
+    def apply(_text, _styles=DEFAULT_FG):
 
         if _text is not None:
-            return ''.join([''.join(_style) if isinstance(_style, list) else _style, _text, LogStyle.ENDC])
+            return ''.join([LogStyle.generate(_styles), _text, LogStyle.generate(LogStyle.RESET)])
         
         return None
 
 class Log:
 
+    EMERGENCY = b'\x00'
+    ALERT = b'\x01'
+    CRITICAL = b'\x02'
+    ERROR = b'\x03'
+    WARNING = b'\x04'
+    NOTICE = b'\x05'
+    INFO = b'\x06'
+    DEBUG = b'\x07'
+    TRACE = b'\x08'
+    VERBOSE = b'\x09'
+
+    DEFAULT = EMERGENCY
+
     style = LogStyle
+
+    @staticmethod
+    def is_gte_log_level(_log_level):
+        return uwsgi.opt.get('log-level', Log.DEFAULT) >= _log_level
 
     @staticmethod
     def emergency(_text):
 
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x00':
+        if Log.is_gte_log_level(Log.EMERGENCY):
         
-            uwsgi.log(' {} | {} | {}'.format(
+            uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply(' emergency ', [LogStyle.RED_BG, LogStyle.WHITE_FG]),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
@@ -108,10 +129,10 @@ class Log:
     @staticmethod
     def alert(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x01':
+        if Log.is_gte_log_level(Log.ALERT):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('   alert   ', [LogStyle.UNDERLINE, LogStyle.ALERT_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('   alert   ', LogStyle.ALERT),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -119,10 +140,10 @@ class Log:
     @staticmethod
     def critical(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x02':
+        if Log.is_gte_log_level(Log.CRITICAL):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply(' critical  ', [LogStyle.UNDERLINE, LogStyle.CRITICAL_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply(' critical  ', LogStyle.CRITICAL),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -130,10 +151,10 @@ class Log:
     @staticmethod
     def error(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x03':
+        if Log.is_gte_log_level(Log.ERROR):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('   error   ', [LogStyle.UNDERLINE, LogStyle.ERROR_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('   error   ', LogStyle.ERROR),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -141,10 +162,10 @@ class Log:
     @staticmethod
     def warning(_text):
 
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x04':
+        if Log.is_gte_log_level(Log.WARNING):
     
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('  warning  ', [LogStyle.UNDERLINE, LogStyle.WARNING_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('  warning  ', LogStyle.WARNING),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -152,10 +173,10 @@ class Log:
     @staticmethod
     def notice(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x05':
+        if Log.is_gte_log_level(Log.NOTICE):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('  notice   ', [LogStyle.UNDERLINE, LogStyle.NOTICE_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('  notice   ', LogStyle.NOTICE),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -163,10 +184,10 @@ class Log:
     @staticmethod
     def info(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x06':
+        if Log.is_gte_log_level(Log.INFO):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('   info    ', [LogStyle.UNDERLINE, LogStyle.INFO_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('   info    ', LogStyle.INFO),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -174,10 +195,10 @@ class Log:
     @staticmethod
     def debug(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x07':
+        if Log.is_gte_log_level(Log.DEBUG):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('   debug   ', [LogStyle.UNDERLINE, LogStyle.DEBUG_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('   debug   ', LogStyle.DEBUG),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
@@ -185,24 +206,27 @@ class Log:
     @staticmethod
     def trace(_text):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x08':
+        if Log.is_gte_log_level(Log.TRACE):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('   trace   ', [LogStyle.UNDERLINE, LogStyle.TRACE_FG]),
+            uwsgi.log('{} | {} | {}'.format(
+                LogStyle.apply('   trace   ', LogStyle.TRACE),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
                 _text
             ))
 
     @staticmethod
-    def verbose(_text):
+    def verbose(_text, _prefix=True):
         
-        if uwsgi.opt.get('log-level', b'\x00') >= b'\x09':
+        if Log.is_gte_log_level(Log.VERBOSE):
         
-            uwsgi.log(' {} | {} | {}'.format(
-                LogStyle.apply('  verbose  ', [LogStyle.UNDERLINE, LogStyle.VERBOSE_FG]),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
-            ))
+            if _prefix:
+                uwsgi.log('{} | {} | {}'.format(
+                    LogStyle.apply('  verbose  ', LogStyle.VERBOSE),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    _text
+                ))
+            else:
+                uwsgi.log(str(_text))
 
     @staticmethod
     def system(_text):

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+current_dir=$(pwd)
+source /opt/envoxy/bin/activate && pushd /opt/envoxy/bin && cd /opt/envoxy/bin && ./envoxyd $@ && deactivate
+cd $current_dir
