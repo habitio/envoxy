@@ -75,6 +75,10 @@ envoxy_install() {
 
 install() {
 
+    export LC_ALL="en_US.UTF-8"
+    export LC_CTYPE="en_US.UTF-8"
+    sudo dpkg-reconfigure locales
+
     try_install python3.6-dev
     try_install python-setuptools
     try_install python3-setuptools
