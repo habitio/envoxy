@@ -1,0 +1,3 @@
+[submodule "vendors/uwsgi"]
+  path = vendors/uwsgi
+  url = git@github.com:unbit/uwsgi.git
