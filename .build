@@ -75,6 +75,12 @@ envoxy_install() {
 
 install() {
 
+    try_install python3.6
+    try_install python-setuptools
+    try_install python3-setuptools
+    try_install python-virtualenv
+    try_install python3-virtualenv
+
     echo "-> Installing the envoxy to /opt/envoxy/.."
     sudo rm -rf /opt/envoxy
     sudo virtualenv /opt/envoxy -p $(which python3.6)
