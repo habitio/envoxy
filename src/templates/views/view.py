@@ -1,18 +1,18 @@
-import envoxy
-import uwsgi
+from envoxy import View, Response, on, log, zmqc
 
+@on(endpoint='/v3/cards', protocols=['http'])
+class HelloWorldCollection(View):
 
-class HelloWorldView(envoxy.View):
+    def get(self, request):
+        return Response(
+            zmqc.get('muzzley-platform', '/v3/data-layer/cards')
+        )
 
-    class Meta:
-        endpoint = '/v3/hello-world'
-        protocols = ['http']
+    def post(self, request):
 
-    def get(self, request: envoxy.Any = None) -> envoxy.Response:
-        return envoxy.Response({'text': 'Hello World!'}, status=500)
+        _payload = request.json()
 
-    def post(self, request: envoxy.Any = None) -> envoxy.Response:
-        return envoxy.Response(
+        return Response(
             [
                 {
                     'id': 1,
@@ -22,22 +22,26 @@ class HelloWorldView(envoxy.View):
             status=200
         )
 
-class HelloWorld2View(envoxy.View):
+@on(endpoint='/v3/cards/{uuid:str}', protocols=['http'])
+class HelloWorldDocument(View):
 
-    class Meta:
-        endpoint = '/v3/hello-world2'
-        protocols = ['http']
+    def get(self, uuid, size, request):
+        return Response(
+            {
+                'id': 1,
+                'name': uuid
+            }, 
+            status=200
+        )
 
-    def get(self, request: envoxy.Any = None) -> envoxy.Response:
-        return envoxy.Response({'text': 'Hello World!'}, status=200)
+    def put(self, uuid, request):
 
-    def post(self, request: envoxy.Any = None) -> envoxy.Response:
-        return envoxy.Response(
-            [
-                {
-                    'id': 1,
-                    'name': 'Matheus'
-                }
-            ],
+        log.info(request)
+
+        return Response(
+            {
+                'id': size,
+                'href': uuid
+            },
             status=200
         )

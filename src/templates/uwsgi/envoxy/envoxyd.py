@@ -14,6 +14,7 @@ import envoxy
 
 app = Flask(__name__)
 app.response_class = envoxy.Response
+app.url_map.converters['str'] = app.url_map.converters['string']
 
 app.debug = True
 
@@ -22,21 +23,24 @@ def before_request():
     
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
         
-        envoxy.log.info('{} [{}] {}'.format(
+        _outputs = ['{} [{}] {}'.format(
             envoxy.log.style.apply('> Request', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', envoxy.log.style.GREEN_FG),
             envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG)
-        ))
+        )]
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
         
-            envoxy.log.verbose(request.headers, False)
+            _outputs.append(str(request.headers))
             
             if request.data:
-                envoxy.log.verbose(json.dumps(request.get_json(), sort_keys=True, indent=4), False)
+                _outputs.append(json.dumps(request.get_json(), sort_keys=True, indent=4))
+
+        envoxy.log.info('\n'.join(_outputs))
+        del _outputs
 
 @app.after_request
-def before_request(response):
+def after_request(response):
 
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
@@ -47,20 +51,23 @@ def before_request(response):
         else:
             _status_code_style = envoxy.log.style.RED_FG
     
-        envoxy.log.info('{} [{}] {} - {}'.format(
+        _outputs = ['{} [{}] {} - {}'.format(
             envoxy.log.style.apply('< Response', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', _status_code_style),
             envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG),
             envoxy.log.style.apply(str(response.status_code), _status_code_style)
-        ))
+        )]
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
     
-            envoxy.log.verbose(response.headers, False)
+            _outputs.append(str(response.headers))
 
             if response.data:
-                envoxy.log.verbose(json.dumps(response.get_json(), sort_keys=True, indent=4), False)
-    
+                _outputs.append(json.dumps(response.get_json(), sort_keys=True, indent=4))
+
+        envoxy.log.info('\n'.join(_outputs))
+        del _outputs
+
     return response
 
 if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
@@ -92,6 +99,8 @@ elif 'conf' in uwsgi.opt:
         envoxy.log.system('[{}] The configuration file was parsed successfully!\n\n'.format(
             envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)
         ))
+
+        uwsgi.opt['conf_content'] = _conf_content
 
         _log_conf = _conf_content.get('log')
 

@@ -1,8 +1,14 @@
 {
     "log": {
-        "level": 9
+        "level": "9"
     },
     "modules": [
         "/home/vorjdux/Projects/muzzley/envoxy/src/templates/__init__.py"
-    ]
+    ],
+    "zmq_servers": {
+        "muzzley_platform": {
+            "host": "127.0.0.1",
+            "port": "4444"
+        }
+    }
 }
