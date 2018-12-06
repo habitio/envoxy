@@ -5,7 +5,12 @@ class HelloWorldCollection(View):
 
     def get(self, request):
         return Response(
-            zmqc.get('muzzley-platform', '/v3/data-layer/cards')
+            zmqc.get(
+                'muzzley-platform', 
+                '/v3/data-layer/cards', 
+                params={'page_size': 100},
+                headers=request.headers.items()
+            )
         )
 
     def post(self, request):

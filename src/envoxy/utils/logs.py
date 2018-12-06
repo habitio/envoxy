@@ -1,12 +1,6 @@
 import uwsgi
 
-from datetime import datetime
-
-class Now:
-
-    @staticmethod
-    def log_format():
-        return datetime.now().utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+from .datetime import Now
 
 
 class LogStyle:
@@ -69,14 +63,14 @@ class LogStyle:
     VERBOSE = '4;32'
 
     @staticmethod
-    def generate(_styles):
-        return '\033[{}m'.format(_styles if not isinstance(_styles, list) else ';'.join(_styles))
+    def generate(styles):
+        return '\033[{}m'.format(styles if not isinstance(styles, list) else ';'.join(styles))
     
     @staticmethod
-    def apply(_text, _styles=DEFAULT_FG):
+    def apply(text, styles=DEFAULT_FG):
 
-        if _text is not None:
-            return ''.join([LogStyle.generate(_styles), _text, LogStyle.generate(LogStyle.RESET)])
+        if text is not None:
+            return ''.join([LogStyle.generate(styles), text, LogStyle.generate(LogStyle.RESET)])
         
         return None
 
@@ -98,122 +92,148 @@ class Log:
     style = LogStyle
 
     @staticmethod
-    def is_gte_log_level(_log_level):
-        return uwsgi.opt.get('log-level', Log.DEFAULT) >= _log_level
+    def truncate_text(text, max_lines=None):
+
+        if max_lines is None:
+            return text
+        
+        _lines_splitted = text.split('\n')
+
+        _lines_count = len(_lines_splitted)
+
+        if _lines_count > max_lines:
+            
+            _half_max_size = int(max_lines / 2)
+
+            _text_list = []
+
+            _text_list.extend(_lines_splitted[0:_half_max_size])
+            _text_list.append('--- truncated ---')
+            _text_list.extend(_lines_splitted[_lines_count-_half_max_size:])
+
+            return '\n'.join(_text_list)
+        
+        else:
+
+            return text
 
     @staticmethod
-    def emergency(_text):
+    def is_gte_log_level(log_level):
+        return uwsgi.opt.get('log-level', Log.DEFAULT) >= log_level
+
+    @staticmethod
+    def emergency(text, max_lines=None):
 
         if Log.is_gte_log_level(Log.EMERGENCY):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply(' emergency ', [LogStyle.RED_BG, LogStyle.WHITE_FG]),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def alert(_text):
+    def alert(text, max_lines=None):
         
         if Log.is_gte_log_level(Log.ALERT):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('   alert   ', LogStyle.ALERT),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
     
     @staticmethod
-    def critical(_text):
+    def critical(text, max_lines=None):
         
         if Log.is_gte_log_level(Log.CRITICAL):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply(' critical  ', LogStyle.CRITICAL),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def error(_text):
+    def error(text, max_lines=None):
         
         if Log.is_gte_log_level(Log.ERROR):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('   error   ', LogStyle.ERROR),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def warning(_text):
+    def warning(text, max_lines=None):
 
         if Log.is_gte_log_level(Log.WARNING):
     
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('  warning  ', LogStyle.WARNING),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def notice(_text):
+    def notice(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.NOTICE):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('  notice   ', LogStyle.NOTICE),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def info(_text):
+    def info(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.INFO):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('   info    ', LogStyle.INFO),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def debug(_text):
+    def debug(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.DEBUG):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('   debug   ', LogStyle.DEBUG),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def trace(_text):
+    def trace(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.TRACE):
         
             uwsgi.log('{} | {} | {}'.format(
                 LogStyle.apply('   trace   ', LogStyle.TRACE),
                 LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                _text
+                Log.truncate_text(text, max_lines)
             ))
 
     @staticmethod
-    def verbose(_text, _prefix=True):
+    def verbose(text, prefix=True, max_lines=None):
         
         if Log.is_gte_log_level(Log.VERBOSE):
         
-            if _prefix:
+            if prefix:
                 uwsgi.log('{} | {} | {}'.format(
                     LogStyle.apply('  verbose  ', LogStyle.VERBOSE),
                     LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    _text
+                    Log.truncate_text(text, max_lines)
                 ))
             else:
-                uwsgi.log(str(_text))
+                uwsgi.log(str(Log.truncate_text(text, max_lines)))
 
     @staticmethod
-    def system(_text):
-        uwsgi.log(_text)
+    def system(text, max_lines=None):
+        uwsgi.log(Log.truncate_text(text, max_lines))

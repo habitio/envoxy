@@ -1,8 +1,26 @@
-# HTTP methods
-GET: str = 'get'
-POST: str = 'post'
-PUT: str = 'put'
-PATCH: str = 'patch'
-DELETE: str = 'delete'
+import enum
 
-SERVER_NAME: str = 'Envoxy Server'
+# HTTP methods
+GET = 'get'
+POST = 'post'
+PUT = 'put'
+PATCH = 'patch'
+DELETE = 'delete'
+
+SERVER_NAME = 'Envoxy Server'
+
+ZEROMQ_POLLIN_TIMEOUT = 5 * 1000
+
+class Performative(enum.IntEnum):
+    GET = 0
+    PUT = 1
+    POST = 2
+    DELETE = 3
+    HEAD = 4
+    OPTIONS = 5
+    PATCH = 6
+    REPLY = 7
+    SEARCH = 8
+    NOTIFY = 9
+    TRACE = 10
+    CONNECT = 11

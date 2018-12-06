@@ -6,9 +6,9 @@
         "/home/vorjdux/Projects/muzzley/envoxy/src/templates/__init__.py"
     ],
     "zmq_servers": {
-        "muzzley_platform": {
-            "host": "127.0.0.1",
-            "port": "4444"
+        "muzzley-platform": {
+            "host": "10.10.150.15",
+            "port": "1025:1030"
         }
     }
 }
