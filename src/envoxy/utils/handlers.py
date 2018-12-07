@@ -14,11 +14,21 @@ class Handler:
             return FlaskResponse({'text': e}, 500)
 
     @staticmethod
-    def make_response(_object, _status) -> FlaskResponse:
+    def make_response(object_, status) -> FlaskResponse:
         
-        if type(_object) in [dict, list]:
-            return FlaskResponse(json.dumps(_object), _status, {'Content-Type': 'application/json'})
-        elif type(_object) in [str]:
-            return FlaskResponse(_object, _status, {'Content-Type': 'text/html'})
+        if type(object_) in [dict, list]:
+            return FlaskResponse(json.dumps(object_), status, {'Content-Type': 'application/json'})
+        elif type(object_) in [str]:
+            return FlaskResponse(object_, status, {'Content-Type': 'text/html'})
         else:
             return FlaskResponse(json.dumps({'text':'Error in parsing the response object.'}), 500, {'Content-Type': 'text/html'})
+
+    @staticmethod
+    def freeze(object_):
+        
+        if isinstance(object_, dict):
+            return frozenset((key, Handler.freeze(value)) for key, value in object_.items())
+        elif isinstance(object_, list):
+            return tuple(Handler.freeze(value) for value in object_)
+
+        return object_

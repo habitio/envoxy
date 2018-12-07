@@ -6,6 +6,8 @@ from ..utils.singleton import Singleton
 
 from ..utils.datetime import Now
 
+from ..utils.cache import LRUCache
+
 from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT
 
 import datetime
@@ -14,8 +16,11 @@ import json
 
 class ZMQ(Singleton):
 
+    CACHE = {}
+
     _instances = {}
     _context = zmq.Context()
+    _poller = zmq.Poller()
 
     def __init__(self):
 
@@ -36,54 +41,66 @@ class ZMQ(Singleton):
                 'url': 'tcp://{}'.format(_conf.get('host'))
             }
 
-            if ',' in _conf.get('port'):
-                _port_parts = _conf.get('port').split(',')
+            self.connect(self._instances[_server_key])
+
+    def connect(self, instance):
+
+        if ',' in instance['conf'].get('port'):
+            _port_parts = instance['conf'].get('port').split(',')
+        else:
+            _port_parts = [instance['conf'].get('port')]
+
+        for _port_part in _port_parts:
+
+            if ':' in _port_part:
+                _port_range = _port_part.split(':')[:2]
+
+                _port_range = range(int(_port_range[0]), int(_port_range[1]))
             else:
-                _port_parts = [_conf.get('port')]
+                _port_range = [_port_part]
 
-            for _port_part in _port_part:
+            for _port in _port_range:
 
-                if ':' in _port_part:
-                    _port_range = _port_part.split(':')[:2]
+                try:
 
-                    _port_range = range(int(_port_range[0]), int(_port_range[1]))
-                else:
-                    _port_range = [_port_part]
+                    instance['socket'].connect('{}:{}'.format(instance['url'], _port))
 
-                for _port in _port_range:
+                    if instance['socket'].closed():
+                        instance['socket'].disconnect('{}:{}'.format(instance['url'], _port))
+                    else:
+                        Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format('{}:{}'.format(instance['url'], _port)))
+                
+                except:
 
-                    self._instances[_server_key]['socket'].connect('{}:{}'.format(self._instances[_server_key]['url'], _port))
+                    pass
 
-                    Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format('{}:{}'.format(self._instances[_server_key]['url'], _port)))
+        # use poll for timeouts:
+        self._poller.register(instance['socket'], zmq.POLLIN)
 
-    def send_and_recv(self, _server_key, _message):
+    def send_and_recv(self, server_key, message):
 
         _response = None
-        _instance = self._instances[_server_key]
+        _instance = self._instances[server_key]
 
         try:
             _instance['socket'].send_string('', zmq.SNDMORE)
-            _instance['socket'].send_string(json.dumps(_message))
+            _instance['socket'].send_string(json.dumps(message))
 
-            # use poll for timeouts:
-            poller = zmq.Poller()
-            poller.register(_instance['socket'], zmq.POLLIN)
-
-            socks = dict(poller.poll(ZEROMQ_POLLIN_TIMEOUT))
+            socks = dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT))
 
             if _instance['socket'] in socks:
                 try:
-                    _instance['socket'].recv()  # discard delimiter
-                    _response = json.loads(_instance['socket'].recv())  # actual message
+                    _instance['socket'].recv() # discard delimiter
+                    _response = json.loads(_instance['socket'].recv()) # actual message
                 except IOError:
-                    Log.error('Could not connect to machine')
+                    Log.error('ZMQ::recv : Could not connect to ZeroMQ machine: {}'.format(_instance['url']))
             else:
-                Log.error('Machine did not respond')
+                Log.error('ZMQ::poller : Machine did not respond: {}'.format(_instance['url']))
+                self._poller.register(_instance['socket'], zmq.POLLIN)
+                self.connect(_instance)
     
         except Exception as e:
-            Log.error('ZMQ::publish : It is not possible to send message using the ZMQ server "{}". Error: {}'.format(_instance['url'], e))
-        #finally:
-            #_instance['socket'].unbind(_instance['url'])
+            Log.error('ZMQ::send : It is not possible to send message using the ZMQ server "{}". Error: {}'.format(_instance['url'], e))
 
         return _response
         
@@ -91,7 +108,7 @@ class ZMQ(Singleton):
 class Dispatcher():
 
     @staticmethod
-    def generate_headers(_client_id=None):
+    def generate_headers(client_id=None):
         
             _headers = {
                 'Accept': 'application/json',
@@ -100,8 +117,8 @@ class Dispatcher():
                 'User-Agent': SERVER_NAME
             }
             
-            if _client_id:
-                _headers['X-Cid'] = _client_id
+            if client_id:
+                _headers['X-Cid'] = client_id
             else:
                 _headers['X-Cid'] = str(uuid.uuid4())
                     
@@ -109,7 +126,7 @@ class Dispatcher():
 
     @staticmethod
     def get(server_key, url, params=None, payload=None, headers=None):
-            
+
         _message = {
             'resource': url,
             'headers': Dispatcher.generate_headers(),
@@ -120,7 +137,7 @@ class Dispatcher():
 
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
-        
+
         return ZMQ.instance().send_and_recv(server_key, _message)
 
     @staticmethod

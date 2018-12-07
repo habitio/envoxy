@@ -1,52 +1,68 @@
 from envoxy import View, Response, on, log, zmqc
 
 @on(endpoint='/v3/cards', protocols=['http'])
-class HelloWorldCollection(View):
+class CardsCollection(View):
 
     def get(self, request):
         return Response(
             zmqc.get(
                 'muzzley-platform', 
                 '/v3/data-layer/cards', 
-                params={'page_size': 100},
+                params=request.params,
                 headers=request.headers.items()
             )
         )
 
     def post(self, request):
-
-        _payload = request.json()
-
         return Response(
-            [
-                {
-                    'id': 1,
-                    'name': 'Matheus'
-                }
-            ],
-            status=200
+            zmqc.post(
+                'muzzley-platform', 
+                '/v3/data-layer/cards', 
+                payload=request.json(),
+                headers=request.headers.items()
+            )
         )
 
 @on(endpoint='/v3/cards/{uuid:str}', protocols=['http'])
-class HelloWorldDocument(View):
+class CardsDocument(View):
 
-    def get(self, uuid, size, request):
+    def get(self, uuid, request):
         return Response(
-            {
-                'id': 1,
-                'name': uuid
-            }, 
-            status=200
+            zmqc.get(
+                'muzzley-platform', 
+                '/v3/data-layer/cards/{}'.format(uuid),
+                params=request.params,
+                headers=request.headers.items()
+            )
         )
 
     def put(self, uuid, request):
-
-        log.info(request)
-
         return Response(
-            {
-                'id': size,
-                'href': uuid
-            },
-            status=200
+            zmqc.post(
+                'muzzley-platform', 
+                '/v3/data-layer/cards/{}'.format(uuid), 
+                params=request.params,
+                payload=request.json(),
+                headers=request.headers.items()
+            )
+        )
+
+    def patch(self, uuid, request):
+        return Response(
+            zmqc.patch(
+                'muzzley-platform', 
+                '/v3/data-layer/cards/{}'.format(uuid), 
+                params=request.params,
+                payload=request.json(),
+                headers=request.headers.items()
+            )
+        )
+
+    def delete(self, uuid, request):
+        return Response(
+            zmqc.delete(
+                'muzzley-platform', 
+                '/v3/data-layer/cards/{}'.format(uuid),
+                headers=request.headers.items()
+            )
         )

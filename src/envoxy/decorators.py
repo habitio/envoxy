@@ -1,20 +1,20 @@
 from .views.containers import Response
 
-def event_wrapper(_object):
-    return Response(_object).to_flask()
+def event_wrapper(object_):
+    return Response(object_).to_flask()
 
-def on(**_kwargs):
+def on(**kwargs):
     
-    def _decorate(_klass):
+    def _decorate(klass):
 
         class Meta:
             pass
 
-        _klass.__metaclass__ = Meta
+        klass.__metaclass__ = Meta
 
-        for _key, _value in _kwargs.items():
-            setattr(_klass.__metaclass__, _key, _value)
+        for _key, _value in kwargs.items():
+            setattr(klass.__metaclass__, _key, _value)
 
-        return _klass
+        return klass
 
     return _decorate

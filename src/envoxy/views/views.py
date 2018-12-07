@@ -19,9 +19,9 @@ class View(object):
     def get_methods(self) -> List[str]:
         return [_method for _method in dir(self) if _method in ['get', 'post', 'put', 'patch', 'delete', 'on_event']]
 
-    def set_flask(self, _app) -> None:
+    def set_flask(self, app) -> None:
 
-        self.__flask_app: Flask = _app
+        self.__flask_app: Flask = app
 
         _endpoint = getattr(self.__metaclass__, 'endpoint', '')
         _protocols = getattr(self.__metaclass__, 'protocols', [])
