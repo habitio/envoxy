@@ -3,7 +3,7 @@
         "level": "9"
     },
     "modules": [
-        "/home/vorjdux/Projects/muzzley/envoxy/src/templates/__init__.py"
+        "${app_path}"
     ],
     "zmq_servers": {
         "muzzley-platform": {

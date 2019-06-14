@@ -1,6 +1,6 @@
 import sys, os
-sys.path.append("/home/vorjdux/Projects/muzzley/envoxy/src")
-sys.path.append("/home/vorjdux/Projects/muzzley/envoxy/src/templates")
+sys.path.append("${envoxy_src}")
+sys.path.append("${app_path}")
 
 from views.view import CardsCollection, CardsDocument
 

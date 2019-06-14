@@ -1,3 +1,64 @@
 #!/bin/bash
 
-source /etc/default/envoxy.rc 
+ENVOXY_SRC=/usr/envoxy/src
+ENVOXY_TEMPLATE_DIR=/usr/envoxy/src/templates
+
+PROJECT_NAME=""
+FUNCTION=""
+
+while [[ "$#" -gt 0 ]]
+  do
+    case $1 in
+      -n|--name)
+        PROJECT_NAME="$2"
+        ;;
+      -c|--create-project)
+        FUNCTION="create_project"
+        ;;
+    esac
+    shift
+  done
+
+create_project(){
+	echo $PROJECT_NAME
+
+	if [ -z "$PROJECT_NAME" ]
+	then
+		echo -n "Please enter project name: "
+		read PROJECT_NAME
+	fi
+
+	project_name_slug=`echo $PROJECT_NAME | iconv -t ascii//TRANSLIT | sed -r s/[^a-zA-Z0-9]+/-/g | sed -r s/^-+\|-+$//g | tr A-Z a-z´`
+
+	if [ -d $project_name_slug ]
+	then
+		echo Project $project_name_slug already exists
+	else
+		echo Creating directory $project_name_slug
+		mkdir $project_name_slug
+		PROJECT_DIR=$(pwd)/$project_name_slug
+
+		echo Including example files
+		cp $ENVOXY_TEMPLATE_DIR/__init__.py $project_name_slug/
+		cp -R $ENVOXY_TEMPLATE_DIR/views $project_name_slug/
+
+		echo Including config files
+		cp -R $ENVOXY_TEMPLATE_DIR/confs $project_name_slug/
+		app_file=$(echo "$PROJECT_DIR/__init__.py" | sed 's/\//\\\//g')
+		app_dir=$(echo "$PROJECT_DIR" | sed 's/\//\\\//g')
+		envoxy_src=$(echo "$ENVOXY_SRC" | sed 's/\//\\\//g')
+
+		echo $app_file
+		echo $app_dir
+		echo $envoxy_src
+
+		sed -i "s/\${app_path}/`echo $app_file`/" $project_name_slug/confs/envoxy.json
+		sed -i "s/\${app_dir}/`echo $app_file`/; s/\${envoxy_src}/`echo $envoxy_src`/" $project_name_slug/__init__.py
+	fi
+}
+
+
+if $FUNCTION == "create_project"
+then
+	$create_project
+fi
