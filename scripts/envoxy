@@ -45,15 +45,15 @@ create_project(){
 		echo Including config files
 		cp -R $ENVOXY_TEMPLATE_DIR/confs $project_name_slug/
 		app_file=$(echo "$PROJECT_DIR/__init__.py" | sed 's/\//\\\//g')
-		app_dir=$(echo "$PROJECT_DIR" | sed 's/\//\\\//g')
+		app_path=$(echo "$PROJECT_DIR" | sed 's/\//\\\//g')
 		envoxy_src=$(echo "$ENVOXY_SRC" | sed 's/\//\\\//g')
 
 		echo $app_file
-		echo $app_dir
+		echo $app_path
 		echo $envoxy_src
 
-		sed -i "s/\${app_path}/`echo $app_file`/" $project_name_slug/confs/envoxy.json
-		sed -i "s/\${app_dir}/`echo $app_file`/; s/\${envoxy_src}/`echo $envoxy_src`/" $project_name_slug/__init__.py
+		sed -i "s/\${app_file}/`echo $app_file`/" $project_name_slug/confs/envoxy.json
+		sed -i "s/\${app_path}/`echo $app_file`/; s/\${envoxy_src}/`echo $envoxy_src`/" $project_name_slug/__init__.py
 	fi
 }
 

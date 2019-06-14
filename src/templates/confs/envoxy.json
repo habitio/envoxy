@@ -3,7 +3,7 @@
         "level": "9"
     },
     "modules": [
-        "${app_path}"
+        "${app_file}"
     ],
     "zmq_servers": {
         "muzzley-platform": {
