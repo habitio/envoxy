@@ -12,6 +12,7 @@ The Envoxy is a different kind of API REST framework and application daemon, we 
 What is `envoxyd`? It is the process daemon using embeded uWSGI customized to be able to boot our modules using the `envoxy` structure and API's. 
 ```
 $ ./.build install
+$ envoxyd --http :8080 --set conf=/path/to/confs/envoxy.json
 ```
 
 # How to use envoxy
