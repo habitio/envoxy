@@ -19,6 +19,8 @@ while [[ "$#" -gt 0 ]]
       .)
         USE_CURRENT_DIR=true
         ;;
+      -h|--help|help)
+        FUNCTION="help"
     esac
     shift
   done
@@ -87,7 +89,26 @@ create_project(){
     echo "envoxyd --http :8080 --set conf=$PROJECT_DIR/confs/envoxy.json"
 }
 
+help() {
+    echo
+    echo "ENVOXY HELP"
+    echo "==========="
+    echo
+    echo "Commands available:"
+    echo " $ envoxy --create-project"
+    echo "SYNOPSYS"
+    echo "    create a new project with a base template files"
+    echo "OPTIONS"
+    echo "    -n|-name: this will create a new project dir"
+    echo "    -e|-envoxy-dir: specify a different source directory for envoxy (default /usr/envoxy)"
+    echo "    . : use current path"
+}
+
 if $FUNCTION == "create_project"
 then
 	$create_project
+elif $FUNCTION == "help"
+then
+    $help
 fi
+
