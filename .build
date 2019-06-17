@@ -78,9 +78,11 @@ envoxy_install() {
 
 install() {
 
-    #export LC_ALL="en_US.UTF-8"
-    #export LC_CTYPE="en_US.UTF-8"
-    #sudo dpkg-reconfigure
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
+    export LANG="en_US.UTF-8"
+    export LANGUAGE="en_US:en"
+    export LC_ALL="en_US.UTF-8"
+    export LC_CTYPE="en_US.UTF-8"
 
     try_install python3.6-dev
     try_install python-setuptools

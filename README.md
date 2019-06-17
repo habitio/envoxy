@@ -12,6 +12,10 @@ The Envoxy is a different kind of API REST framework and application daemon, we 
 What is `envoxyd`? It is the process daemon using embeded uWSGI customized to be able to boot our modules using the `envoxy` structure and API's. 
 ```
 $ ./.build install
+```
+
+# Run envoxyd
+```
 $ envoxyd --http :8080 --set conf=/path/to/confs/envoxy.json
 ```
 
@@ -25,5 +29,9 @@ $ envoxy --create-project --name my-container
 ```
 $ docker build --no-cache -t muzzley-ubuntu:18.04 -f muzzley-ubuntu.Dockerfile .
 $ docker build -t envoxy .
-$ docker run -it -d -p 8080:8080 envoxy 
+```
+
+# Use an existent project path as volume
+```
+$ docker run -it -d -p 8080:8080 -v /path/to/project:/home/envoxy envoxy
 ```
