@@ -17,3 +17,5 @@ ADD . /usr/envoxy
 RUN ./.build install
 
 EXPOSE 8080 8080
+
+workdir /home/envoxy

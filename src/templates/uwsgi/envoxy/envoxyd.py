@@ -16,7 +16,6 @@ app = Flask(__name__)
 app.response_class = envoxy.Response
 app.url_map.converters['str'] = app.url_map.converters['string']
 
-app.debug = True
 
 @app.before_request
 def before_request():
@@ -149,6 +148,16 @@ elif 'conf' in uwsgi.opt:
         # except Exception as e:
         #     print('*** An error was thrown when ENVOXY tried to parse the file: {}\n\n'.format(e))
         #     exit(-1)
+
+
+        debug_mode = _conf_content.get('debug', False)
+
+        envoxy.log.system('[{}] App in debug mode {}!\n'.format(
+            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
+            debug_mode
+        ))
+
+        app.debug_mode = debug_mode
 
     else:
 
