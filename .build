@@ -89,6 +89,7 @@ install() {
     try_install python3-setuptools
     try_install python-virtualenv
     try_install python3-virtualenv
+    try_install libpq-dev
 
     echo "-> Installing the envoxy to /opt/envoxy/.."
     sudo rm -rf /opt/envoxy
