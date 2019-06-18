@@ -9,7 +9,7 @@ WORKDIR /usr/envoxy
 # envoxy user
 ADD . /usr/envoxy
 
-RUN ./.build install
+RUN make install
 
 EXPOSE 8080 8080
 
