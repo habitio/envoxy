@@ -6,10 +6,20 @@
         "${app_file}"
     ],
     "zmq_servers": {
-        "muzzley-platform": {
-            "host": "10.10.150.15",
-            "port": "1025:1030"
+        "example": {
+            "host": "127.0.0.1",
+            "port": "1010:1020"
         }
     },
-    "debug": "True"
+    "psql_servers": {
+        "example": {
+            "host": "127.0.0.1",
+            "port": "5432",
+            "db": "",
+            "max_conn": "10",
+            "passwd": "test",
+            "user": "test"
+        }
+    },
+    "debug": "False"
 }
