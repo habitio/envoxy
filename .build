@@ -12,6 +12,7 @@ help() {
     echo " $ make envoxyd"
     echo " $ make build"
     echo " $ sudo make install"
+    echo " $ make [prompt|shell]"
 
 }
 
