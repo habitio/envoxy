@@ -1,4 +1,4 @@
-from envoxy import View, Response, on, log, zmqc
+from envoxy import View, Response, on, log, zmqc, postgresc
 
 @on(endpoint='/v3/cards', protocols=['http'])
 class CardsCollection(View):
