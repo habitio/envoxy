@@ -1,2 +1,0 @@
-MIN_CONN = 1
-MAX_CONN = 1

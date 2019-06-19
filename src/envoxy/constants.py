@@ -24,3 +24,7 @@ class Performative(enum.IntEnum):
     NOTIFY = 9
     TRACE = 10
     CONNECT = 11
+
+# DB
+MIN_CONN = 1
+MAX_CONN = 1

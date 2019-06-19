@@ -1,12 +1,18 @@
 from psycopg2 import pool
 import psycopg2.extras
+import psycopg2.sql as sql
+from contextlib import contextmanager
 
+from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
-from . import MIN_CONN, MAX_CONN
+from ..constants import MIN_CONN, MAX_CONN
+
 
 class Client:
 
     _instances = {}
+
+    __conn = None
 
     def __init__(self, server_conf):
 
@@ -34,33 +40,52 @@ class Client:
                                                                                  conf['host'], conf['port']))
 
 
-    def reconnect(self, instance):
-        pass
-
-
-    def disconnect(self, instance):
-        pass
-
-
-    def query(self, server_key, sql_query):
+    def query(self, server_key=None, sql=None):
         """
         Executes any given sql query
         :param sql_query:
         :return:
         """
 
-        conn = self._conn(server_key)
+        try:
 
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cursor.execute(sql_query)
-        data = [dict(i) for i in cursor.fetchall()]
+            if not sql:
+                raise DatabaseException("Sql cannot be empty")
 
-        self.release_conn(server_key, conn)
+            conn = self.__conn if self.__conn is not None else self._get_conn(server_key)
 
-        return data
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(sql)
+            data = list(map(dict, cursor.fetchall()))
+
+            if self.__conn is None :  self.release_conn(server_key, conn)
+
+            return data
+
+        except psycopg2.DatabaseError as e:
+            Log.error(e)
+
+        return None
 
 
-    def _conn(self, server_key):
+    def insert(self, db_table: str, data: dict):
+
+        if not self.__conn:
+            raise DatabaseException("Insert must be inside a transaction block")
+
+        columns = data.keys()
+
+        query = sql.SQL("""insert into {} ({}) values ({})""").format(
+            sql.Identifier(db_table),
+            sql.SQL(', ').join(map(sql.Identifier, columns)),
+            sql.SQL(', ').join(sql.Placeholder() * len(columns)))
+
+        conn = self.__conn
+        cursor = conn.cursor()
+        cursor.execute(query, list(data.values()))
+
+
+    def _get_conn(self, server_key):
         """
         :param server_key: database identifier
         :return: raw psycopg2 connector instance
@@ -72,5 +97,24 @@ class Client:
     def release_conn(self, server_key, conn):
         _instance = self._instances[server_key]
         _instance['conn_pool'].putconn(conn)
+
+
+    @contextmanager
+    def transaction(self, server_key):
+
+        self.__conn = self._get_conn(server_key)
+        self.__conn.autocommit = False
+
+        try:
+            yield self
+
+        except (psycopg2.DatabaseError, DatabaseException) as e :
+            Log.error("rollback transaction, {}".format(e))
+            self.__conn.rollback()
+
+        finally:
+            self.__conn.commit()
+            self.release_conn(server_key, self.__conn)
+            self.__conn = None
 
 

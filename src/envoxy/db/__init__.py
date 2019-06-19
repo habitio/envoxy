@@ -3,6 +3,7 @@ from ..utils.config import Config
 
 from ..postgresql.dispatcher import Client as PgClient
 
+
 class Connector(Singleton):
 
     def __init__(self):
@@ -41,6 +42,16 @@ class Connector(Singleton):
 class PgDispatcher():
 
     @staticmethod
-    def query(server_key, sql_query):
+    def query(server_key=None, sql=None):
 
-        return Connector.instance().postgres.query(server_key, sql_query)
+        return Connector.instance().postgres.query(server_key, sql)
+
+    @staticmethod
+    def insert(db_table: str, data: dict):
+
+        return Connector.instance().postgres.insert(db_table, data)
+
+    @staticmethod
+    def transaction(server_key):
+
+        return Connector.instance().postgres.transaction(server_key)
