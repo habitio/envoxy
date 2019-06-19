@@ -2,6 +2,7 @@ from psycopg2 import pool
 import psycopg2.extras
 
 from ..utils.logs import Log
+from . import MIN_CONN, MAX_CONN
 
 class Client:
 
@@ -23,10 +24,9 @@ class Client:
     def connect(self, instance):
 
         conf = instance['conf']
-        _min_conn = 1
-        _max_conn = conf.get('max_conn', 1)
+        _max_conn = conf.get('max_conn', MAX_CONN)
 
-        _conn_pool = pool.ThreadedConnectionPool(_min_conn, _max_conn, host=conf['host'], port=conf['port'],
+        _conn_pool = pool.ThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
                                         dbname=conf['db'], user=conf['user'], password=conf['passwd'])
         instance['conn_pool'] = _conn_pool
 
