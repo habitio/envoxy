@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PROJECT_NAME=""
-FUNCTION=""
+FUNCTION="help"
 USE_CURRENT_DIR=false
 
 while [[ "$#" -gt 0 ]]
@@ -25,16 +25,17 @@ while [[ "$#" -gt 0 ]]
     shift
   done
 
-echo "Setting up envoxy templates dir"
-if [ -z "$ENVOXY_SRC" ]
-then
-    ENVOXY_SRC=/usr/envoxy/src
-fi
-ENVOXY_TEMPLATE_DIR=$(echo $ENVOXY_SRC/templates)
 
 create_project(){
 
     PROJECT_DIR=$(pwd)
+
+    echo "Setting up envoxy templates dir"
+    if [ -z "$ENVOXY_SRC" ]
+    then
+        ENVOXY_SRC=/usr/envoxy/src
+    fi
+    ENVOXY_TEMPLATE_DIR=$(echo $ENVOXY_SRC/templates)
 
     if [ $USE_CURRENT_DIR != true ]
     then
@@ -104,10 +105,10 @@ help() {
     echo "    . : use current path"
 }
 
-if $FUNCTION == "create_project"
+if "$FUNCTION" == "create_project"
 then
 	$create_project
-elif $FUNCTION == "help"
+elif "$FUNCTION" == "help"
 then
     $help
 fi
