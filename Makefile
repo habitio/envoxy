@@ -16,3 +16,9 @@ envoxy_install:
 install:
 	./.build install
 
+prompt:
+	python scripts/prompt.py
+
+shell:
+	python scripts/prompt.py
+
