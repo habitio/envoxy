@@ -20,7 +20,7 @@ clean() {
     echo "-> Removing the old build objects.."
     rm -rfv build/envoxyd
     echo "-> Removing the old bin folder.."
-    rm -rfv bin
+    rm -rfv bin deb_dist
     echo "-> Removing all *.pyc files.."
     find . -name *.pyc -exec rm -rfv {} \;
     echo "-> Removing all *.o files.."
@@ -48,7 +48,9 @@ envoxyd() {
     echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
     cp -R src/templates/uwsgi/* build/envoxyd/
     echo "-> Building uWSGI with Envoxy files"
-    cd build/envoxyd && make flask && cd ../..
+    cd build/envoxyd
+    python3 uwsgiconfig.py --build flask
+    cd ../..
     echo "-> Removing the old bin folder.."
     rm -rf bin
     echo "-> Creating the new bin folder.."
@@ -114,7 +116,8 @@ package() {
     try_install python3-pip
 
     # Trying to install the python packages
-    sudo pip3.6 install -r requirements.txt
+    sudo python3.6 -m pip install stem stdeb
+    sudo python3.6 -m pip install -r requirements.txt
 
     # Remove all generated dist files previously
     sudo rm -rf deb_dist dist envoxy-*.tar.gz envoxy.egg-info
