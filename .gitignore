@@ -28,6 +28,9 @@ wheels/
 MANIFEST
 deb_dist/
 envoxy*.tar.gz
+.pybuild
+.debhelper
+*.lastprofile
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -110,3 +113,7 @@ venv.bak/
 
 # pycharm
 .idea
+
+# vendors
+vendors/dist
+vendors/src

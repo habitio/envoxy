@@ -19,6 +19,8 @@ help() {
 clean() {
     echo "-> Removing the old build objects.."
     rm -rfv build/envoxyd
+    rm -rfv vendors/src/envoxyd
+    rm -rfv vendors/build vendors/dist 
     echo "-> Removing the old bin folder.."
     rm -rfv bin deb_dist
     echo "-> Removing all *.pyc files.."
@@ -40,25 +42,31 @@ try_install() {
 envoxyd() {
 
     echo "-> Removing the old build objects.."
-    rm -rf build/envoxyd
-    echo "-> Creating the build/envoxyd folder.."
-    mkdir -p build/envoxyd
+    rm -rf vendors/src
+
+    echo "-> Creating the vendors/src/envoxyd folder.."
+    mkdir -p vendors/src/envoxyd
+
     echo "-> Copying the original uWSGI submodule to the build folder.."
-    cp -R vendors/uwsgi/* build/envoxyd/
+    cp -R vendors/uwsgi/* vendors/src/envoxyd/
+
     echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
-    cp -R src/templates/uwsgi/* build/envoxyd/
-    echo "-> Building uWSGI with Envoxy files"
-    cd build/envoxyd
-    python3 uwsgiconfig.py --build flask
-    cd ../..
-    echo "-> Removing the old bin folder.."
-    rm -rf bin
-    echo "-> Creating the new bin folder.."
-    mkdir bin
-    echo "-> Copying compiled files to the bin folder.."
-    cp build/envoxyd/envoxyd bin/
-    cp -R src/templates/uwsgi/envoxy bin/
-    cp -R build/envoxyd/*.o bin/
+    cp -R src/templates/uwsgi/* vendors/src/envoxyd/
+
+    # echo "-> Building uWSGI with Envoxy files"
+    # cd build/envoxyd && python3 uwsgiconfig.py --build flask && cd ../..
+
+    # echo "-> Removing the old bin folder.."
+    # rm -rf bin
+
+    # echo "-> Creating the new bin folder.."
+    # mkdir bin
+
+    # echo "-> Copying compiled files to the bin folder.."
+    # cp build/envoxyd/envoxyd bin/
+
+    # cp -R src/templates/uwsgi/envoxy bin/
+    # cp -R build/envoxyd/*.o bin/
 }
 
 envoxyd_install() {

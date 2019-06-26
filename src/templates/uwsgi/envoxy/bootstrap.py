@@ -1,8 +1,6 @@
 import sys
 import uwsgi
 
-sys.path.append("/opt/envoxy")
-
 import envoxy
 
 _apply = envoxy.log.style.apply

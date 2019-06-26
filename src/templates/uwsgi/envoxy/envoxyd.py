@@ -8,7 +8,6 @@ import importlib.util
 
 from flask import Flask, request
 
-sys.path.append("/opt/envoxy")
 
 import envoxy
 
