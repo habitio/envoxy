@@ -1,0 +1,25 @@
+{
+    "log": {
+        "level": "9"
+    },
+    "modules": [
+        "${app_file}"
+    ],
+    "zmq_servers": {
+        "example": {
+            "host": "127.0.0.1",
+            "port": "1010:1020"
+        }
+    },
+    "psql_servers": {
+        "example": {
+            "host": "127.0.0.1",
+            "port": "5432",
+            "db": "",
+            "max_conn": "10",
+            "passwd": "test",
+            "user": "test"
+        }
+    },
+    "debug": "False"
+}

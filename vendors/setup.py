@@ -30,7 +30,7 @@ setup(
     author='Matheus Santos',
     author_email='vorj.dux@gmail.com',
     url='https://github.com/muzzley/envoxy',
-    packages=find_packages(exclude=["uwsgi"]),
+    packages=find_packages(exclude=["uwsgi", "templates"]),
     install_requires=[
         "envoxy==0.0.3"
     ],
@@ -38,8 +38,13 @@ setup(
         'envoxyd': 'envoxyd/',
     },
     data_files=[
+        ('bin', ['src/envoxyd/envoxyd']),
+        ('bin', ['envoxyd/tools/envoxy-cli']),
         ('envoxyd', ['LICENSE.txt']),
-        ('bin', ['src/envoxyd/envoxyd'])
+        ('envoxyd/etc/templates', ['envoxyd/templates/run.py']),
+        ('envoxyd/etc/templates', ['envoxyd/templates/__init__.py']),
+        ('envoxyd/etc/templates/confs', ['envoxyd/templates/confs/envoxy.json']),
+        ('envoxyd/etc/templates/views', ['envoxyd/templates/view.py'])
     ],
     cmdclass={
         'install': InstallCommand

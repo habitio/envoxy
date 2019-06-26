@@ -33,7 +33,7 @@ create_project(){
     echo "Setting up envoxy templates dir"
     if [ -z "$ENVOXY_SRC" ]
     then
-        ENVOXY_SRC=$VIRTUAL_ENV/envoxyd/etc/templates/
+        ENVOXY_SRC=/usr/envoxy/src
     fi
     ENVOXY_TEMPLATE_DIR=$(echo $ENVOXY_SRC/templates)
 
@@ -101,7 +101,7 @@ help() {
     echo "    create a new project with a base template files"
     echo "OPTIONS"
     echo "    -n|-name: this will create a new project dir"
-    echo "    -e|-envoxy-dir: specify a different source directory for envoxy (default $VIRTUAL_ENV/envoxyd/etc/templates/)"
+    echo "    -e|-envoxy-dir: specify a different source directory for envoxy (default /usr/envoxy)"
     echo "    . : use current path"
 }
 
