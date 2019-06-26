@@ -15,7 +15,7 @@
         "example": {
             "host": "127.0.0.1",
             "port": "5432",
-            "db": "",
+            "db": "test",
             "max_conn": "10",
             "passwd": "test",
             "user": "test"

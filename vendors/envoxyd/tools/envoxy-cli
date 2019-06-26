@@ -33,7 +33,7 @@ create_project(){
     echo "Setting up envoxy templates dir"
     if [ -z "$ENVOXY_SRC" ]
     then
-        ENVOXY_SRC=/usr/envoxy/src
+        ENVOXY_SRC=$VIRTUAL_ENV/envoxyd/etc
     fi
     ENVOXY_TEMPLATE_DIR=$(echo $ENVOXY_SRC/templates)
 
@@ -66,12 +66,13 @@ create_project(){
         else
             echo "Creating directory $project_name_slug ..."
             mkdir $project_name_slug
-            PROJECT_DIR=$(PROJECT_DIR)/$project_name_slug
+            PROJECT_DIR=$PROJECT_DIR/$project_name_slug
         fi
     fi
 
     echo "Including example files"
     cp $ENVOXY_TEMPLATE_DIR/__init__.py $PROJECT_DIR/
+    cp $ENVOXY_TEMPLATE_DIR/run.py $PROJECT_DIR/
     cp -R $ENVOXY_TEMPLATE_DIR/views $PROJECT_DIR/
 
     echo "Including config files"
@@ -85,6 +86,8 @@ create_project(){
     # replacing paths in config file and run module
     sed -i "s/\${app_file}/`echo $app_file`/" $PROJECT_DIR/confs/envoxy.json
     sed -i "s/\${app_path}/`echo $app_path`/; s/\${envoxy_src}/`echo $envoxy_src`/" $PROJECT_DIR/__init__.py
+
+    cd $PROJECT_DIR/$project_name_slug
 
     echo "Now you can use envoxyd \n"
     echo "envoxyd --http :8080 --set conf=$PROJECT_DIR/confs/envoxy.json"
@@ -101,7 +104,7 @@ help() {
     echo "    create a new project with a base template files"
     echo "OPTIONS"
     echo "    -n|-name: this will create a new project dir"
-    echo "    -e|-envoxy-dir: specify a different source directory for envoxy (default /usr/envoxy)"
+    echo "    -e|-envoxy-dir: specify a different source directory for envoxy (default $VIRTUAL_ENV/envoxyd/etc/templates/)"
     echo "    . : use current path"
 }
 

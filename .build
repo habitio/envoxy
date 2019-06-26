@@ -52,21 +52,6 @@ envoxyd() {
 
     echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
     cp -R src/templates/uwsgi/* vendors/src/envoxyd/
-
-    # echo "-> Building uWSGI with Envoxy files"
-    # cd build/envoxyd && python3 uwsgiconfig.py --build flask && cd ../..
-
-    # echo "-> Removing the old bin folder.."
-    # rm -rf bin
-
-    # echo "-> Creating the new bin folder.."
-    # mkdir bin
-
-    # echo "-> Copying compiled files to the bin folder.."
-    # cp build/envoxyd/envoxyd bin/
-
-    # cp -R src/templates/uwsgi/envoxy bin/
-    # cp -R build/envoxyd/*.o bin/
 }
 
 envoxyd_install() {

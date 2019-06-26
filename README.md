@@ -22,7 +22,7 @@ $ envoxyd --http :8080 --set conf=/path/to/confs/envoxy.json
 # How to use envoxy
 Create a new project
 ```
-$ envoxy --create-project --name my-container
+$ envoxy-cli --create-project --name my-container
 ```
 
 # How to build envoxy with Docker

@@ -20,7 +20,7 @@ def find_file(path):
 
 setup(
     name='envoxy',
-    version='0.0.3',
+    version='0.0.1',
     description='Envoxy Platform Framework',
     author='Matheus Santos',
     author_email='vorj.dux@gmail.com',
@@ -34,7 +34,6 @@ setup(
         'envoxy': [
             find_file('LICENSE.txt'),
             find_file('requirements.txt'),
-            find_file('etc/envoxy/envoxy-base.json')
         ]
     },
     data_files=[
