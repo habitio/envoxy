@@ -30,7 +30,7 @@ class Client:
     def connect(self, instance):
 
         conf = instance['conf']
-        _max_conn = conf.get('max_conn', MAX_CONN)
+        _max_conn = int(conf.get('max_conn', MAX_CONN))
 
         _conn_pool = pool.ThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
                                         dbname=conf['db'], user=conf['user'], password=conf['passwd'])
