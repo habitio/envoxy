@@ -96,9 +96,12 @@ class Log:
 
         if max_lines is None:
             return text
-        
-        _lines_splitted = text.split('\n')
 
+        if isinstance(text, str):
+            _lines_splitted = text.split('\n')
+        elif isinstance(text, dict):
+            return text
+    
         _lines_count = len(_lines_splitted)
 
         if _lines_count > max_lines:

@@ -51,7 +51,7 @@ envoxyd() {
     cp -R vendors/uwsgi/* vendors/src/envoxyd/
 
     echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
-    cp -R src/templates/uwsgi/* vendors/src/envoxyd/
+    cp -R vendors/envoxyd/templates/uwsgi/* vendors/src/envoxyd/
 
     cd vendors/
 }

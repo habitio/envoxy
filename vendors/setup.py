@@ -37,17 +37,12 @@ setup(
     package_dir={
         'envoxyd': 'envoxyd/',
     },
-    package_data={
-        'envoxyd': [
-            find_file('src/templates/embed/run.py'),
-        ]
-    },
     data_files=[
         ('bin', ['src/envoxyd/envoxyd']),
         ('bin', ['envoxyd/tools/envoxy-cli']),
         ('envoxyd', ['LICENSE.txt']),
-        ('envoxyd/etc/templates', ['src/templates/embed/run.py']),
         ('envoxyd/etc/templates', ['envoxyd/templates/__init__.py']),
+        ('envoxyd/etc/templates', ['envoxyd/templates/run.py']),
         ('envoxyd/etc/templates/confs', ['envoxyd/templates/confs/envoxy.json']),
         ('envoxyd/etc/templates/views', ['envoxyd/templates/view.py'])
     ],

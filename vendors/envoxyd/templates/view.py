@@ -1,6 +1,6 @@
 from envoxy import View, Response, on, log, zmqc, pgsqlc
 
-@on(endpoint='/v3/cards', protocols=['http'])
+@on(endpoint='/v3/cards', protocols=['http'], identities=['application', 'manager', 'device'])
 class CardsCollection(View):
 
     def get(self, request):

@@ -25,6 +25,7 @@ class View(object):
 
         _endpoint = getattr(self.__metaclass__, 'endpoint', '')
         _protocols = getattr(self.__metaclass__, 'protocols', [])
+        _identities = getattr(self.__metaclass__, 'identities', [])
 
         _regex = re.compile(REGEX_VAR_PATTERN)
         
@@ -52,6 +53,7 @@ class View(object):
                     getattr(self, _method, 'Not Found')
                 ))
 
+
     def _dispatch(self, _method, _protocol):
         
         def _wrapper(*args, **kwargs):
@@ -64,4 +66,3 @@ class View(object):
         _wrapper.__name__ = '__wrapper__{}__{}__{}'.format(self.__class__.__name__, _method, _protocol)
         
         return _wrapper
-        
