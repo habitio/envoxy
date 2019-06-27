@@ -21,5 +21,12 @@
             "user": "test"
         }
     },
+    "credentials": {
+        "client_id": "xxx",
+        "client_secret": "xxx",
+        "grant_type": "client_credentials",
+        "scope": "container",
+        "server": "https://localhost/"
+    },
     "debug": "False"
 }

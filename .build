@@ -52,24 +52,17 @@ envoxyd() {
 
     echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
     cp -R src/templates/uwsgi/* vendors/src/envoxyd/
+
+    cd vendors/
 }
 
 envoxyd_install() {
-
-    echo "-> Exporting the envoxyd binary to /opt/envoxy/bin.."
-    sudo cp -R bin/* /opt/envoxy/bin/
-    echo "-> Exporting the envoxyd bootstrap script to /usr/share/bin.."
-    sudo cp scripts/envoxyd /usr//bin/
-    sudo chmod +x /usr/bin/envoxyd
+    python setup.py install
 }
 
 envoxy_install() {
     source /opt/envoxy/bin/activate
-    pip install -r requirements.txt
     python setup.py install
-
-    sudo cp scripts/envoxy /usr//bin/
-    sudo chmod +x /usr/bin/envoxy
 }
 
 install() {
