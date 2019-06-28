@@ -7,7 +7,6 @@ from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
 from ..constants import MIN_CONN, MAX_CONN
 
-
 class Client:
 
     _instances = {}

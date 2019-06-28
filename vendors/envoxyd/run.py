@@ -111,6 +111,10 @@ elif 'conf' in uwsgi.opt:
         _credentials = envoxy.authenticate(_auth_conf)
         uwsgi.opt['credentials'] = _credentials
 
+        # Add plugins to conf
+        _plugins = _conf_content.get('plugins')
+        uwsgi.opt['plugins'] = _plugins
+
         # Load project modules
 
         _modules_list = _conf_content.get('modules')

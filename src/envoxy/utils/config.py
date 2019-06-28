@@ -1,4 +1,7 @@
-import uwsgi
+try:
+    import uwsgi
+except:
+    pass
 
 class Config:
 
@@ -9,3 +12,9 @@ class Config:
     @staticmethod
     def get_credentials():
         return uwsgi.opt.get('credentials', {})
+
+    @staticmethod
+    def plugins():
+        return uwsgi.opt.get('plugins', {})
+
+

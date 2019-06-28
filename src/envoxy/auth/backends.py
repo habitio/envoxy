@@ -1,7 +1,5 @@
 import requests
 from ..utils.logs import Log
-from ..db import CouchDBDispatcher as couchdbc
-from datetime import datetime
 
 def authenticate_container(credentials):
 
@@ -32,39 +30,5 @@ def authenticate_container(credentials):
 
 class Auth(object):
 
-
     def authenticate(self, request):
-
-        auth_header = request.headers.get('Authorization', '').split(' ')
-        access_token = auth_header[0] if len(auth_header) == 1 else auth_header[1]
-
-        if not self.validate(access_token):
-            raise Exception('Invalid Token')
-
-        return access_token
-
-    def get_token(self, token):
-
-        valid_token = couchdbc.get(
-            token,
-            db='muzzley.muzzley_tokens',
-        )
-
-        return valid_token
-
-    def validate(self, token):
-
-        valid_token = self.get_token(token)
-
-        if not valid_token:
-            raise Exception('Invalid Token')
-
-        now = datetime.now()
-        _expires = datetime.strptime(valid_token['expires'], '%Y-%m-%dT%H:%M:%S.%f+0000')
-
-        if _expires < now:
-            raise Exception('Token Expired')
-
-        return valid_token
-
-
+        raise NotImplementedError

@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from envoxy.constants import SERVER_NAME
+from ..constants import SERVER_NAME
 from flask import Response as FlaskResponse
 
 

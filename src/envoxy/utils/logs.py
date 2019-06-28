@@ -1,4 +1,13 @@
-import uwsgi
+try:
+    import uwsgi
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+    class DefaultLog:
+        def log(self, text):
+            logger.debug(text)
+    uwsgi = DefaultLog()
 
 from .datetime import Now
 

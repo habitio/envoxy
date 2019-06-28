@@ -1,18 +1,14 @@
+import json
+import uuid
+
 import zmq
 
+from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT
 from ..utils.config import Config
+from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
 
-from ..utils.datetime import Now
-
-from ..utils.cache import LRUCache
-
-from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT
-
-import datetime
-import uuid
-import json
 
 class ZMQ(Singleton):
 
