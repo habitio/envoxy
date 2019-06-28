@@ -1,8 +1,7 @@
 import re
+from typing import List
 
-from typing import Dict, List
-from flask import Response as FlaskResponse, Flask, request
-from .containers import Response
+from flask import Flask, request
 
 from ..utils.logs import Log
 
@@ -56,12 +55,16 @@ class View(object):
     def _dispatch(self, _method, _protocol):
         
         def _wrapper(*args, **kwargs):
-
-            kwargs['request'] = request
-            
             if _protocol == 'http':
-                return getattr(self, _method)(*args, **kwargs)
+                return self.dispatch(request, _method, *args, **kwargs)
         
         _wrapper.__name__ = '__wrapper__{}__{}__{}'.format(self.__class__.__name__, _method, _protocol)
         
         return _wrapper
+
+
+    def dispatch(self, request, _method, *args, **kwargs):
+        return getattr(self, _method)(request, *args, **kwargs)
+
+
+

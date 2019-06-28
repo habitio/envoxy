@@ -75,3 +75,9 @@ class CouchDBDispatcher():
     def find(db=None, fields=None, params=None):
 
         return CouchConnector.instance().couchdb.find(db, fields, params)
+
+
+    @staticmethod
+    def get(id:str, db=None):
+
+        return CouchConnector.instance().couchdb.get(id, db)

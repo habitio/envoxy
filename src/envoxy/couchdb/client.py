@@ -97,3 +97,14 @@ class Client:
 
         return []
 
+
+    def get(self, id: str, db: str):
+
+        params = {
+            "id": id
+        }
+
+        doc = self.find(db=db, fields=None, params=params)
+        doc = doc[0] if len(doc) else None
+
+        return doc

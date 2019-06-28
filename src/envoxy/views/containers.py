@@ -1,12 +1,8 @@
 import json
-
-from flask import Response as FlaskResponse
-from requests import Response as RequestsResponse
-from typing import Any, Dict
-
 from datetime import datetime
 
 from envoxy.constants import SERVER_NAME
+from flask import Response as FlaskResponse
 
 
 class Response(FlaskResponse):

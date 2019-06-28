@@ -1,6 +1,6 @@
-import requests
-
 from typing import Dict
+
+import requests
 from flask import Response
 
 from ..utils.handlers import Handler as UtilHandler
