@@ -59,7 +59,9 @@ class Client:
 
             _selector[key] = value
 
-        return _selector
+        return {
+            'selector': _selector
+        }
 
     def base_request(self, db, method, data=None):
 
@@ -75,8 +77,10 @@ class Client:
 
         try:
 
+            Log.debug('couchdb::{} {}'.format(url, data))
+
             resp = session.request(method, url, json=data)
-            return resp.json()
+            return resp
 
         except requests.RequestException:
             pass
@@ -88,8 +92,8 @@ class Client:
         data = self._get_selector(params)
         resp = self.base_request(db, 'POST', data=data)
 
-        if resp.status_code in requests.codes.ok:
-            return resp
+        if resp.status_code in [ requests.codes.ok ] and 'docs' in resp.json():
+            return resp.json()['docs']
 
-        return None
+        return []
 

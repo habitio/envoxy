@@ -53,6 +53,9 @@ envoxyd() {
     echo "-> Injecting the envoxyd files to customize the uWSGI initialization.."
     cp -R vendors/envoxyd/templates/uwsgi/* vendors/src/envoxyd/
 
+    echo "-> Injecting the run.py file from src.."
+    cp vendors/envoxyd/run.py vendors/src/envoxyd/embed/
+
     cd vendors/
 }
 

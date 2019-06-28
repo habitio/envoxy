@@ -99,7 +99,11 @@ class Log:
 
         if isinstance(text, str):
             _lines_splitted = text.split('\n')
-        elif isinstance(text, dict):
+
+        elif isinstance(text, list):
+            _lines_splitted = text
+
+        else:
             return text
     
         _lines_count = len(_lines_splitted)

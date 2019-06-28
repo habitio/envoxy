@@ -25,7 +25,6 @@ class View(object):
 
         _endpoint = getattr(self.__metaclass__, 'endpoint', '')
         _protocols = getattr(self.__metaclass__, 'protocols', [])
-        _identities = getattr(self.__metaclass__, 'identities', [])
 
         _regex = re.compile(REGEX_VAR_PATTERN)
         

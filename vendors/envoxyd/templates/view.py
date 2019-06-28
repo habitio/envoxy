@@ -1,6 +1,6 @@
 from envoxy import View, Response, on, log, zmqc, pgsqlc, couchdbc
 
-@on(endpoint='/v3/cards', protocols=['http'], identities=['application', 'manager', 'device'])
+@on(endpoint='/v3/cards', protocols=['http'])
 class CardsCollection(View):
 
     def get(self, request):
