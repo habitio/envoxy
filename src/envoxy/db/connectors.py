@@ -80,4 +80,4 @@ class CouchDBDispatcher():
     @staticmethod
     def get(id:str, db=None):
 
-        return CouchConnector.instance().couchdb.gCet(id, db)
+        return CouchConnector.instance().couchdb.get(id, db)

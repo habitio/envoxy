@@ -1,5 +1,7 @@
 import requests
 from ..utils.logs import Log
+from ..utils.config import Config
+import sys
 
 def authenticate_container(credentials):
 
@@ -26,7 +28,19 @@ def authenticate_container(credentials):
     Log.emergency("Authorization data incomplete")
     exit(-10)
 
+def get_auth_module():
+    _plugins = Config.plugins()
 
+    if 'auth' in _plugins.keys():
+
+        if _plugins['auth'] not in sys.path:
+            sys.path.append(_plugins['auth'])
+        from auth import Auth
+        return Auth
+    else:
+        from ..auth.backends import Auth
+        return Auth
+    return None
 
 class Auth(object):
 

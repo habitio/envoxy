@@ -2,6 +2,7 @@ import requests
 from flask import Response
 
 from .views import View
+from ..auth.backends import get_auth_module
 
 class AuthRequiredView(View):
 
@@ -15,10 +16,10 @@ class AuthRequiredView(View):
         :return:
         """
 
-        return Auth().authenticate(request)
+        AuthBackend = get_auth_module()
+        return AuthBackend().authenticate(request)
     
     def dispatch(self, request, *args, **kwargs):
-
         try:
             self.authenticate(request)
         except Exception as e:
