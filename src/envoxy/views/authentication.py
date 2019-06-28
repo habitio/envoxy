@@ -2,18 +2,6 @@ import requests
 from flask import Response
 
 from .views import View
-from ..utils.config import Config
-from ..utils.logs import Log
-
-_plugins = Config.plugins()
-
-if 'auth' in _plugins.keys():
-    import sys
-    sys.path.append(_plugins.append(_plugins['auth']))
-    from auth import Auth
-else:
-    from ..auth.backends import Auth
-
 
 class AuthRequiredView(View):
 
