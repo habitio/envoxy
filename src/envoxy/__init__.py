@@ -3,7 +3,7 @@ from .decorators import *
 from .views import View
 from .utils.logs import Log as log
 from .zeromq.dispatcher import Dispatcher as zmqc
-from .db import PgDispatcher as pgsqlc
+from .db import PgDispatcher as pgsqlc, CouchDBDispatcher as couchdbc
 from .auth.auth import authenticate
 
 from flask import Request, Response as FlaskResponse

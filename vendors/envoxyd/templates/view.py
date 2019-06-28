@@ -1,4 +1,4 @@
-from envoxy import View, Response, on, log, zmqc, pgsqlc
+from envoxy import View, Response, on, log, zmqc, pgsqlc, couchdbc
 
 @on(endpoint='/v3/cards', protocols=['http'], identities=['application', 'manager', 'device'])
 class CardsCollection(View):
@@ -66,3 +66,5 @@ class CardsDocument(View):
                 headers=request.headers.items()
             )
         )
+
+

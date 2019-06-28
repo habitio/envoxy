@@ -2,17 +2,13 @@ from ..utils.singleton import Singleton
 from ..utils.config import Config
 
 from ..postgresql.dispatcher import Client as PgClient
+from ..couchdb.client import Client as CouchDBClient
 
 
 class Connector(Singleton):
 
     def __init__(self):
         self.start_postgres_conn()
-
-    @property
-    def postgres(self):
-        return self.postgres_client
-
 
     def start_postgres_conn(self):
 
@@ -23,7 +19,7 @@ class Connector(Singleton):
         if not self._server_confs:
             raise Exception('Error to find PSQL Servers config')
 
-        self.postgres_client = PgClient(self._server_confs)
+        self.postgres = PgClient(self._server_confs)
 
 
     def start_couchdb_conn(self):
@@ -36,6 +32,8 @@ class Connector(Singleton):
 
         if not self._server_confs:
             raise Exception('Error to find COUCHDB Servers config')
+
+        self.couchdb = CouchDBClient(self._server_confs)
 
 
 
@@ -55,3 +53,11 @@ class PgDispatcher():
     def transaction(server_key):
 
         return Connector.instance().postgres.transaction(server_key)
+
+
+class CouchDBDispatcher():
+
+    @staticmethod
+    def find(db=None, fields=None, params=None):
+
+        return Connector.instance().postgres.query(db, fields, params)

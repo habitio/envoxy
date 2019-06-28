@@ -6,13 +6,13 @@
         "${app_file}"
     ],
     "zmq_servers": {
-        "example": {
+        "$server_key": {
             "host": "127.0.0.1",
             "port": "1010:1020"
         }
     },
     "psql_servers": {
-        "example": {
+        "$server_key": {
             "host": "127.0.0.1",
             "port": "5432",
             "db": "test",
@@ -21,12 +21,21 @@
             "user": "test"
         }
     },
+    "couchdb_servers": {
+        "$server_key": {
+            "bind": "http://127.0.0.1:5986",
+            "db": "test",
+            "user": "",
+            "passwd": ""
+        }
+    },
     "credentials": {
         "client_id": "xxx",
         "client_secret": "xxx",
-        "grant_type": "client_credentials",
+        "response_type": "client_credentials",
         "scope": "container",
         "server": "https://localhost/"
     },
+    
     "debug": "False"
 }
