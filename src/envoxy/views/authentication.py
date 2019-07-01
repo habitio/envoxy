@@ -6,9 +6,6 @@ from ..auth.backends import get_auth_module
 
 class AuthRequiredView(View):
 
-    valid_token = 'admin'
-
-
     def authenticate(self, request):
         """
 
@@ -22,6 +19,9 @@ class AuthRequiredView(View):
     def dispatch(self, request, *args, **kwargs):
         try:
             self.authenticate(request)
+        except TypeError as e:
+            return self.server_error(e)  # Auth backend was not defined
+
         except Exception as e:
             return self.unauthorized(e)
 
@@ -31,5 +31,7 @@ class AuthRequiredView(View):
     def unauthorized(self, e):
         return Response(str(e), requests.codes.unauthorized)
 
+    def server_error(self, e):
+        return Response(str(e), requests.codes.server_error)
 
 

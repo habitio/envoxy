@@ -40,6 +40,7 @@ def get_auth_module():
     else:
         from ..auth.backends import Auth
         return Auth
+
     return None
 
 class Auth(object):

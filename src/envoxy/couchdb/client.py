@@ -3,7 +3,7 @@ from ..utils.logs import Log
 
 class Client:
 
-    valid_operators = ['eq', 'gt', 'gte', 'lt', 'lte']
+    valid_operators = ['eq', 'gt', 'gte', 'lt', 'lte', 'in']
     _instances = {}
     __conn = None
 
@@ -45,19 +45,21 @@ class Client:
     def _get_selector(self, params):
         _selector = {}
 
-        for key, value in params.items():
+        if params:
 
-            try:
-                operator = key.split('__')[1:].pop()
-                if operator in self.valid_operators:
-                    _selector[key] = {
-                        '${}'.format(operator): value
-                    }
-                    continue
-            except IndexError:
-                pass
+            for key, value in params.items():
 
-            _selector[key] = value
+                try:
+                    operator = key.split('__')[1:].pop()
+                    if operator in self.valid_operators:
+                        _selector[key] = {
+                            '${}'.format(operator): value
+                        }
+                        continue
+                except IndexError:
+                    pass
+
+                _selector[key] = value
 
         return {
             'selector': _selector
