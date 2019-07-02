@@ -92,27 +92,22 @@ install() {
     envoxyd
     envoxyd_install
 
+    cd ..
+
 }
 
 package() {
-    # Trying to install packages
-    try_install debhelper
-    try_install dh-virtualenv
-    try_install dh-python
-    try_install python-setuptools
-    try_install python3-setuptools
-    try_install python3-all
-    try_install python3-pip
+    install
 
-    # Trying to install the python packages
-    sudo python3.6 -m pip install stem stdeb
-    sudo python3.6 -m pip install -r requirements.txt
+    sudo rm -rf dist
+    sudo rm -rf vendors/dist
 
-    # Remove all generated dist files previously
-    sudo rm -rf deb_dist dist envoxy-*.tar.gz envoxy.egg-info
+    # Packing envoxy for pypi
+    python3 setup.py sdist bdist_wheel
 
-    # Packing the project in debian package
-    sudo python3.6 setup.py --command-packages=stdeb.command bdist_deb
+    # Packaging envoxyd for pypi
+    cd vendors
+    python3 setup.py sdist bdist_wheel
 }
 
 $1
