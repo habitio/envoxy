@@ -1,7 +1,7 @@
 import re
 from typing import List
 
-from flask import Flask, request
+from flask import Flask, request, Response as FlaskResponse
 
 from ..utils.logs import Log
 
@@ -67,7 +67,9 @@ class View(object):
         kwargs.update({
             'endpoint': _endpoint
         })
-        return getattr(self, _method)(request, *args, **kwargs)
-
+        try:
+            return getattr(self, _method)(request, *args, **kwargs)
+        except Exception as e:
+            return FlaskResponse(str(f"error: {e}"), 500)
 
 

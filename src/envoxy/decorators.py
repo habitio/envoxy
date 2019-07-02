@@ -1,10 +1,6 @@
-from functools import wraps
-
-from flask import Response
-
-from .auth.backends import AuthBackend
 from .views.containers import Response
-
+from functools import wraps
+from .auth.backends import AuthBackendMixin
 
 def event_wrapper(object_):
     return Response(object_).to_flask()
@@ -39,10 +35,7 @@ class auth_required(object):
             kwargs.update({
                 'roles_needed': self.role_list
             })
-            result, code = AuthBackend().authenticate(request, *args, **kwargs)
-
-            if result is not True:
-                raise Exception(result)
+            AuthBackendMixin().authenticate(request, *args, **kwargs)
 
             return func(view, request, *args, **kwargs)
         return wrapped_func

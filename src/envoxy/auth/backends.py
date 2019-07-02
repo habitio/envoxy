@@ -61,7 +61,7 @@ def get_topic(_topic):
 
 
 
-class AuthBackend:
+class AuthBackendMixin:
 
     def authenticate(self, request, *args, **kwargs):
         """
@@ -70,19 +70,7 @@ class AuthBackend:
         :return:
         """
 
-        try:
-
-            _endpoint = kwargs.get('endpoint', '')
-            topic = get_topic(_endpoint)
-            AuthBackend = get_auth_module()
-
-            is_valid = AuthBackend().authenticate(request, topic=topic, **kwargs)
-
-            if is_valid:
-                return True, requests.codes.ok
-
-        except TypeError as e:
-            return e, requests.codes.server_error
-
-        except Exception as e:
-            return e, requests.codes.unauthorized
+        _endpoint = kwargs.get('endpoint', '')
+        topic = get_topic(_endpoint)
+        AuthBackend = get_auth_module()
+        AuthBackend().authenticate(request, topic=topic, **kwargs)
