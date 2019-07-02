@@ -36,10 +36,10 @@ class View(object):
                 for _match in _regex.finditer(_endpoint):
                     _groups = _match.groupdict()
                     _flask_endpoint = _flask_endpoint.replace(_groups['all'], '<{}:{}>'.format(_groups['type'], _groups['var']))
-            
+
                 self.__flask_app.add_url_rule(
                     _flask_endpoint, 
-                    view_func=self._dispatch(_method, 'http'), 
+                    view_func=self._dispatch(_method, _endpoint, 'http'),
                     methods=[_method]
                 )
 
@@ -52,18 +52,21 @@ class View(object):
                 ))
 
 
-    def _dispatch(self, _method, _protocol):
-        
+    def _dispatch(self, _method, _endpoint, _protocol):
+
         def _wrapper(*args, **kwargs):
             if _protocol == 'http':
-                return self.dispatch(request, _method, *args, **kwargs)
+                return self.dispatch(request, _method, _endpoint, *args, **kwargs)
         
         _wrapper.__name__ = '__wrapper__{}__{}__{}'.format(self.__class__.__name__, _method, _protocol)
         
         return _wrapper
 
 
-    def dispatch(self, request, _method, *args, **kwargs):
+    def dispatch(self, request, _method, _endpoint, *args, **kwargs):
+        kwargs.update({
+            'endpoint': _endpoint
+        })
         return getattr(self, _method)(request, *args, **kwargs)
 
 

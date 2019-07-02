@@ -1,8 +1,10 @@
-from envoxy import View, Response, on, log, zmqc, pgsqlc, couchdbc
+from envoxy import View, Response, on, log, zmqc, pgsqlc, couchdbc, auth_required
 
 @on(endpoint='/v3/cards', protocols=['http'])
 class CardsCollection(View):
 
+
+    @auth_required(['container', 'manager'])
     def get(self, request):
         return Response(
             zmqc.get(
@@ -26,7 +28,7 @@ class CardsCollection(View):
 @on(endpoint='/v3/cards/{uuid:str}', protocols=['http'])
 class CardsDocument(View):
 
-    def get(self, uuid, request):
+    def get(self, request, uuid):
         return Response(
             zmqc.get(
                 'muzzley-platform', 
@@ -36,7 +38,7 @@ class CardsDocument(View):
             )
         )
 
-    def put(self, uuid, request):
+    def put(self, request, uuid):
         return Response(
             zmqc.post(
                 'muzzley-platform', 
@@ -47,7 +49,7 @@ class CardsDocument(View):
             )
         )
 
-    def patch(self, uuid, request):
+    def patch(self, request, uuid):
         return Response(
             zmqc.patch(
                 'muzzley-platform', 
@@ -58,7 +60,7 @@ class CardsDocument(View):
             )
         )
 
-    def delete(self, uuid, request):
+    def delete(self, request, uuid):
         return Response(
             zmqc.delete(
                 'muzzley-platform', 

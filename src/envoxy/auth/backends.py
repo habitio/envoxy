@@ -1,7 +1,11 @@
-import requests
-from ..utils.logs import Log
-from ..utils.config import Config
+import re
 import sys
+
+import requests
+
+from ..utils.config import Config
+from ..utils.logs import Log
+
 
 def authenticate_container(credentials):
 
@@ -43,7 +47,42 @@ def get_auth_module():
 
     return None
 
-class Auth(object):
+def get_topic(_topic):
 
-    def authenticate(self, request):
-        raise NotImplementedError
+    REGEX_VAR_PATTERN = '{(?P<all>(?P<var>[^:]+):(?P<type>[^}]+))}'
+    _regex = re.compile(REGEX_VAR_PATTERN)
+
+    for _match in _regex.finditer(_topic):
+        _groups = _match.groupdict()
+        var = _groups['var']
+        _topic = _topic.replace(_groups['all'], f"{var}")
+
+    return _topic
+
+
+
+class AuthBackend:
+
+    def authenticate(self, request, *args, **kwargs):
+        """
+
+        :param request:
+        :return:
+        """
+
+        try:
+
+            _endpoint = kwargs.get('endpoint', '')
+            topic = get_topic(_endpoint)
+            AuthBackend = get_auth_module()
+
+            is_valid = AuthBackend().authenticate(request, topic=topic, **kwargs)
+
+            if is_valid:
+                return True, requests.codes.ok
+
+        except TypeError as e:
+            return e, requests.codes.server_error
+
+        except Exception as e:
+            return e, requests.codes.unauthorized
