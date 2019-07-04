@@ -8,11 +8,61 @@ The Envoxy is a different kind of API REST framework and application daemon, we 
 - CouchDB;
 - PostgreSQL;
 
-# Build envoxyd (Envoxy Daemon):
+# Build envoxyd (Envoxy Daemon) and envoxy python package:
 What is `envoxyd`? It is the process daemon using embeded uWSGI customized to be able to boot our modules using the `envoxy` structure and API's. 
 ```
-$ ./.build install
+$ make install
 ```
+
+or using docker
+
+```
+$ docker build -t envoxy .
+```
+
+### Steps during the build processs
+
+- Install dependencies
+- Delete previous virtualenv dir if exists (/opt/envoxy)
+- Create clean virtualenv (/opt/envoxy) with python3.6 version and activate
+- Give current user permissions to virtualenv dir
+- Install envoxy:  `python setup install`
+- Prepare envoxyd files:
+    * Delete src dir (vendors/src)
+    * Create envoxyd src dir and make a clean copy o uWSGI
+    * Copy envoxyd files to customize uWSGI
+- Install envoxyd: `python setup install`
+
+# Prepare packages to pypi repository
+
+```
+$ make package
+```
+
+### Steps during the packaging processs
+
+- Install Process
+- Create a Source distribution for both packages: `python3 setup.py sdist bdist_wheel`
+
+# Publish to pypi repository
+
+On project root for *envoxy* and ./vendors dir for *envoxyd*
+
+- Make sure `build` dir was created
+- `build` dir must contain a `.whl` and `.tar.gz` of the current version
+
+
+```
+envoxy-0.0.2-py3-none-any.whl
+envoxy-0.0.2.tar.gz
+```
+
+- Upload current package using twine command and enter your credentials for the account you registered on the real PyPI.
+
+```
+$ twine upload dist/*
+```
+
 
 # Run envoxyd
 ```
@@ -33,7 +83,7 @@ $ docker build -t envoxy .
 
 # Use an existent project path as volume
 ```
-$ docker run -it -d -p 8080:8080 -v /path/to/project:/home/envoxy envoxy
+$ docker run -it -d -p 8080:8080 -v /path/to/project:/home/envoxy -v /path/to/plugins:/usr/envoxy/plugins envoxy
 ```
 
 

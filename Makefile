@@ -22,5 +22,5 @@ prompt:
 shell:
 	python scripts/prompt.py
 
-package:
-	./.build package
+packages:
+	./.build packages
