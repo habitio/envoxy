@@ -5,7 +5,7 @@ class CardsCollection(View):
 
 
     @auth_required(['container', 'manager'])
-    def get(self, request):
+    def get(self, request, **kwargs):
         return Response(
             zmqc.get(
                 'muzzley-platform', 
@@ -15,7 +15,7 @@ class CardsCollection(View):
             )
         )
 
-    def post(self, request):
+    def post(self, request, **kwargs):
         return Response(
             zmqc.post(
                 'muzzley-platform', 
@@ -28,7 +28,7 @@ class CardsCollection(View):
 @on(endpoint='/v3/cards/{uuid:str}', protocols=['http'])
 class CardsDocument(View):
 
-    def get(self, request, uuid):
+    def get(self, request, uuid, **kwargs):
         return Response(
             zmqc.get(
                 'muzzley-platform', 
@@ -38,7 +38,7 @@ class CardsDocument(View):
             )
         )
 
-    def put(self, request, uuid):
+    def put(self, request, uuid, **kwargs):
         return Response(
             zmqc.post(
                 'muzzley-platform', 
@@ -49,7 +49,7 @@ class CardsDocument(View):
             )
         )
 
-    def patch(self, request, uuid):
+    def patch(self, request, uuid, **kwargs):
         return Response(
             zmqc.patch(
                 'muzzley-platform', 
@@ -60,7 +60,7 @@ class CardsDocument(View):
             )
         )
 
-    def delete(self, request, uuid):
+    def delete(self, request, uuid, **kwargs):
         return Response(
             zmqc.delete(
                 'muzzley-platform', 
