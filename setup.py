@@ -27,9 +27,9 @@ setup(
     description='Envoxy Platform Framework',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    author='Matheus Santos',
+    author='Matheus (vorjdux) Santos',
     author_email='vorj.dux@gmail.com',
-    url='https://github.com/muzzley/envoxy',
+    url='https://github.com/habitio/envoxy',
     packages=find_packages(where='src/', exclude=("tests", "templates")),
     install_requires=requirements,
     package_dir={
@@ -41,7 +41,5 @@ setup(
             find_file('requirements.txt'),
         ]
     },
-    data_files=[
-        ('envoxy', ['LICENSE.txt', 'requirements.txt'])
-    ]
+    data_files=[('envoxy', ['LICENSE.txt', 'requirements.txt'])]
 )
