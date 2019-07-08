@@ -112,17 +112,20 @@ class ZMQ(Singleton):
 
         port_list = []
 
-        with open(file_path) as ports_file:
-            lines = ports_file.readlines()
+        try:
 
-            for port in lines:
-                try:
-                    port_list.append(int(port.strip()))
-                except ValueError:
-                    continue
+            with open(file_path) as ports_file:
+                lines = ports_file.readlines()
+
+                for port in lines:
+                    try:
+                        port_list.append(int(port.strip()))
+                    except ValueError:
+                        continue
+        except OSError:
+            Log.warning('Error finding ports')
 
         return port_list
-
         
 
 class Dispatcher():
