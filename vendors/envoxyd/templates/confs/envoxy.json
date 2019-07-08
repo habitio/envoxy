@@ -44,6 +44,11 @@
         "scope": "container",
         "server": "https://localhost/"
     },
-    
+    "cache": {
+        "backend": "redis",
+        "bind": "${host:port}",
+        "db": "${redis_db}",
+        "key_prefix": "${cache_prefix}"
+    },
     "debug": "False"
 }

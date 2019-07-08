@@ -29,9 +29,14 @@ class Performative(enum.IntEnum):
 MIN_CONN = 1
 MAX_CONN = 1
 
+
+# CACHE
+CACHE_DEFAULT_TTL = 60 * 60 # ttl in seconds (1hr)
+
 # REDIS
 REDIS_BACKEND = 'redis'
 REDIS_DEFAULT_DB = 1
-REDIS_DEFAULT_TTL = 60 * 60  # ttl in seconds (1hr)
+REDIS_DEFAULT_TTL = CACHE_DEFAULT_TTL
 REDIS_DEFAULT_HOST = '127.0.0.1'
 REDIS_DEFAULT_PORT = '6379'
+

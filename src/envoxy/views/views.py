@@ -2,6 +2,7 @@ import re
 from typing import List
 
 from flask import Flask, request, Response as FlaskResponse
+from .containers import Response
 
 from ..utils.logs import Log
 
@@ -73,3 +74,5 @@ class View(object):
             return FlaskResponse(str(f"error: {e}"), 500)
 
 
+    def cached_response(self, result):
+        return Response(result)

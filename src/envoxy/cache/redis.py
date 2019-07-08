@@ -36,16 +36,18 @@ class RedisCache:
         data = self.r.get(key)
         return json.loads(data) if data else {}
 
-    def _set_key(self, _endpoint, _method, _params, _json_data):
+    def _set_key(self, _endpoint, _method, _params, _json_data, ttl=None):
 
         b64params = self._encode_params(_params)
         key = f'{self.key_prefix}:{_endpoint}:{_method}:{b64params}'
         data = json.dumps(_json_data)
         self.r.set(key, data)
-        return self.r.expire(key, self.ttl)
+
+        ttl = ttl if ttl else self.ttl
+        return self.r.expire(key, ttl)
 
     def get(self, _endpoint, _method, _params):
         return self._get_key(_endpoint, _method, _params)
 
-    def set(self, _endpoint, _method, _params, _json_data):
-        return self._set_key(_endpoint, _method, _params, _json_data)
+    def set(self, _endpoint, _method, _params, _json_data, ttl=None):
+        return self._set_key(_endpoint, _method, _params, _json_data, ttl=ttl)

@@ -7,13 +7,20 @@ class Cache:
     def __init__(self):
 
         config = Config.get('cache')
-        backend = config.get('backend')
+        self.backend = config.get('backend')
 
-        if backend == REDIS_BACKEND:
+        if self.backend == REDIS_BACKEND:
             self._redis = RedisCache(config)
 
 
     @property
     def redis(self):
         return self._redis
+
+
+    def get_backend(self):
+        if self.backend == REDIS_BACKEND:
+            return self.redis
+
+        raise NotImplementedError
 
