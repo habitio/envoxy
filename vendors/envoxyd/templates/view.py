@@ -20,7 +20,7 @@ class CardsCollection(View):
             zmqc.post(
                 'muzzley-platform', 
                 '/v3/data-layer/cards', 
-                payload=request.json(),
+                payload=request.get_json(),
                 headers=request.headers.items()
             )
         )
@@ -44,7 +44,7 @@ class CardsDocument(View):
                 'muzzley-platform', 
                 '/v3/data-layer/cards/{}'.format(uuid), 
                 params=request.args,
-                payload=request.json(),
+                payload=request.get_json(),
                 headers=request.headers.items()
             )
         )
@@ -55,7 +55,7 @@ class CardsDocument(View):
                 'muzzley-platform', 
                 '/v3/data-layer/cards/{}'.format(uuid), 
                 params=request.args,
-                payload=request.json(),
+                payload=request.get_json(),
                 headers=request.headers.items()
             )
         )
