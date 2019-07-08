@@ -32,7 +32,7 @@ setup(
     url='https://github.com/muzzley/envoxy',
     packages=find_packages(exclude=["uwsgi", "templates"]),
     install_requires=[
-        "envoxy==0.0.1"
+        "envoxy==0.0.3"
     ],
     package_dir={
         'envoxyd': 'envoxyd/',
