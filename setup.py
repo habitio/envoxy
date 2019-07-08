@@ -37,9 +37,9 @@ setup(
     },
     package_data={
         'envoxy': [
-            find_file('LICENSE.txt'),
+            find_file('LICENSE'),
             find_file('requirements.txt'),
         ]
     },
-    data_files=[('envoxy', ['LICENSE.txt', 'requirements.txt'])]
+    data_files=[('envoxy', ['LICENSE', 'requirements.txt'])]
 )
