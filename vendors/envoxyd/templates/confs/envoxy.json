@@ -9,8 +9,14 @@
     "zmq_servers": {
         "$server_key": {
             "host": "127.0.0.1",
-            "find_ports": "${ports_file}",
-            "port": "1010:1020"
+            "auto_discovery": {
+                "file": "${ports_file}",
+                "refresh": "*/1 * * * *"   // crontab format
+            }
+        },
+        "$server_key2": {
+            "host": "127.0.0.1",
+            "port": "1020:1030"
         }
     },
     "psql_servers": {

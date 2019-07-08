@@ -33,6 +33,7 @@ class ZMQ(Singleton):
 
             self._instances[_server_key] = {
                 'conf': _conf,
+                'auto_discovery': _conf.get('auto_discovery', {}),
                 'socket': _socket,
                 'url': 'tcp://{}'.format(_conf.get('host'))
             }
@@ -43,29 +44,16 @@ class ZMQ(Singleton):
 
         _port_range = []
 
-        if instance['conf'].get('find_ports'):
-            _port_range = self.find_ports(instance['conf'].get('find_ports'))
-
-
-        if not _port_range:  # keeping port range as fallback in case port file couldn't be read
-
-            if ',' in instance['conf'].get('port'):
-                _port_parts = instance['conf'].get('port').split(',')
-            else:
-                _port_parts = [instance['conf'].get('port')]
-
-            for _port_part in _port_parts:
-
-                if ':' in _port_part:
-                    _port_range = _port_part.split(':')[:2]
-
-                    _port_range = range(int(_port_range[0]), int(_port_range[1]))
-                else:
-                    _port_range = [_port_part]
+        if instance['auto_discovery']:
+            _port_range = self.find_ports(instance['auto_discovery'].get('file'))
+        else:
+            _port_range = self.get_port_range(instance['conf'])
 
         for _port in _port_range:
 
             try:
+
+                Log.info(f"Connecting {instance['url']}:{_port}")
 
                 instance['socket'].connect('{}:{}'.format(instance['url'], _port))
 
@@ -110,7 +98,7 @@ class ZMQ(Singleton):
 
     def find_ports(self, file_path):
 
-        port_list = []
+        _port_range = []
 
         try:
 
@@ -119,14 +107,32 @@ class ZMQ(Singleton):
 
                 for port in lines:
                     try:
-                        port_list.append(int(port.strip()))
+                        _port_range.append(int(port.strip()))
                     except ValueError:
                         continue
         except OSError:
             Log.warning('Error finding ports')
 
-        return port_list
+        return _port_range
         
+    def get_port_range(self, _conf):
+        _port_range = []
+
+        if ',' in _conf.get('port'):
+            _port_parts = _conf.get('port').split(',')
+        else:
+            _port_parts = [_conf.get('port')]
+
+        for _port_part in _port_parts:
+
+            if ':' in _port_part:
+                _port_range = _port_part.split(':')[:2]
+
+                _port_range = range(int(_port_range[0]), int(_port_range[1]))
+            else:
+                _port_range = [_port_part]
+
+        return _port_range
 
 class Dispatcher():
 
