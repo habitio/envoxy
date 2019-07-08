@@ -41,34 +41,42 @@ class ZMQ(Singleton):
 
     def connect(self, instance):
 
-        if ',' in instance['conf'].get('port'):
-            _port_parts = instance['conf'].get('port').split(',')
-        else:
-            _port_parts = [instance['conf'].get('port')]
+        _port_range = []
 
-        for _port_part in _port_parts:
+        if instance['conf'].get('find_ports'):
+            _port_range = self.find_ports(instance['conf'].get('find_ports'))
 
-            if ':' in _port_part:
-                _port_range = _port_part.split(':')[:2]
 
-                _port_range = range(int(_port_range[0]), int(_port_range[1]))
+        if not _port_range:  # keeping port range as fallback in case port file couldn't be read
+
+            if ',' in instance['conf'].get('port'):
+                _port_parts = instance['conf'].get('port').split(',')
             else:
-                _port_range = [_port_part]
+                _port_parts = [instance['conf'].get('port')]
 
-            for _port in _port_range:
+            for _port_part in _port_parts:
 
-                try:
+                if ':' in _port_part:
+                    _port_range = _port_part.split(':')[:2]
 
-                    instance['socket'].connect('{}:{}'.format(instance['url'], _port))
+                    _port_range = range(int(_port_range[0]), int(_port_range[1]))
+                else:
+                    _port_range = [_port_part]
 
-                    if instance['socket'].closed():
-                        instance['socket'].disconnect('{}:{}'.format(instance['url'], _port))
-                    else:
-                        Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format('{}:{}'.format(instance['url'], _port)))
-                
-                except:
+        for _port in _port_range:
 
-                    pass
+            try:
+
+                instance['socket'].connect('{}:{}'.format(instance['url'], _port))
+
+                if instance['socket'].closed():
+                    instance['socket'].disconnect('{}:{}'.format(instance['url'], _port))
+                else:
+                    Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format('{}:{}'.format(instance['url'], _port)))
+
+            except:
+
+                pass
 
         # use poll for timeouts:
         self._poller.register(instance['socket'], zmq.POLLIN)
@@ -99,6 +107,22 @@ class ZMQ(Singleton):
             Log.error('ZMQ::send : It is not possible to send message using the ZMQ server "{}". Error: {}'.format(_instance['url'], e))
 
         return _response
+
+    def find_ports(self, file_path):
+
+        port_list = []
+
+        with open(file_path) as ports_file:
+            lines = ports_file.readlines()
+
+            for port in lines:
+                try:
+                    port_list.append(int(port.strip()))
+                except ValueError:
+                    continue
+
+        return port_list
+
         
 
 class Dispatcher():

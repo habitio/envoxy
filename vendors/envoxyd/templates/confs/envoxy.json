@@ -5,9 +5,11 @@
     "modules": [
         "${app_file}"
     ],
+    "plugins": {},
     "zmq_servers": {
         "$server_key": {
             "host": "127.0.0.1",
+            "find_ports": "${ports_file}",
             "port": "1010:1020"
         }
     },
