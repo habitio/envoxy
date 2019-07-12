@@ -1,7 +1,7 @@
 import re
 from typing import List
 
-from flask import Flask, request, Response as FlaskResponse
+from flask import Flask, request, Response as FlaskResponse, make_response, jsonify
 from .containers import Response
 
 from ..utils.logs import Log
@@ -65,12 +65,13 @@ class View(object):
 
 
     def dispatch(self, request, _method, _endpoint, *args, **kwargs):
-        kwargs.update({
-            'endpoint': _endpoint
-        })
+        kwargs.update({ 'endpoint': _endpoint })
         try:
             return getattr(self, _method)(request, *args, **kwargs)
         except Exception as e:
+            if request.is_json():
+                return make_response(jsonify({"error": f"{e}", "code": 0 }, 500))
+
             return FlaskResponse(str(f"error: {e}"), 500)
 
 

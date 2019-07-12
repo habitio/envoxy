@@ -100,7 +100,7 @@ elif 'conf' in uwsgi.opt:
 
         uwsgi.opt['conf_content'] = _conf_content
 
-        _log_conf = _conf_content.get('log')
+        _log_conf = _conf_content.get('log') or _conf_content.get('$log')
 
         if _log_conf and _log_conf.get('level'):
             uwsgi.opt['log-level'] = bytes([int(_log_conf['level'])])

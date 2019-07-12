@@ -32,6 +32,7 @@ class ZMQ(Singleton):
             _socket.setsockopt(zmq.LINGER, 0)
 
             self._instances[_server_key] = {
+                'server_key': _server_key,
                 'conf': _conf,
                 'auto_discovery': _conf.get('auto_discovery', {}),
                 'socket': _socket,
@@ -44,10 +45,10 @@ class ZMQ(Singleton):
 
         _port_range = []
 
-        if instance['auto_discovery']:
-            _port_range = self.find_ports(instance['auto_discovery'].get('file'))
-        else:
-            _port_range = self.get_port_range(instance['conf'])
+        if instance['auto_discovery']: _port_range = self.find_ports(instance['server_key'],
+                                                                     instance['auto_discovery'].get('file'))
+
+        if not _port_range: _port_range = self.get_port_range(instance['conf'])
 
         for _port in _port_range:
 
@@ -60,7 +61,8 @@ class ZMQ(Singleton):
                 if instance['socket'].closed():
                     instance['socket'].disconnect('{}:{}'.format(instance['url'], _port))
                 else:
-                    Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format('{}:{}'.format(instance['url'], _port)))
+                    Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format(
+                        '{}:{}'.format(instance['url'], _port)))
 
             except:
 
@@ -92,11 +94,12 @@ class ZMQ(Singleton):
                 self.connect(_instance)
     
         except Exception as e:
-            Log.error('ZMQ::send : It is not possible to send message using the ZMQ server "{}". Error: {}'.format(_instance['url'], e))
+            Log.error('ZMQ::send : It is not possible to send message using the ZMQ server "{}". Error: {}'.format(
+                                                                                                _instance['url'], e))
 
         return _response
 
-    def find_ports(self, file_path):
+    def find_ports(self, server_key, file_path):
 
         _port_range = []
 
@@ -104,9 +107,13 @@ class ZMQ(Singleton):
 
             with open(file_path) as ports_file:
                 lines = ports_file.readlines()
+                services = list(filter(lambda x: x.find(server_key) != -1, lines))
 
-                for port in lines:
+                Log.notice(f"{len(services)} entries found for {server_key}")
+
+                for service in services:
                     try:
+                        port = service.split()[1].split(':')[1]  # PID/SERVICE_NAME IP_ADDR:UDP_PORT
                         _port_range.append(int(port.strip()))
                     except ValueError:
                         continue

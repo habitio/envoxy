@@ -29,7 +29,6 @@ class Performative(enum.IntEnum):
 MIN_CONN = 1
 MAX_CONN = 1
 
-
 # CACHE
 CACHE_DEFAULT_TTL = 60 * 60 # ttl in seconds (1hr)
 
