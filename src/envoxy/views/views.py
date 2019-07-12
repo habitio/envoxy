@@ -69,8 +69,8 @@ class View(object):
         try:
             return getattr(self, _method)(request, *args, **kwargs)
         except Exception as e:
-            if request.is_json():
-                return make_response(jsonify({"error": f"{e}", "code": 0 }, 500))
+            if request.is_json:
+                return make_response(jsonify({"error": f"{e}", "code": 0 }), 500)
 
             return FlaskResponse(str(f"error: {e}"), 500)
 
