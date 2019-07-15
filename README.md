@@ -36,7 +36,7 @@ $ docker build -t envoxy .
 # Prepare packages to pypi repository
 
 ```
-$ make package
+$ make packages
 ```
 
 ### Steps during the packaging processs
