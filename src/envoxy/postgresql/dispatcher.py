@@ -54,6 +54,10 @@ class Client:
             conn = self.__conn if self.__conn is not None else self._get_conn(server_key)
 
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            schema = self._get_conf(server_key, 'schema')
+            if schema: cursor.execute("SET search_path TO {schema}")
+
             cursor.execute(sql)
             data = list(map(dict, cursor.fetchall()))
 
@@ -81,6 +85,7 @@ class Client:
 
         conn = self.__conn
         cursor = conn.cursor()
+
         cursor.execute(query, list(data.values()))
 
 
@@ -90,8 +95,11 @@ class Client:
         :return: raw psycopg2 connector instance
         """
         _instance = self._instances[server_key]
+
         return _instance['conn_pool'].getconn()
 
+    def _get_conf(self, server_key, key):
+        return self._instances[server_key]['conf'].get(key, None)
 
     def release_conn(self, server_key, conn):
         _instance = self._instances[server_key]
