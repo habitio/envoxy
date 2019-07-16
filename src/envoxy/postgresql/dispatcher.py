@@ -56,7 +56,7 @@ class Client:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
             schema = self._get_conf(server_key, 'schema')
-            if schema: cursor.execute("SET search_path TO {schema}")
+            if schema: cursor.execute(f"SET search_path TO {schema}")
 
             cursor.execute(sql)
             data = list(map(dict, cursor.fetchall()))
