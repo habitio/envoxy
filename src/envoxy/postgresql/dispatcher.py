@@ -39,7 +39,7 @@ class Client:
                                                                                  conf['host'], conf['port']))
 
 
-    def query(self, server_key=None, sql=None):
+    def query(self, server_key=None, sql=None, params=None):
         """
         Executes any given sql query
         :param sql_query:
@@ -58,7 +58,7 @@ class Client:
             schema = self._get_conf(server_key, 'schema')
             if schema: cursor.execute(f"SET search_path TO {schema}")
 
-            cursor.execute(sql)
+            cursor.execute(sql, params)
             data = list(map(dict, cursor.fetchall()))
 
             if self.__conn is None :  self.release_conn(server_key, conn)

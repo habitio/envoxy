@@ -54,9 +54,9 @@ class PgConnector(Connector):
 class PgDispatcher():
 
     @staticmethod
-    def query(server_key=None, sql=None):
+    def query(server_key=None, sql=None, params=None):
 
-        return PgConnector.instance().postgres.query(server_key, sql)
+        return PgConnector.instance().postgres.query(server_key, sql, params)
 
     @staticmethod
     def insert(db_table: str, data: dict):
