@@ -80,8 +80,9 @@ class Client:
         try:
 
             Log.debug('couchdb::{} {}'.format(url, data))
-
             resp = session.request(method, url, json=data)
+            Log.debug(f"request took {resp.elapsed.total_seconds()} seconds")
+
             return resp
 
         except requests.RequestException:
