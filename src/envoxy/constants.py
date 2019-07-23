@@ -10,6 +10,8 @@ DELETE = 'delete'
 SERVER_NAME = 'Envoxy Server'
 
 ZEROMQ_POLLIN_TIMEOUT = 5 * 1000
+ZEROMQ_REQUEST_RETRIES = 5
+ZEROMQ_CONTEXT = 1
 
 class Performative(enum.IntEnum):
     GET = 0
