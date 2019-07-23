@@ -7,6 +7,7 @@ import inspect
 import importlib.util
 
 from flask import Flask, request
+from flask_cors import CORS
 
 
 import envoxy
@@ -158,6 +159,9 @@ elif 'conf' in uwsgi.opt:
         ))
 
         app.debug_mode = debug_mode
+
+        enable_cors = _conf_content.get('enable_cors', False)
+        if enable_cors : CORS(app, supports_credentials=True)
 
     else:
 
