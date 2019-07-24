@@ -1,4 +1,5 @@
 import re
+import traceback
 from typing import List
 
 from flask import Flask, request, Response as FlaskResponse, make_response, jsonify
@@ -70,9 +71,9 @@ class View(object):
             return getattr(self, _method)(request, *args, **kwargs)
         except Exception as e:
             if request.is_json:
-                return make_response(jsonify({"error": f"{e}", "code": 0 }), 500)
+                return make_response(jsonify({"error": f"{e}", "code": 0, "traceback": f"{traceback.format_exc()}"}), 500)
 
-            return FlaskResponse(str(f"error: {e}"), 500)
+            return FlaskResponse(str(f"error: {e} - {traceback.format_exc()}"), 500)
 
 
     def cached_response(self, result):
