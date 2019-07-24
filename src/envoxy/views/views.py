@@ -1,4 +1,5 @@
 import re
+import uuid
 import traceback
 from typing import List
 
@@ -70,10 +71,15 @@ class View(object):
         try:
             return getattr(self, _method)(request, *args, **kwargs)
         except Exception as e:
+            
+            _error_log_ref = str(uuid.uuid4())
+            
             if request.is_json:
-                return make_response(jsonify({"error": f"{e}", "code": 0, "traceback": f"{traceback.format_exc()}"}), 500)
+                Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+                return make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": 0}), 500)
 
-            return FlaskResponse(str(f"error: {e} - {traceback.format_exc()}"), 500)
+            Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), 500)
 
 
     def cached_response(self, result):
