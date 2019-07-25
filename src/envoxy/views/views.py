@@ -8,7 +8,7 @@ from .containers import Response
 
 from ..utils.logs import Log
 
-REGEX_VAR_PATTERN = r'(?P<all>{(?P<var>[^:]+):(?P<type>[^}]+)})'
+REGEX_VAR_PATTERN: str = r'(?P<all>{(?P<var>[^:]+):(?P<type>[^}]+)})'
 
 
 class View(object):

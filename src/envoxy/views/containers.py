@@ -2,12 +2,13 @@ import json
 from datetime import datetime
 
 from ..constants import SERVER_NAME
+from ..utils.encoders import EnvoxyJsonEncoder
 from flask import Response as FlaskResponse
 
 
 class Response(FlaskResponse):
 
-    default_mimetype = 'application/json'
+    default_mimetype: str = 'application/json'
 
     def __init__(self, *args, **kwargs):
         
@@ -18,11 +19,11 @@ class Response(FlaskResponse):
                 args[0] = json.dumps({
                     'elements': args[0],
                     'size': len(args[0])
-                })
+                }, cls=EnvoxyJsonEncoder)
             
             elif isinstance(args[0], dict):
                 args = list(args)
-                args[0] = json.dumps(args[0])
+                args[0] = json.dumps(args[0], cls=EnvoxyJsonEncoder)
         
         super(Response, self).__init__(*args, **kwargs)
 
@@ -33,6 +34,6 @@ class Response(FlaskResponse):
     def force_type(cls, rv, environ=None):
         
         if isinstance(rv, dict):
-            rv = json.dumps(rv)
+            rv = json.dumps(rv, cls=EnvoxyJsonEncoder)
         
         return super(Response, cls).force_type(rv, environ)
