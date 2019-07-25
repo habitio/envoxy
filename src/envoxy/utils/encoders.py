@@ -8,4 +8,4 @@ class EnvoxyJsonEncoder(json.JSONEncoder):
         if isinstance(o, decimal.Decimal):
             return float(o)
         
-        return super(DecimalEncoder, self).default(o)
+        return super(EnvoxyJsonEncoder, self).default(o)
