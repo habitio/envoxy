@@ -39,8 +39,9 @@ def get_auth_module():
 
         if _plugins['auth'] not in sys.path:
             sys.path.append(_plugins['auth'])
-        from auth import Auth
-        return Auth
+
+        import auth
+        return auth.Auth
     else:
         from ..auth.backends import Auth
         return Auth
@@ -73,4 +74,4 @@ class AuthBackendMixin:
         _endpoint = kwargs.get('endpoint', '')
         topic = get_topic(_endpoint)
         AuthBackend = get_auth_module()
-        AuthBackend().authenticate(request, topic=topic, **kwargs)
+        return AuthBackend().authenticate(request, topic=topic, **kwargs)
