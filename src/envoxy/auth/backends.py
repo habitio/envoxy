@@ -1,5 +1,6 @@
 import re
 import sys
+import importlib
 
 import requests
 
@@ -32,7 +33,7 @@ def authenticate_container(credentials):
     Log.emergency("Authorization data incomplete")
     exit(-10)
 
-def get_auth_module():
+def get_auth_module(module_name=None):
     _plugins = Config.plugins()
 
     if 'auth' in _plugins.keys():
@@ -40,8 +41,12 @@ def get_auth_module():
         if _plugins['auth'] not in sys.path:
             sys.path.append(_plugins['auth'])
 
-        import auth
-        return auth.Auth
+        if module_name:
+            module = importlib.import_module(module_name)
+            return module
+
+        from auth import Auth
+        return Auth
     else:
         from ..auth.backends import Auth
         return Auth
