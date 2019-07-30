@@ -40,7 +40,9 @@ class auth_required(object):
                 kwargs.update({
                     'roles_needed': self.role_list
                 })
-            AuthBackendMixin().authenticate(request, *args, **kwargs)
+
+            headers = AuthBackendMixin().authenticate(request, *args, **kwargs)
+            if headers: kwargs.update(**headers)
 
             return func(view, request, *args, **kwargs)
         return wrapped_func
