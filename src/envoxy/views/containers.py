@@ -11,24 +11,34 @@ class Response(FlaskResponse):
     default_mimetype: str = 'application/json'
 
     def __init__(self, *args, **kwargs):
+
+        response_headers = dict()
         
         if len(args) > 0:
+
+            payload = args[0]['payload'] if 'payload' in args[0] else args[0]  # payload is defined in original body
+            if 'status' in args[0]: kwargs['status'] = args[0]['status']  # get response status
+            if 'headers' in args[0] : response_headers = args[0]['headers']  # headers are defined in original body
             
-            if isinstance(args[0], list):
+            if isinstance(payload, list):
                 args = list(args)
                 args[0] = json.dumps({
-                    'elements': args[0],
-                    'size': len(args[0])
+                    'elements': payload,
+                    'size': len(payload)
                 }, cls=EnvoxyJsonEncoder)
             
             elif isinstance(args[0], dict):
                 args = list(args)
-                args[0] = json.dumps(args[0], cls=EnvoxyJsonEncoder)
+                args[0] = json.dumps(payload, cls=EnvoxyJsonEncoder)
         
         super(Response, self).__init__(*args, **kwargs)
 
-        self.headers.add_header('Server', SERVER_NAME)
-        self.headers.add_header('Date', datetime.now().isoformat())
+        response_headers.update({
+            'Server': SERVER_NAME,
+            'Date': datetime.now().isoformat()
+        })
+
+        list(map((lambda header: self.headers.add_header(header[0], header[1])), response_headers.items()))
 
     @classmethod
     def force_type(cls, rv, environ=None):
