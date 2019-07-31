@@ -81,3 +81,8 @@ class CouchDBDispatcher():
     def get(id:str, db=None):
 
         return CouchConnector.instance().couchdb.get(id, db)
+
+    @staticmethod
+    def post(db=None, payload=None):
+
+        return CouchConnector.instance().couchdb.post(db, payload)

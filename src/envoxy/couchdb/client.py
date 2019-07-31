@@ -100,7 +100,6 @@ class Client:
 
         return []
 
-
     def get(self, id: str, db: str):
 
         params = {
@@ -109,5 +108,16 @@ class Client:
 
         doc = self.find(db=db, fields=None, params=params)
         doc = doc[0] if len(doc) else None
+
+        return doc
+
+    def post(self, db: str, payload: dict):
+
+        resp = self.base_request(db, 'POST', data=params)
+
+        if resp.status_code in [ requests.codes.created ] and 'docs' in resp.json():
+            return resp.json()['docs']
+
+        doc = resp[0] if len(resp) else None
 
         return doc
