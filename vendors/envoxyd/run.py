@@ -118,7 +118,16 @@ elif 'conf' in uwsgi.opt:
 
         # Load project modules
 
-        _modules_list = _conf_content.get('modules')
+        _modules_list = _conf_content.get('modules', [])
+        _package_list = _conf_content.get('packages', [])
+
+        if _modules_list and _package_list:
+            envoxy.log.emergency('Defining modules and packages at the same time is not allowed.\n\n')
+            exit(-10)
+
+        _view_classes = []
+
+        # Loading modules from path
 
         for _module_path in _modules_list:
 
@@ -126,8 +135,6 @@ elif 'conf' in uwsgi.opt:
                 envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
                 _module_path
             ))
-
-            #try:
 
             _spec = importlib.util.spec_from_file_location('__init__', _module_path)
             _module = importlib.util.module_from_spec(_spec)
@@ -142,14 +149,38 @@ elif 'conf' in uwsgi.opt:
                         _obj
                     ))
 
-                    for _view_class in _obj:
-                        _instance = _view_class()
-                        _instance.set_flask(app)
-                        uwsgi.log('\n')
-                        envoxy.log.system('[{}] Loaded "{}".\n'.format(
-                            envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
-                            str(_view_class)
-                        ))
+                    _view_classes.extend(_obj)
+
+
+        # Loading from installed packages
+
+        for _package in _package_list:
+
+            envoxy.log.system('[{}] Package: {}\n'.format(
+                envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
+                _package
+            ))
+
+            _obj = importlib.import_module(f'{_package}.loader')
+
+            if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
+
+                envoxy.log.system('[{}] Loader: {}\n'.format(
+                    envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
+                    _obj
+                ))
+
+                _view_classes.extend(_obj.__loader__)
+
+        for _view_class in _view_classes:
+            _instance = _view_class()
+            _instance.set_flask(app)
+            uwsgi.log('\n')
+            envoxy.log.system('[{}] Loaded "{}".\n'.format(
+                envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
+                str(_view_class)
+            ))
+
 
         debug_mode = _conf_content.get('debug', False)
 
