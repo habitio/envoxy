@@ -5,7 +5,7 @@ from typing import List
 
 from flask import Flask, request, Response as FlaskResponse, make_response, jsonify
 from .containers import Response
-
+from ..exceptions import ValidationException
 from ..utils.logs import Log
 
 REGEX_VAR_PATTERN: str = r'(?P<all>{(?P<var>[^:]+):(?P<type>[^}]+)})'
@@ -70,6 +70,17 @@ class View(object):
         kwargs.update({ 'endpoint': _endpoint })
         try:
             return getattr(self, _method)(request, *args, **kwargs)
+        except ValidationException as e:
+            code = e.kwargs.pop('code') if 'code' in e.kwargs else 0
+            resp =  make_response(jsonify({"error": f"{e}", "code": code}))
+
+            if 'status' in e.kwargs : resp.status = e.kwargs['status']
+            if 'headers' in e.kwargs : resp.headers = e.kwargs['headers']
+            if 'mimetype' in e.kwargs : resp.mimetype = e.kwargs['mimetype']
+            if 'content_type' in e.kwargs : resp.content_type = e.kwargs['content_type']
+
+            return resp
+
         except Exception as e:
             
             _error_log_ref = str(uuid.uuid4())

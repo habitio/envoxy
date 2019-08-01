@@ -113,7 +113,7 @@ class Client:
 
     def post(self, db: str, payload: dict):
 
-        resp = self.base_request(db, 'POST', data=params)
+        resp = self.base_request(db, 'POST', data=payload)
 
         if resp.status_code in [ requests.codes.created ] and 'docs' in resp.json():
             return resp.json()['docs']
