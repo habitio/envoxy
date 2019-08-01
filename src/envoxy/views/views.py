@@ -70,27 +70,23 @@ class View(object):
         kwargs.update({ 'endpoint': _endpoint })
         try:
             return getattr(self, _method)(request, *args, **kwargs)
-        except ValidationException as e:
-            code = e.kwargs.pop('code') if 'code' in e.kwargs else 0
-            resp =  make_response(jsonify({"error": f"{e}", "code": code}))
-
-            if 'status' in e.kwargs : resp.status = e.kwargs['status']
-            if 'headers' in e.kwargs : resp.headers = e.kwargs['headers']
-            if 'mimetype' in e.kwargs : resp.mimetype = e.kwargs['mimetype']
-            if 'content_type' in e.kwargs : resp.content_type = e.kwargs['content_type']
-
-            return resp
 
         except Exception as e:
             
             _error_log_ref = str(uuid.uuid4())
+            _code = 0
+            _status = 500
+
+            if isinstance(e, ValidationException):
+                if 'code' in e.kwargs : _code = e.kwargs['code']
+                if 'status' in e.kwargs: _status = e.kwargs['status']
             
             if request.is_json:
                 Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-                return make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": 0}), 500)
+                return make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
 
             Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), 500)
+            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status)
 
 
     def cached_response(self, result):
