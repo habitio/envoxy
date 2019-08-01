@@ -65,7 +65,7 @@ class Client:
             'selector': _selector
         }
 
-    def base_request(self, db, method, data=None):
+    def base_request(self, db, method, data=None, find=False):
 
         db_data = db.split('.')
 
@@ -73,7 +73,8 @@ class Client:
         database = db_data[1]
 
         host = self._instances[server_key]['conf']['bind']
-        url = '{}/{}/_find'.format(host, database)
+        url = '{}/{}'.format(host, database)
+        if find: url = f'{url}/_find'
 
         session = self._get_conn(server_key)
 
@@ -93,7 +94,7 @@ class Client:
     def find(self, db: str, fields: list, params: dict):
 
         data = self._get_selector(params)
-        resp = self.base_request(db, 'POST', data=data)
+        resp = self.base_request(db, 'POST', data=data, find=True)
 
         if resp.status_code in [ requests.codes.ok ] and 'docs' in resp.json():
             return resp.json()['docs']
@@ -118,6 +119,4 @@ class Client:
         if resp.status_code in [ requests.codes.created ] and 'docs' in resp.json():
             return resp.json()['docs']
 
-        doc = resp[0] if len(resp) else None
-
-        return doc
+        return resp.json()
