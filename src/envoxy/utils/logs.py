@@ -244,10 +244,7 @@ class Log:
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
                 Log.format_log(
-                    '{} | {} | {}'.format(
-                        LogStyle.apply('   info    ', LogStyle.INFO),
-                        LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                        Log.truncate_text(text, max_lines))
+                    Log.truncate_text(text, max_lines)
                 , Log.INFO, caller)
             )
 
@@ -257,12 +254,7 @@ class Log:
         if Log.is_gte_log_level(Log.DEBUG):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply('   debug   ', LogStyle.DEBUG),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.DEBUG, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.DEBUG, caller)
             )
 
     @staticmethod
@@ -271,12 +263,7 @@ class Log:
         if Log.is_gte_log_level(Log.TRACE):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply('   trace   ', LogStyle.TRACE),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.TRACE, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.TRACE, caller)
             )
 
     @staticmethod
@@ -286,17 +273,11 @@ class Log:
             caller = getframeinfo(stack()[1][0])
             if prefix:
                 uwsgi.log(
-                    Log.format_log(
-                    '{} | {} | {}'.format(
-                        LogStyle.apply('  verbose  ', LogStyle.VERBOSE),
-                        LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                        Log.truncate_text(text, max_lines))
-                    , Log.VERBOSE, caller)
+                    Log.format_log(Log.truncate_text(text, max_lines), Log.VERBOSE, caller)
                 )
             else:
                 uwsgi.log(
-                    Log.format_log(
-                        str(Log.truncate_text(text, max_lines)), Log.VERBOSE), caller)
+                    Log.format_log(str(Log.truncate_text(text, max_lines)), Log.VERBOSE), caller)
 
     @staticmethod
     def system(text, max_lines=None):
@@ -305,18 +286,9 @@ class Log:
 
     @staticmethod
     def format_log(text, log_level, caller):
+        _level = int.from_bytes(log_level, 'little')
+        _file = '.'.join(caller.filename.split('/')[-3:])
+        # text = str(text).replace('"', '\\"').replace('{', '\\{').replace('}', '\\}')
+        text = str(text).replace('\"', '\\"').replace('\n', '\\n')
 
-        return json.dumps({
-           "version": "1.1",
-           "host": _host,
-           "source": _host,
-           "short_message": text,
-           "timestamp": Now.timestamp(),
-           "level": int.from_bytes(log_level, 'little'),
-           "pid": os.getpid(),
-           "exec": multiprocessing.current_process().name,
-           "file": caller.filename,
-           "line": caller.lineno
-        })
-
-
+        return f'{{ "version": "1.1", "host": "{_host}", "source": "{_host}", "short_message": "{text}" , "timestamp": {Now.timestamp()}, "level": {_level}, "pid": {os.getpid()}, "exec": "{multiprocessing.current_process().name}", "file": "{_file}", "line": {caller.lineno}}}'

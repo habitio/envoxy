@@ -30,7 +30,7 @@ def before_request():
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
-            envoxy.log.warning('{} {}'.format(type(request.headers), request.headers))
+
             _outputs.append(str(request.headers))
 
             if request.data:
