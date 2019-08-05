@@ -174,12 +174,7 @@ class Log:
         if Log.is_gte_log_level(Log.ALERT):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply('   alert   ', LogStyle.ALERT),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.ALERT, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.ALERT, caller)
             )
     
     @staticmethod
@@ -188,12 +183,7 @@ class Log:
         if Log.is_gte_log_level(Log.CRITICAL):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply(' critical  ', LogStyle.CRITICAL),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.CRITICAL, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.CRITICAL, caller)
             )
 
     @staticmethod
@@ -202,12 +192,7 @@ class Log:
         if Log.is_gte_log_level(Log.ERROR):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply('   error   ', LogStyle.ERROR),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.ERROR, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.ERROR, caller)
             )
 
     @staticmethod
@@ -215,12 +200,7 @@ class Log:
         caller = getframeinfo(stack()[1][0])
         if Log.is_gte_log_level(Log.WARNING):
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply('  warning  ', LogStyle.WARNING),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.WARNING, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.WARNING, caller)
             )
 
     @staticmethod
@@ -229,12 +209,7 @@ class Log:
         if Log.is_gte_log_level(Log.NOTICE):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                '{} | {} | {}'.format(
-                    LogStyle.apply('  notice   ', LogStyle.NOTICE),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines))
-                , Log.NOTICE, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.NOTICE, caller)
             )
 
     @staticmethod
@@ -243,9 +218,7 @@ class Log:
         if Log.is_gte_log_level(Log.INFO):
             caller = getframeinfo(stack()[1][0])
             uwsgi.log(
-                Log.format_log(
-                    Log.truncate_text(text, max_lines)
-                , Log.INFO, caller)
+                Log.format_log(Log.truncate_text(text, max_lines), Log.INFO, caller)
             )
 
     @staticmethod
@@ -277,7 +250,8 @@ class Log:
                 )
             else:
                 uwsgi.log(
-                    Log.format_log(str(Log.truncate_text(text, max_lines)), Log.VERBOSE), caller)
+                    Log.format_log(str(Log.truncate_text(text, max_lines)), Log.VERBOSE, caller)
+                )
 
     @staticmethod
     def system(text, max_lines=None):
@@ -288,7 +262,6 @@ class Log:
     def format_log(text, log_level, caller):
         _level = int.from_bytes(log_level, 'little')
         _file = '.'.join(caller.filename.split('/')[-3:])
-        # text = str(text).replace('"', '\\"').replace('{', '\\{').replace('}', '\\}')
         text = str(text).replace('\"', '\\"').replace('\n', '\\n')
 
         return f'{{ "version": "1.1", "host": "{_host}", "source": "{_host}", "short_message": "{text}" , "timestamp": {Now.timestamp()}, "level": {_level}, "pid": {os.getpid()}, "exec": "{multiprocessing.current_process().name}", "file": "{_file}", "line": {caller.lineno}}}'
