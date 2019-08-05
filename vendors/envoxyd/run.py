@@ -30,10 +30,12 @@ def before_request():
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
+            envoxy.log.warning('{} {}'.format(type(request.headers), request.headers))
             _outputs.append(str(request.headers))
 
             if request.data:
-                _outputs.append(json.dumps(request.get_json(), sort_keys=True, indent=4))
+                indent = 4 if envoxy.log.is_format_log_pretty() else None
+                _outputs.append(json.dumps(request.get_json(), sort_keys=True, indent=indent))
 
         envoxy.log.info('\n'.join(_outputs))
         del _outputs
@@ -62,7 +64,8 @@ def after_request(response):
             _outputs.append(str(response.headers))
 
             if response.data:
-                _outputs.append(json.dumps(response.get_json(), sort_keys=True, indent=4))
+                indent = 4 if envoxy.log.is_format_log_pretty() else None
+                _outputs.append(json.dumps(response.get_json(), sort_keys=True, indent=indent))
 
         envoxy.log.info('\n'.join(_outputs))
         del _outputs
@@ -105,6 +108,9 @@ elif 'conf' in uwsgi.opt:
 
         if _log_conf and _log_conf.get('level'):
             uwsgi.opt['log-level'] = bytes([int(_log_conf['level'])])
+
+        if _log_conf and _log_conf.get('format'):
+            uwsgi.opt['log-format'] = _log_conf['format']
 
         # Authentication
 

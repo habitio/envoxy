@@ -10,7 +10,13 @@ except ImportError:
     uwsgi = DefaultLog()
 
 from .datetime import Now
+import socket
+import json
+import os
+import multiprocessing
+from inspect import getframeinfo, stack
 
+_host = socket.gethostname()
 
 class LogStyle:
 
@@ -97,11 +103,14 @@ class Log:
     VERBOSE = b'\x09'
 
     DEFAULT = EMERGENCY
+    FORMAT = "json"
 
     style = LogStyle
 
     @staticmethod
     def truncate_text(text, max_lines=None):
+        if not Log.is_format_log_pretty():
+            return text
 
         if max_lines is None:
             return text
@@ -127,129 +136,187 @@ class Log:
             _text_list.append('--- truncated ---')
             _text_list.extend(_lines_splitted[_lines_count-_half_max_size:])
 
-            return '\n'.join(_text_list)
+            return ' '.join(_text_list)# if Log.is_format_log_pretty() else ' '.join(_text_list)
         
         else:
 
             return text
 
     @staticmethod
+    def log_level():
+        return uwsgi.opt.get('log-level', Log.DEFAULT)
+
+    @staticmethod
     def is_gte_log_level(log_level):
         return uwsgi.opt.get('log-level', Log.DEFAULT) >= log_level
+
+    @staticmethod
+    def is_format_log_pretty():
+        return uwsgi.opt.get('log-format', Log.FORMAT) == "pretty"
 
     @staticmethod
     def emergency(text, max_lines=None):
 
         if Log.is_gte_log_level(Log.EMERGENCY):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply(' emergency ', [LogStyle.RED_BG, LogStyle.WHITE_FG]),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply(' emergency ', [LogStyle.RED_BG, LogStyle.WHITE_FG]),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.EMERGENCY, caller)
+            )
 
     @staticmethod
     def alert(text, max_lines=None):
         
         if Log.is_gte_log_level(Log.ALERT):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('   alert   ', LogStyle.ALERT),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply('   alert   ', LogStyle.ALERT),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.ALERT, caller)
+            )
     
     @staticmethod
     def critical(text, max_lines=None):
         
         if Log.is_gte_log_level(Log.CRITICAL):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply(' critical  ', LogStyle.CRITICAL),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply(' critical  ', LogStyle.CRITICAL),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.CRITICAL, caller)
+            )
 
     @staticmethod
     def error(text, max_lines=None):
         
         if Log.is_gte_log_level(Log.ERROR):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('   error   ', LogStyle.ERROR),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply('   error   ', LogStyle.ERROR),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.ERROR, caller)
+            )
 
     @staticmethod
     def warning(text, max_lines=None):
-
+        caller = getframeinfo(stack()[1][0])
         if Log.is_gte_log_level(Log.WARNING):
-    
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('  warning  ', LogStyle.WARNING),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply('  warning  ', LogStyle.WARNING),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.WARNING, caller)
+            )
 
     @staticmethod
     def notice(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.NOTICE):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('  notice   ', LogStyle.NOTICE),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply('  notice   ', LogStyle.NOTICE),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.NOTICE, caller)
+            )
 
     @staticmethod
     def info(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.INFO):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('   info    ', LogStyle.INFO),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                    '{} | {} | {}'.format(
+                        LogStyle.apply('   info    ', LogStyle.INFO),
+                        LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                        Log.truncate_text(text, max_lines))
+                , Log.INFO, caller)
+            )
 
     @staticmethod
     def debug(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.DEBUG):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('   debug   ', LogStyle.DEBUG),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply('   debug   ', LogStyle.DEBUG),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.DEBUG, caller)
+            )
 
     @staticmethod
     def trace(text, max_lines=100):
         
         if Log.is_gte_log_level(Log.TRACE):
-        
-            uwsgi.log('{} | {} | {}'.format(
-                LogStyle.apply('   trace   ', LogStyle.TRACE),
-                LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                Log.truncate_text(text, max_lines)
-            ))
+            caller = getframeinfo(stack()[1][0])
+            uwsgi.log(
+                Log.format_log(
+                '{} | {} | {}'.format(
+                    LogStyle.apply('   trace   ', LogStyle.TRACE),
+                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                    Log.truncate_text(text, max_lines))
+                , Log.TRACE, caller)
+            )
 
     @staticmethod
     def verbose(text, prefix=True, max_lines=None):
         
         if Log.is_gte_log_level(Log.VERBOSE):
-        
+            caller = getframeinfo(stack()[1][0])
             if prefix:
-                uwsgi.log('{} | {} | {}'.format(
-                    LogStyle.apply('  verbose  ', LogStyle.VERBOSE),
-                    LogStyle.apply(Now.log_format(), LogStyle.BOLD),
-                    Log.truncate_text(text, max_lines)
-                ))
+                uwsgi.log(
+                    Log.format_log(
+                    '{} | {} | {}'.format(
+                        LogStyle.apply('  verbose  ', LogStyle.VERBOSE),
+                        LogStyle.apply(Now.log_format(), LogStyle.BOLD),
+                        Log.truncate_text(text, max_lines))
+                    , Log.VERBOSE, caller)
+                )
             else:
-                uwsgi.log(str(Log.truncate_text(text, max_lines)))
+                uwsgi.log(
+                    Log.format_log(
+                        str(Log.truncate_text(text, max_lines)), Log.VERBOSE), caller)
 
     @staticmethod
     def system(text, max_lines=None):
         uwsgi.log(Log.truncate_text(text, max_lines))
+
+
+    @staticmethod
+    def format_log(text, log_level, caller):
+
+        return json.dumps({
+           "version": "1.1",
+           "host": _host,
+           "source": _host,
+           "short_message": text,
+           "timestamp": Now.timestamp(),
+           "level": int.from_bytes(log_level, 'little'),
+           "pid": os.getpid(),
+           "exec": multiprocessing.current_process().name,
+           "file": caller.filename,
+           "line": caller.lineno
+        })
+
+
