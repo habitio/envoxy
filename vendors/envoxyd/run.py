@@ -32,8 +32,7 @@ def before_request():
             _outputs.append(f'Headers:{dict(request.headers)}')
 
             if request.data:
-                indent = 4 if envoxy.log.is_format_log_pretty() else None
-                _outputs.append(f'Payload{json.dumps(request.get_json(), sort_keys=True, indent=indent)}')
+                _outputs.append(f'Payload{json.dumps(request.get_json(), indent=None)}')
 
         envoxy.log.info(' |'.join(_outputs))
         del _outputs
@@ -62,8 +61,7 @@ def after_request(response):
             _outputs.append(f'Headers{dict(response.headers)}')
 
             if response.data:
-                indent = 4 if envoxy.log.is_format_log_pretty() else None
-                _outputs.append(f'Payload{json.dumps(response.get_json(), sort_keys=True, indent=indent)}')
+                _outputs.append(f'Payload{json.dumps(response.get_json(), indent=None)}')
 
         envoxy.log.info(' |'.join(_outputs))
         del _outputs
