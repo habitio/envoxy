@@ -29,15 +29,13 @@ def before_request():
         )]
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
-
-
-            _outputs.append(str(request.headers))
+            _outputs.append(f'Headers:{dict(request.headers)}')
 
             if request.data:
                 indent = 4 if envoxy.log.is_format_log_pretty() else None
-                _outputs.append(json.dumps(request.get_json(), sort_keys=True, indent=indent))
+                _outputs.append(f'Payload{json.dumps(request.get_json(), sort_keys=True, indent=indent)}')
 
-        envoxy.log.info('\n'.join(_outputs))
+        envoxy.log.info(' |'.join(_outputs))
         del _outputs
 
 @app.after_request
@@ -61,13 +59,13 @@ def after_request(response):
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
-            _outputs.append(str(response.headers))
+            _outputs.append(f'Headers{dict(response.headers)}')
 
             if response.data:
                 indent = 4 if envoxy.log.is_format_log_pretty() else None
-                _outputs.append(json.dumps(response.get_json(), sort_keys=True, indent=indent))
+                _outputs.append(f'Payload{json.dumps(response.get_json(), sort_keys=True, indent=indent)}')
 
-        envoxy.log.info('\n'.join(_outputs))
+        envoxy.log.info(' |'.join(_outputs))
         del _outputs
 
     return response

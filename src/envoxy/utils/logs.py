@@ -11,10 +11,10 @@ except ImportError:
 
 from .datetime import Now
 import socket
-import json
 import os
 import multiprocessing
 from inspect import getframeinfo, stack
+from .config import Config
 
 _host = socket.gethostname()
 
@@ -136,7 +136,7 @@ class Log:
             _text_list.append('--- truncated ---')
             _text_list.extend(_lines_splitted[_lines_count-_half_max_size:])
 
-            return ' '.join(_text_list)# if Log.is_format_log_pretty() else ' '.join(_text_list)
+            return ' '.join(_text_list)
         
         else:
 
@@ -263,5 +263,6 @@ class Log:
         _level = int.from_bytes(log_level, 'little')
         _file = '.'.join(caller.filename.split('/')[-3:])
         text = str(text).replace('\"', '\\"').replace('\n', '\\n')
+        _exec_name = Config.get('boot')[0]["name"] if len(Config.get('boot')) else multiprocessing.current_process().name
 
-        return f'{{ "version": "1.1", "host": "{_host}", "source": "{_host}", "short_message": "{text}" , "timestamp": {Now.timestamp()}, "level": {_level}, "pid": {os.getpid()}, "exec": "{multiprocessing.current_process().name}", "file": "{_file}", "line": {caller.lineno}}}'
+        return f'{{ "version": "1.1", "host": "{_host}", "source": "{_host}", "short_message": "{text}" , "timestamp": {Now.timestamp()}, "level": {_level}, "pid": {os.getpid()}, "exec": "{_exec_name}", "file": "{_file}", "line": {caller.lineno}}}'
