@@ -34,7 +34,7 @@ def before_request():
             if request.data:
                 _outputs.append(f'Payload{json.dumps(request.get_json(), indent=None)}')
 
-        envoxy.log.info(' |'.join(_outputs))
+        envoxy.log.info(' | '.join(_outputs))
         del _outputs
 
 @app.after_request
@@ -63,7 +63,7 @@ def after_request(response):
             if response.data:
                 _outputs.append(f'Payload{json.dumps(response.get_json(), indent=None)}')
 
-        envoxy.log.info(' |'.join(_outputs))
+        envoxy.log.info(' | '.join(_outputs))
         del _outputs
 
     return response
