@@ -113,6 +113,7 @@ elif 'conf' in uwsgi.opt:
         _auth_conf = _conf_content.get('credentials')
         _credentials = envoxy.authenticate(_auth_conf)
         uwsgi.opt['credentials'] = _credentials
+        envoxy.log.trace(_credentials)
 
         # Add plugins to conf
         _plugins = _conf_content.get('plugins')
@@ -159,7 +160,7 @@ elif 'conf' in uwsgi.opt:
         for _package in _package_list:
 
             envoxy.log.system('[{}] Package: {}\n'.format(
-                envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
+                envoxy.log.style.apply('PPP', envoxy.log.style.BLUE_FG),
                 _package
             ))
 
