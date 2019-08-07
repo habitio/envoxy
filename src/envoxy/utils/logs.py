@@ -109,9 +109,6 @@ class Log:
 
     @staticmethod
     def truncate_text(text, max_lines=None):
-        if not Log.is_format_log_pretty():
-            return text
-
         if max_lines is None:
             return text
 
