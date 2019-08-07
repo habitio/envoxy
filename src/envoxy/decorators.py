@@ -28,18 +28,14 @@ def on(**kwargs):
 
 class auth_required(object):
 
-    def __init__(self, roles=None):
-        self.role_list = roles
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
 
     def __call__(self, func):
 
         @wraps(func)
         def wrapped_func(view, request, *args, **kwargs):
-
-            if self.role_list:
-                kwargs.update({
-                    'roles_needed': self.role_list
-                })
+            if self.kwargs: kwargs.update(**self.kwargs)
 
             headers = AuthBackendMixin().authenticate(request, *args, **kwargs)
             if headers: kwargs.update(**headers)
