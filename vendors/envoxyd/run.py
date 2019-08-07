@@ -22,11 +22,14 @@ def before_request():
 
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
-        _outputs = ['{} [{}] {}'.format(
+        _request = '{} [{}] {}'.format(
             envoxy.log.style.apply('> Request', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', envoxy.log.style.GREEN_FG),
             envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG)
-        )]
+        )
+        envoxy.log.trace(_request)
+
+        _outputs = [_request]
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
             _outputs.append(f'Headers:{dict(request.headers)}')
@@ -34,7 +37,7 @@ def before_request():
             if request.data:
                 _outputs.append(f'Payload{json.dumps(request.get_json(), indent=None)}')
 
-        envoxy.log.info(' | '.join(_outputs))
+        envoxy.log.verbose(' | '.join(_outputs))
         del _outputs
 
 @app.after_request
@@ -49,12 +52,15 @@ def after_request(response):
         else:
             _status_code_style = envoxy.log.style.RED_FG
 
-        _outputs = ['{} [{}] {} - {}'.format(
+        _response = '{} [{}] {} - {}'.format(
             envoxy.log.style.apply('< Response', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', _status_code_style),
             envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG),
             envoxy.log.style.apply(str(response.status_code), _status_code_style)
-        )]
+        )
+        envoxy.log.trace(_response)
+
+        _outputs = [_response]
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
@@ -63,7 +69,7 @@ def after_request(response):
             if response.data:
                 _outputs.append(f'Payload{json.dumps(response.get_json(), indent=None)}')
 
-        envoxy.log.info(' | '.join(_outputs))
+        envoxy.log.verbose(' | '.join(_outputs))
         del _outputs
 
     return response
