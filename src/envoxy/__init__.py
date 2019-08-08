@@ -8,5 +8,6 @@ from .cache import *
 from .zeromq.dispatcher import Dispatcher as zmqc
 from .db.connectors import PgDispatcher as pgsqlc, CouchDBDispatcher as couchdbc
 from .auth.backends import authenticate_container as authenticate
+from .mqtt.dispatcher import MqttDispatcher as mqttc
 
 envoxy = locals()
