@@ -104,14 +104,12 @@ class Client:
 
         mqtt_client = self._instances[server_key]['mqtt_client']
 
-        _messagge = '{} [{}] {}'.format(
+        _message = '{} [{}] {}'.format(
             Log.style.apply('> PUBLISH', Log.style.BOLD),
             Log.style.apply('MQTT', Log.style.GREEN_FG),
             Log.style.apply('{}'.format(topic), Log.style.BLUE_FG)
         )
-        Log.trace(_messagge)
-
-
+        Log.trace(_message)
 
         if no_envelope:
             payload = json.dumps(message)
@@ -122,12 +120,8 @@ class Client:
                 "resource": topic
             }))
 
-        _messagge = '{} [{}] {}'.format(
-            Log.style.apply('> PUBLISH', Log.style.BOLD),
-            Log.style.apply('MQTT', Log.style.GREEN_FG),
-            Log.style.apply('{} - {}'.format(topic, payload), Log.style.BLUE_FG)
-        )
-        Log.verbose(_messagge)
+        _message = '{} - {}'
+        Log.verbose(_message, payload)
 
         (rc, mid) = mqtt_client.publish(topic, payload)
 

@@ -37,6 +37,12 @@
             "passwd": ""
         }
     },
+    "mqtt_servers": {
+        "muzzley": {
+            "bind": "mqtts://localhost:8000",
+            "cert_path": "ca-certificates.crt"
+        }
+    },
     "credentials": {
         "client_id": "xxx",
         "client_secret": "xxx",
