@@ -4,6 +4,8 @@ from ..utils.logs import Log
 from ..exceptions import ValidationException
 
 
+
+
 import paho.mqtt.client as paho
 
 RC_LIST = {
@@ -32,7 +34,6 @@ class Client:
 
         for _server_key in _server_confs.keys():
 
-            Log.warning(self._instances)
             if _server_key in self._instances:
 
                 Log.info(self._instances[_server_key]['mqtt_client'].connected_flag)
@@ -40,8 +41,8 @@ class Client:
                 if self._instances[_server_key]['mqtt_client'].connected_flag:
                     Log.debug(f'{_server_key} already connected')
                 else:
-                    Log.info('reconnecting on init')
-                    # self._instances[_server_key]['mqtt_client'].reconnect()
+                    Log.debug('reconnecting on init')
+                    self._instances[_server_key]['mqtt_client'].reconnect()
 
             _conf = _server_confs[_server_key]
 
@@ -63,7 +64,6 @@ class Client:
                 raise Exception(RC_LIST[rc])
         except Exception as e:
             Log.error(e)
-            # client.reconnect()
 
     def connect(self, instance):
 
@@ -92,33 +92,42 @@ class Client:
 
         instance['mqtt_client'] = paho.Client()
         instance['mqtt_client'].on_connect = self.on_connect
-        instance['mqtt_client'].on_publish = self.on_publish
-
         instance['mqtt_client'].username_pw_set(username=self.username, password=self.password)
 
         if not instance['mqtt_client']._ssl and self.schema == "mqtts":
             instance['mqtt_client'].tls_set(ca_certs=instance['conf']['cert_path'])
 
         instance['mqtt_client'].connect(self.host, self.port)
-
-    def on_publish(self, client, userdata, mid):
-        print("****************** ON PUBLISH ****************************")
-        print("Mqtt - Publish acknowledged by broker, mid({}) userdata={}.".format(mid, userdata))
+        instance['mqtt_client'].loop_start()
 
     def publish(self, server_key, topic, message, no_envelope=False, headers=None):
 
         mqtt_client = self._instances[server_key]['mqtt_client']
-        # mqtt_client.loop_start()
+
+        _messagge = '{} [{}] {}'.format(
+            Log.style.apply('> PUBLISH', Log.style.BOLD),
+            Log.style.apply('MQTT', Log.style.GREEN_FG),
+            Log.style.apply('{}'.format(topic), Log.style.BLUE_FG)
+        )
+        Log.trace(_messagge)
+
 
 
         if no_envelope:
             payload = json.dumps(message)
 
         else:
-            payload = message.update({
+            payload = json.dumps(message.update({
                 "headers": headers,
                 "resource": topic
-            })
+            }))
+
+        _messagge = '{} [{}] {}'.format(
+            Log.style.apply('> PUBLISH', Log.style.BOLD),
+            Log.style.apply('MQTT', Log.style.GREEN_FG),
+            Log.style.apply('{} - {}'.format(topic, payload), Log.style.BLUE_FG)
+        )
+        Log.verbose(_messagge)
 
         (rc, mid) = mqtt_client.publish(topic, payload)
 
@@ -130,14 +139,14 @@ class Client:
         else:
             raise ValidationException("Mqtt - Failed to publish , result code({})".format(rc))
 
-        # mqtt_client.loop_stop()
 
     def subscribe(self, server_key, topic, callback=None):
         mqtt_client = self._instances[server_key]['mqtt_client']
+
         (rc, mid) = mqtt_client.subscribe(topic, qos=0)
 
-        Log.verbose("Mqtt - Subscription result code({}) and mid({}) to topic: {}".format(rc, mid, topic))
+        Log.verbose("Mqtt - Subscription result code({}) and mid({}) to topic: {}, callback {}".format(rc, mid, topic, callback))
 
         if callback:
-            mqtt_client.on_message = callback
+            mqtt_client.message_callback_add(topic, callback)
 
