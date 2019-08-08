@@ -1,13 +1,10 @@
-from .views.containers import Response
 from functools import wraps
 from .auth.backends import AuthBackendMixin
 from .constants import CACHE_DEFAULT_TTL, GET
 from .cache import Cache
 from .utils.logs import Log
 import requests
-
-def event_wrapper(object_):
-    return Response(object_).to_flask()
+import json
 
 def on(**kwargs):
 
@@ -73,3 +70,26 @@ class cache(object):
             return response
 
         return wrapped_func
+
+
+
+class log_event(object):
+
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, client, userdata, msg, **kwargs):
+
+        _message = '{} [{}] {}'.format(
+            Log.style.apply('< ON_EVENT', Log.style.BOLD),
+            Log.style.apply('MQTT', Log.style.GREEN_FG),
+            Log.style.apply('{}'.format(msg.topic), Log.style.BLUE_FG)
+        )
+        Log.trace(_message)
+
+        data = json.loads(msg.payload.decode("utf-8"))
+        _message = '{} - {}'.format(_message, data)
+
+        Log.verbose(_message)
+
+        return self.func(self.func.__class__, data)

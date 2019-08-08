@@ -74,6 +74,61 @@ def after_request(response):
 
     return response
 
+
+def load_modules(_modules_list):
+
+    _view_classes = []
+
+    for _module_path in _modules_list:
+
+        envoxy.log.system('[{}] Module path: {}\n'.format(
+            envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
+            _module_path
+        ))
+
+        _spec = importlib.util.spec_from_file_location('__init__', _module_path)
+        _module = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_module)
+
+        for _name, _obj in inspect.getmembers(_module):
+
+            if _name == '__loader__' and isinstance(_obj, list) and len(_obj)>0:
+
+                envoxy.log.system('[{}] Loader: {}\n'.format(
+                    envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
+                    _obj
+                ))
+
+                _view_classes.extend(_obj)
+
+    return _view_classes
+
+
+def load_packages(_package_list):
+
+    _view_classes = []
+
+    for _package in _package_list:
+
+        envoxy.log.system('[{}] Package: {}\n'.format(
+            envoxy.log.style.apply('PPP', envoxy.log.style.BLUE_FG),
+            _package
+        ))
+
+        _obj = importlib.import_module(f'{_package}.loader')
+
+        if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
+
+            envoxy.log.system('[{}] Loader: {}\n'.format(
+                envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
+                _obj
+            ))
+
+            _view_classes.extend(_obj.__loader__)
+
+    return _view_classes
+
+
 if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
 
     @app.route('/')
@@ -119,13 +174,13 @@ elif 'conf' in uwsgi.opt:
         _auth_conf = _conf_content.get('credentials')
         _credentials = envoxy.authenticate(_auth_conf)
         uwsgi.opt['credentials'] = _credentials
+        envoxy.log.trace(_credentials)
 
         # Add plugins to conf
         _plugins = _conf_content.get('plugins')
         uwsgi.opt['plugins'] = _plugins
 
-        # Load project modules
-
+        # Load project modules and packages
         _modules_list = _conf_content.get('modules', [])
         _package_list = _conf_content.get('packages', [])
 
@@ -136,49 +191,11 @@ elif 'conf' in uwsgi.opt:
         _view_classes = []
 
         # Loading modules from path
-
-        for _module_path in _modules_list:
-
-            envoxy.log.system('[{}] Module path: {}\n'.format(
-                envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
-                _module_path
-            ))
-
-            _spec = importlib.util.spec_from_file_location('__init__', _module_path)
-            _module = importlib.util.module_from_spec(_spec)
-            _spec.loader.exec_module(_module)
-
-            for _name, _obj in inspect.getmembers(_module):
-
-                if _name == '__loader__' and isinstance(_obj, list) and len(_obj)>0:
-
-                    envoxy.log.system('[{}] Loader: {}\n'.format(
-                        envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
-                        _obj
-                    ))
-
-                    _view_classes.extend(_obj)
-
+        _view_classes.extend(load_modules(_modules_list))
 
         # Loading from installed packages
+        _view_classes.extend(load_packages(_package_list))
 
-        for _package in _package_list:
-
-            envoxy.log.system('[{}] Package: {}\n'.format(
-                envoxy.log.style.apply('MMM', envoxy.log.style.BLUE_FG),
-                _package
-            ))
-
-            _obj = importlib.import_module(f'{_package}.loader')
-
-            if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
-
-                envoxy.log.system('[{}] Loader: {}\n'.format(
-                    envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
-                    _obj
-                ))
-
-                _view_classes.extend(_obj.__loader__)
 
         for _view_class in _view_classes:
             _instance = _view_class()
@@ -189,15 +206,13 @@ elif 'conf' in uwsgi.opt:
                 str(_view_class)
             ))
 
-
         debug_mode = _conf_content.get('debug', False)
-
         envoxy.log.system('[{}] App in debug mode {}!\n'.format(
             envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
             debug_mode
         ))
-
         app.debug_mode = debug_mode
+
 
         enable_cors = _conf_content.get('enable_cors', False)
         if enable_cors : CORS(app, supports_credentials=True)
