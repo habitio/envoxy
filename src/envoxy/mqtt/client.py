@@ -3,9 +3,6 @@ import json
 from ..utils.logs import Log
 from ..exceptions import ValidationException
 
-
-
-
 import paho.mqtt.client as paho
 
 RC_LIST = {
