@@ -5,16 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
 ### Added
 - New MQTT client
 
-
 ## [0.0.21] - 2019-08-07
+### Changed
+- auth_required decorator accept kwargs
+- before_request and after_request log format in single line
+
 ## [0.0.20] - 2019-08-05
+### Added
+- New format log including version, host, source, timestamp, level, pid, exec, fine, line
+
 ## [0.0.19] - 2019-08-01
+### Added
+- packages load section on envoxyd
+
+### Fixed
+- couchdb post method result
+
 ## [0.0.18] - 2019-08-01
-## [0.0.17] - 2019-07-30
+### Added
+- handle raised ValidationException to pass code and status to Response object
+- couchdb post method to create documents
+
+## [0.0.17] - 2019-07-30]
 ## [0.0.16] - 2019-07-30
 ## [0.0.15] - 2019-07-25
 ## [0.0.14] - 2019-07-25
