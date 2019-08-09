@@ -120,7 +120,7 @@ class Client:
                 "resource": topic
             }))
 
-        _message = '{} - {}'
+        _message = '{} | Message{}'
         Log.verbose(_message, payload)
 
         (rc, mid) = mqtt_client.publish(topic, payload)

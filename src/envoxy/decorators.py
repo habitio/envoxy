@@ -88,7 +88,7 @@ class log_event(object):
         Log.trace(_message)
 
         data = json.loads(msg.payload.decode("utf-8"))
-        _message = '{} - {}'.format(_message, data)
+        _message = '{} | Message{}'.format(_message, data)
 
         Log.verbose(_message)
 
