@@ -203,3 +203,30 @@ class MqttViewCtrl(View):
 
         do_stuff(data)
 ```
+
+## client
+
+```
+
+from envoxy.mqtt.client import Client as MqttClient
+
+credentials = {
+    "client_id": ":client_id"
+    "access_token": ":access_token"
+}
+
+conf = {
+    "myserver": {
+        "bind": "mqtt://localhost:8000",
+        "cert_path": "/usr/lib/ssl/certs/ca-certificates.crt"
+    }
+}
+
+mqtt_client = MqttClient(conf, credentials=credentials)
+mqtt_cient.publish(
+    "myserver",
+    "/v3/topic/channel",
+    { "data": "test" }
+)
+
+```
