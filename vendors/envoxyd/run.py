@@ -174,7 +174,6 @@ elif 'conf' in uwsgi.opt:
         _auth_conf = _conf_content.get('credentials')
         _credentials = envoxy.authenticate(_auth_conf)
         uwsgi.opt['credentials'] = _credentials
-        envoxy.log.trace(_credentials)
 
         # Add plugins to conf
         _plugins = _conf_content.get('plugins')
