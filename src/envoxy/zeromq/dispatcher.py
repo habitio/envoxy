@@ -8,6 +8,7 @@ from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
+from ..exceptions import ValidationException
 
 
 class ZMQ(Singleton):
@@ -334,3 +335,15 @@ class Dispatcher():
             _message['headers'].update(headers)
         
         return ZMQ.instance().send_and_recv(server_key, _message)
+
+    @staticmethod
+    def validate_response(response):
+
+        Log.trace(response)
+
+        if response.get('status') not in [200, 201] and ('elements' not in response.get('payload') or '_id' not in response.get('payload')):
+            msg = response.get('payload', {}).get('text', f"Resource error, code: {response['status']}, {response['resource']}")
+            code = response.get('payload', {}).get('code', 0)
+            raise ValidationException(msg, code=code, status=str(response.get('status')))
+
+        return response
