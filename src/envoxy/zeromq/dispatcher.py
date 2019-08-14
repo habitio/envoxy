@@ -150,6 +150,9 @@ class ZMQ(Singleton):
                             try:
                                 _response = json.loads(_response)
                                 _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
+
+                                _response = self._remove_header(_response, 'X-Cid')
+
                                 return _response
                             except Exception as e:
                                 _response = None
@@ -220,6 +223,14 @@ class ZMQ(Singleton):
                 _port_range = [_port_part]
 
         return _port_range
+
+    def _remove_header(self, _response, header):
+
+        if 'headers' in _response and header in _response['headers']:
+            response = _response['headers'].pop(header)
+
+        return _response
+
 
 class Dispatcher():
 
