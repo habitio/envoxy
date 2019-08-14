@@ -1,10 +1,10 @@
-from envoxy import View, Response, on, log, zmqc, pgsqlc, couchdbc, auth_required
+from envoxy import View, Response, on, zmqc, auth_required
 
 @on(endpoint='/v3/cards', protocols=['http'])
 class CardsCollection(View):
 
 
-    @auth_required(['container', 'manager'])
+    @auth_required(roles=['container', 'manager'])
     def get(self, request, **kwargs):
         return Response(
             zmqc.get(
