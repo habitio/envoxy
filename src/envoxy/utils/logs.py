@@ -7,6 +7,13 @@ except ImportError:
     class DefaultLog:
         def log(self, text):
             logger.debug(text)
+
+        @property
+        def opt(self):
+            return {
+                'log-level': Log.VERBOSE
+            }
+
     uwsgi = DefaultLog()
 
 from .datetime import Now
@@ -260,6 +267,6 @@ class Log:
         _level = int.from_bytes(log_level, 'little')
         _file = '.'.join(caller.filename.split('/')[-3:])
         text = str(text).replace('\"', '\\"').replace('\n', '\\n')
-        _exec_name = Config.get('boot')[0]["name"] if len(Config.get('boot')) else multiprocessing.current_process().name
+        _exec_name = Config.get('boot')[0]["name"] if Config and len(Config.get('boot')) else multiprocessing.current_process().name
 
         return f'{{ "version": "1.1", "host": "{_host}", "source": "{_host}", "short_message": "{text}" , "timestamp": {Now.timestamp()}, "level": {_level}, "pid": {os.getpid()}, "exec": "{_exec_name}", "file": "{_file}", "line": {caller.lineno}}}'

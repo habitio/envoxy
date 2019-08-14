@@ -158,3 +158,75 @@ perms = couchdbc.get(
     db="server_key.db_name",
 )
 ```
+
+# MQTT connector samples
+
+## Publish
+
+
+```
+from envoxy import mqttc
+
+mqttc.publish(
+    'server_key',
+    '/v3/topic/channel',
+    { "data": "test" },
+    no_envelope=True)
+```
+
+
+## Subscribe
+
+```
+from envoxy import mqttc
+
+mqttc.subscribe(
+    'server_key',
+    '/v3/topic/channels/#',
+    callback
+)
+```
+
+## on_event
+
+
+```
+
+from envoxy import on
+from envoxy.decorators import log_event
+
+@on(endpoint='/v3/topic/channels/#', protocols=['mqtt'], server='server_key')
+class MqttViewCtrl(View):
+
+    @log_event
+    def on_event(self, data, **kwargs):
+
+        do_stuff(data)
+```
+
+## client
+
+```
+
+from envoxy.mqtt.client import Client as MqttClient
+
+credentials = {
+    "client_id": ":client_id"
+    "access_token": ":access_token"
+}
+
+conf = {
+    "myserver": {
+        "bind": "mqtt://localhost:8000",
+        "cert_path": "/usr/lib/ssl/certs/ca-certificates.crt"
+    }
+}
+
+mqtt_client = MqttClient(conf, credentials=credentials)
+mqtt_cient.publish(
+    "myserver",
+    "/v3/topic/channel",
+    { "data": "test" }
+)
+
+```

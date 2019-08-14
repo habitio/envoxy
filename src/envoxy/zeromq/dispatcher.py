@@ -8,6 +8,7 @@ from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
+from ..exceptions import ValidationException
 
 
 class ZMQ(Singleton):
@@ -149,6 +150,9 @@ class ZMQ(Singleton):
                             try:
                                 _response = json.loads(_response)
                                 _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
+
+                                _response = self._remove_header(_response, 'X-Cid')
+
                                 return _response
                             except Exception as e:
                                 _response = None
@@ -219,6 +223,14 @@ class ZMQ(Singleton):
                 _port_range = [_port_part]
 
         return _port_range
+
+    def _remove_header(self, _response, header):
+
+        if 'headers' in _response and header in _response['headers']:
+            response = _response['headers'].pop(header)
+
+        return _response
+
 
 class Dispatcher():
 
@@ -334,3 +346,15 @@ class Dispatcher():
             _message['headers'].update(headers)
         
         return ZMQ.instance().send_and_recv(server_key, _message)
+
+    @staticmethod
+    def validate_response(response):
+
+        Log.trace(response)
+
+        if response.get('status') not in [200, 201] and ('elements' not in response.get('payload') or '_id' not in response.get('payload')):
+            msg = response.get('payload', {}).get('text', f"Resource error, code: {response['status']}, {response['resource']}")
+            code = response.get('payload', {}).get('code', 0)
+            raise ValidationException(msg, code=code, status=str(response.get('status')))
+
+        return response

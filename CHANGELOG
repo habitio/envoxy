@@ -1,0 +1,57 @@
+# Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.22] - 2019-08-14
+### Added
+- New MQTT client
+- validate_response method for zmq
+- remove_header method for zmq
+
+### Changed
+- Remove X-Cid from zmq response
+
+## [0.0.21] - 2019-08-07
+### Changed
+- auth_required decorator accept kwargs
+- before_request and after_request log format in single line
+
+## [0.0.20] - 2019-08-05
+### Added
+- New format log including version, host, source, timestamp, level, pid, exec, fine, line
+
+## [0.0.19] - 2019-08-01
+### Added
+- packages load section on envoxyd
+
+### Fixed
+- couchdb post method result
+
+## [0.0.18] - 2019-08-01
+### Added
+- handle raised ValidationException to pass code and status to Response object
+- couchdb post method to create documents
+
+## [0.0.17] - 2019-07-30]
+### Added
+- import specific auth module with get_auth_module
+- inject auth headers on envoxy view
+
+## [0.0.16] - 2019-07-30
+## [0.0.15] - 2019-07-25
+## [0.0.14] - 2019-07-25
+## [0.0.13] - 2019-07-25
+## [0.0.12] - 2019-07-24
+## [0.0.11] - 2019-07-24
+## [0.0.10] - 2019-07-24
+## [0.0.9] - 2019-07-23
+## [0.0.8] - 2019-07-16
+## [0.0.7] - 2019-07-16
+## [0.0.6] - 2019-07-16
+## [0.0.5] - 2019-07-15
+## [0.0.4] - 2019-07-12
+## [0.0.3] - 2019-07-08
+## [0.0.2] - 2019-07-02
+## [0.0.1] - 2019-06-26

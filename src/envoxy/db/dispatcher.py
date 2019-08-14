@@ -1,7 +1,7 @@
 from ..utils.singleton import Singleton
 from ..utils.config import Config
 
-from ..postgresql.dispatcher import Client as PgClient
+from ..postgresql.client import Client as PgClient
 from ..couchdb.client import Client as CouchDBClient
 
 

@@ -8,6 +8,8 @@ from .containers import Response
 from ..exceptions import ValidationException
 from ..utils.logs import Log
 
+from ..mqtt.dispatcher import MqttDispatcher as mqttc
+
 REGEX_VAR_PATTERN: str = r'(?P<all>{(?P<var>[^:]+):(?P<type>[^}]+)})'
 
 
@@ -27,6 +29,7 @@ class View(object):
 
         _endpoint = getattr(self.__metaclass__, 'endpoint', '')
         _protocols = getattr(self.__metaclass__, 'protocols', [])
+        _server = getattr(self.__metaclass__, 'server', '')
 
         _regex = re.compile(REGEX_VAR_PATTERN)
         
@@ -53,6 +56,18 @@ class View(object):
                     _method,
                     getattr(self, _method, 'Not Found')
                 ))
+
+            if 'mqtt' in _protocols and _method == "on_event":
+
+                Log.system('{} [{}] Subscribing to topic "{}" calling the function "{}"'.format(
+                    Log.style.apply('>>>', Log.style.BOLD),
+                    Log.style.apply('MQTT', Log.style.GREEN_FG),
+                    _endpoint,
+                    _method
+                ))
+
+                mqttc.subscribe(_server, _endpoint, getattr(self, _method, 'Not Found'))
+
 
 
     def _dispatch(self, _method, _endpoint, _protocol):
