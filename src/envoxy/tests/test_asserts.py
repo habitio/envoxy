@@ -1,7 +1,22 @@
 from ..asserts import *
 from .fixtures import test_payload
 import pytest
-from requests import codes as status_codes
+from ..exceptions import ValidationException
+
+##### assertz #####
+
+def test_assertz_ok(test_payload):
+
+    assert assertz(True, "Error", 0, 500) == None
+    assert assertz(test_payload["username"] == "", "Error", 0, 500) == None
+
+def test_assertz_nok(test_payload):
+
+    with pytest.raises(ValidationException):
+        assertz(False, "Error", 0, 500)
+
+    with pytest.raises(ValidationException):
+        assertz(type(test_payload["application_ids"]) is not list, "Error", 0, 500)
 
 ##### assertz_mandatory #####
 
@@ -14,32 +29,31 @@ def test_assertz_mandatory_ok(test_payload):
 def test_assertz_mandatory_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
-        assert assertz_mandatory(test_payload, "non_existent_key") is not None
+        assertz_mandatory(test_payload, "non_existent_key")
     assert str(e.value) == "Mandatory: non_existent_key"
 
     with pytest.raises(ValidationException) as e:
-        assert assertz_mandatory(test_payload, "") is not None
+        assertz_mandatory(test_payload, "")
     assert str(e.value) == "Key must not be emtpy"
 
     with pytest.raises(ValidationException) as e:
-        assert assertz_mandatory(test_payload, "username") is not None
-    assert str(e.value) == "Mandatory: username"
+        assertz_mandatory(test_payload, "username")
 
     with pytest.raises(ValidationException) as e:
-        assert assertz_mandatory(test_payload["user"], "last_name") is not None
+        assertz_mandatory(test_payload["user"], "last_name")
     assert str(e.value) == "Mandatory: last_name"
 
     with pytest.raises(ValidationException) as e:
-        assert assertz_mandatory({}) is not None
+        assertz_mandatory({})
     assert str(e.value) == "Mandatory: {}"
 
     with pytest.raises(ValidationException) as e:
-        assert assertz_mandatory(test_payload, "features") is not None
+        assertz_mandatory(test_payload, "features")
     assert str(e.value) == "Mandatory: features"
 
     with pytest.raises(ValidationException) as e:
         null_value = None
-        assert assertz_mandatory(null_value) is not None
+        assertz_mandatory(null_value)
     assert str(e.value) == "Mandatory: None"
 
 
@@ -101,6 +115,24 @@ def test_assertz_float_nok(test_payload):
 ##### assertz_timestamp #####
 
 ##### assertz_boolean #####
+
+def test_assertz_boolean_ok(test_payload):
+
+    assert assertz_boolean(test_payload["active"]) == None
+    assert assertz_boolean(False) == None
+    assert assertz_boolean(None) == None
+
+
+def test_assertz_boolean_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_boolean(test_payload["user"]["name"], 2000, 400)
+    assert str(e.value) == f"Invalid value type: {test_payload['user']['name']}"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_boolean(test_payload["user"], 2001)
+    assert str(e.value) == f"Invalid value type: {test_payload['user']}"
+
 
 ##### assertz_complex #####
 

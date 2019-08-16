@@ -60,8 +60,13 @@ def assertz_timestamp(x, y, z):
     pass
 
 
-def assertz_boolean(x, y, z):
-    pass
+def assertz_boolean(_element, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    if _element is None: return None
+
+    if isinstance(_element, bool):
+        assertz(_element in [True, False], f"Invalid value type: {_element}", _error_code, _status_code)
+    else:
+        assertz(isinstance(_element, bool), f"Invalid value type: {_element}", _error_code, _status_code)
 
 
 def assertz_complex(x, y, z):

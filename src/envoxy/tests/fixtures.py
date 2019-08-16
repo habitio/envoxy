@@ -12,5 +12,6 @@ def test_payload():
             "name": "John Doe",
         },
         "features": None,
-        "value": 30.5
+        "value": 30.5,
+        "active": True
     }
