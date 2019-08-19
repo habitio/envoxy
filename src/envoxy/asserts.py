@@ -1,11 +1,11 @@
 from requests import codes as status_codes
 from .exceptions import ValidationException
-from collections.abc import Iterable
 import json
 import datetime
 from .utils.datetime import Now
 from uuid import UUID
-import codecs
+import re
+from .constants import HASH_REGEX, URI_REGEX, EMAIL_REGEX, PHONE_REGEX
 
 def assertz(_expression, _error_message, _error_code, _status_code):
 
@@ -200,22 +200,73 @@ def assertz_ascii(_element, key=None, _error_code=1202,  _status_code=status_cod
         assertz(False, _error_msg, _error_code, _status_code)
 
 def assertz_hash(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+    if _element is None: return None
 
-def assertz_token(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+    _error_msg = "Invalid hash"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    assertz_string(_element, key, _error_code, _status_code)
+
+    try:
+        assertz(re.match(HASH_REGEX, _element).group() == _element, _error_msg, _error_code, _status_code)
+    except (AttributeError, TypeError):
+        assertz(False, _error_msg, _error_code, _status_code)
+
+def assertz_token(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed):
+    if _element is None: return None
 
 def assertz_uri(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+
+    if _element is None: return None
+
+    _error_msg = "Invalid uri"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    try:
+        assertz(re.match(URI_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
+    except (AttributeError, TypeError):
+        assertz(False, _error_msg, _error_code, _status_code)
 
 def assertz_email(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+    if _element is None: return None
+
+    _error_msg = "Invalid email"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    try:
+        assertz(re.match(EMAIL_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
+    except (AttributeError, TypeError):
+        assertz(False, _error_msg, _error_code, _status_code)
 
 def assertz_location(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
     pass
 
 def assertz_phone(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+    if _element is None: return None
+
+    _error_msg = "Invalid phone"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    try:
+        assertz(re.match(PHONE_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
+    except (AttributeError, TypeError):
+        assertz(False, _error_msg, _error_code, _status_code)
 
 
 def assertz_intersects(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):

@@ -41,3 +41,17 @@ REDIS_DEFAULT_TTL = CACHE_DEFAULT_TTL
 REDIS_DEFAULT_HOST = '127.0.0.1'
 REDIS_DEFAULT_PORT = '6379'
 
+# ASSERTS
+
+HASH_LENGTH = 45
+HASH_CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+HASH_REGEX: str = r"[a-zA-Z0-9]{45}"
+
+URI_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
+            "([^?#]*)" \
+            "(?:\\?([^#]*))?" \
+            "(?:#(.*))?"
+
+EMAIL_REGEX: str = "([a-zA-Z0-9])([a-zA-Z0-9+._-]*)@([a-zA-Z0-9])([a-zA-Z0-9+._-]*)"
+
+PHONE_REGEX: str = "(?:\\(([0-9]){1,3}\\)([ ]*))?([0-9]){3,12}"
