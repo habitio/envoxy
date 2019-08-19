@@ -247,3 +247,78 @@ def test_assertz_array_nok(test_payload):
         assertz_array([])
     assert str(e.value) == f"Invalid value type: []"
 
+##### assertz_uuid #####
+
+def test_assertz_uuid_ok(test_payload):
+
+    assert assertz_uuid(test_payload, "unique_id") == None
+    assert assertz_uuid("6912574d-988a-4b34-98c4-424c61d37fef") == None
+    assert assertz_uuid(None) == None
+
+
+def test_assertz_uuid_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uuid(test_payload["user"], "name")
+    assert str(e.value) == f"Invalid value type: {test_payload['user']['name']}"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uuid(test_payload, "user")
+    assert str(e.value) == f"Invalid value type: {test_payload['user']}"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uuid(test_payload, "features")
+    assert str(e.value) == f"Invalid value type: {test_payload['features']}"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uuid(test_payload, "age")
+    assert str(e.value) == f"Invalid value type: {test_payload['age']}"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uuid([])
+    assert str(e.value) == f"Invalid value type: []"
+
+##### assertz_utf8 #####
+
+def test_assertz_utf8_ok(test_payload):
+
+    assert assertz_utf8(test_payload["user"], "alias") == None
+    assert assertz_utf8(None) == None
+
+def test_assertz_utf8_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_utf8(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid encoding"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_utf8(test_payload["age"])
+    assert str(e.value) == "Invalid encoding"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_utf8(test_payload, "features")
+    assert str(e.value) == "Invalid encoding"
+
+
+##### assertz_ascii #####
+
+def test_assertz_ascii_ok(test_payload):
+
+    assert assertz_ascii(test_payload["user"], "name") == None
+    assert assertz_ascii(test_payload["regex"]) == None
+    assert assertz_ascii(None) == None
+
+def test_assertz_ascii_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_ascii(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid encoding"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_ascii(test_payload["user"]["alias"])
+    assert str(e.value) == "Invalid encoding"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_ascii(test_payload, "features")
+    assert str(e.value) == "Invalid encoding"
+

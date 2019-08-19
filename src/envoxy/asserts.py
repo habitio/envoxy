@@ -4,6 +4,8 @@ from collections.abc import Iterable
 import json
 import datetime
 from .utils.datetime import Now
+from uuid import UUID
+import codecs
 
 def assertz(_expression, _error_message, _error_code, _status_code):
 
@@ -145,3 +147,84 @@ def assertz_complex(_element, key=None, _error_code=1202,  _status_code=status_c
         msg = str(e)
 
     assertz(None in [is_json, is_dict, is_array], msg, _error_code, _status_code)
+
+
+def assertz_uuid(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+
+    if _element is None: return None
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, f"Invalid value type: {key}", _error_code, _status_code)
+
+    try:
+        assertz(UUID(value), f"Invalid value type: {value}", _error_code, _status_code)
+
+    except (ValueError, AttributeError, TypeError):
+
+        assertz(False, f"Invalid value type: {value}", _error_code, _status_code)
+
+
+def assertz_utf8(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    if _element is None: return None
+
+    _error_msg = "Invalid encoding"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    try:
+        assertz(value.encode(encoding='utf-8'), _error_msg, _error_code, _status_code)
+    except (UnicodeEncodeError, AttributeError):
+
+        assertz(False, _error_msg, _error_code, _status_code)
+
+def assertz_ascii(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    if _element is None: return None
+
+    _error_msg = "Invalid encoding"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    try:
+        assertz(value.encode(encoding='ascii'), _error_msg, _error_code, _status_code)
+    except (UnicodeEncodeError, AttributeError):
+
+        assertz(False, _error_msg, _error_code, _status_code)
+
+def assertz_hash(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_token(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_uri(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_email(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_location(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_phone(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+
+def assertz_intersects(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_unauthorized(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+def assertz_valid_values(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+    pass
+
+
