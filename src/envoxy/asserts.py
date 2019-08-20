@@ -6,6 +6,8 @@ from .utils.datetime import Now
 from uuid import UUID
 import re
 from .constants import HASH_REGEX, URI_REGEX, EMAIL_REGEX, PHONE_REGEX
+from inspect import getframeinfo, stack
+
 
 def assertz(_expression, _error_message, _error_code, _status_code):
 
@@ -170,7 +172,7 @@ def assertz_uuid(_element, key=None, _error_code=1202,  _status_code=status_code
 def assertz_utf8(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
     if _element is None: return None
 
-    _error_msg = "Invalid encoding"
+    _error_msg = "Invalid utf-8 encoding"
 
     try:
         value = _element if key is None else _element[key]
@@ -186,7 +188,7 @@ def assertz_utf8(_element, key=None, _error_code=1202,  _status_code=status_code
 def assertz_ascii(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
     if _element is None: return None
 
-    _error_msg = "Invalid encoding"
+    _error_msg = "Invalid ascii encoding"
 
     try:
         value = _element if key is None else _element[key]
@@ -204,15 +206,15 @@ def assertz_hash(_element, key=None, _error_code=1202,  _status_code=status_code
 
     _error_msg = "Invalid hash"
 
+    assertz_string(_element, key, _error_code, _status_code)
+
     try:
         value = _element if key is None else _element[key]
     except KeyError:
         assertz(False, _error_msg, _error_code, _status_code)
 
-    assertz_string(_element, key, _error_code, _status_code)
-
     try:
-        assertz(re.match(HASH_REGEX, _element).group() == _element, _error_msg, _error_code, _status_code)
+        assertz(re.match(HASH_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
     except (AttributeError, TypeError):
         assertz(False, _error_msg, _error_code, _status_code)
 
@@ -251,7 +253,36 @@ def assertz_email(_element, key=None, _error_code=1202,  _status_code=status_cod
         assertz(False, _error_msg, _error_code, _status_code)
 
 def assertz_location(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+    if _element is None: return None
+
+    _error_msg = "Invalid location"
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        assertz(False, _error_msg, _error_code, _status_code)
+
+    try:
+
+        if isinstance(value, dict):
+
+            _expression = 'latitude' in value and 'longitude' in value \
+                          and (isinstance(value['latitude'], int) or isinstance(value['latitude'], float)) \
+                          and (isinstance(value['longitude'], int) or isinstance(value['longitude'], float))
+
+        elif isinstance(value, list):
+            _expression = len(value) == 2 \
+                          and (isinstance(value[0], int) or isinstance(value[0], float)) \
+                          and (isinstance(value[1], int) or isinstance(value[1], float))
+
+        else:
+            raise TypeError
+
+        assertz(_expression, _error_msg, _error_code, _status_code)
+
+
+    except (AttributeError, TypeError):
+        assertz(False, _error_msg, _error_code, _status_code)
 
 def assertz_phone(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
     if _element is None: return None
@@ -272,10 +303,23 @@ def assertz_phone(_element, key=None, _error_code=1202,  _status_code=status_cod
 def assertz_intersects(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
     pass
 
-def assertz_unauthorized(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+def assertz_unauthorized(_expression, _error_msg, _error_code=1202):
+    assertz(_expression, _error_msg, _error_code, status_codes.unauthorized)
 
-def assertz_valid_values(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+def assertz_valid_values(_expression, _error_msg, _status_code, _error_code=1202):
+    assertz(_expression, _error_msg, _error_code, _status_code)
 
 
+def assertz_reply(_expression, _error_msg, _status_code, _error_code):
+    caller = getframeinfo(stack()[1][0])
+    _file = '.'.join(caller.filename.split('/')[-3:])
+    _lineno = caller.lineno
+
+    return  {
+        "status": _status_code,
+        "payload": {
+            "text": _error_msg,
+            "code": _error_code,
+            "assertion_failed": f"{_expression} failed on file {_file}, line {_lineno}"
+        }
+    }

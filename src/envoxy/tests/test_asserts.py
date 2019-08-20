@@ -289,15 +289,15 @@ def test_assertz_utf8_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
         assertz_utf8(test_payload["user"], "icon")
-    assert str(e.value) == "Invalid encoding"
+    assert str(e.value) == "Invalid utf-8 encoding"
 
     with pytest.raises(ValidationException) as e:
         assertz_utf8(test_payload["age"])
-    assert str(e.value) == "Invalid encoding"
+    assert str(e.value) == "Invalid utf-8 encoding"
 
     with pytest.raises(ValidationException) as e:
         assertz_utf8(test_payload, "features")
-    assert str(e.value) == "Invalid encoding"
+    assert str(e.value) == "Invalid utf-8 encoding"
 
 
 ##### assertz_ascii #####
@@ -312,13 +312,141 @@ def test_assertz_ascii_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
         assertz_ascii(test_payload["user"], "icon")
-    assert str(e.value) == "Invalid encoding"
+    assert str(e.value) == "Invalid ascii encoding"
 
     with pytest.raises(ValidationException) as e:
         assertz_ascii(test_payload["user"]["alias"])
-    assert str(e.value) == "Invalid encoding"
+    assert str(e.value) == "Invalid ascii encoding"
 
     with pytest.raises(ValidationException) as e:
         assertz_ascii(test_payload, "features")
-    assert str(e.value) == "Invalid encoding"
+    assert str(e.value) == "Invalid ascii encoding"
 
+##### assertz_hash #####
+
+def test_assertz_hash_ok(test_payload):
+
+    assert assertz_hash(test_payload, "hash") == None
+    assert assertz_hash("zc6kj0xrb27rs0mthfn9j4m8m8pchy0q8sewh7x0c9o9g") == None
+    assert assertz_hash(None) == None
+
+def test_assertz_hash_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_hash(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid hash"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_hash(test_payload["user"]["alias"])
+    assert str(e.value) == "Invalid hash"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_hash("b66hx5xqs6siakp6ne4dj6w9dms7ydgmoxdmgjy33x6wt0iz1efmuxxnfwx7tjsr")
+    assert str(e.value) == "Invalid hash"
+
+
+##### assertz_uri #####
+
+def test_assertz_uri_ok(test_payload):
+
+    assert assertz_uri(test_payload, "website") == None
+    assert assertz_uri(test_payload["sample_uri"]) == None
+    assert assertz_uri(None) == None
+
+def test_assertz_uri_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uri(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid uri"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uri(test_payload["user"]["alias"])
+    assert str(e.value) == "Invalid uri"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_uri(test_payload["application_ids"])
+    assert str(e.value) == "Invalid uri"
+
+##### assertz_email #####
+
+def test_assertz_email_ok(test_payload):
+
+    assert assertz_email(test_payload["user"], "email") == None
+    assert assertz_email(None) == None
+
+def test_assertz_email_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_email(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid email"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_email("john@doe")
+    assert str(e.value) == "Invalid email"
+
+##### assertz_location #####
+
+def test_assertz_location_ok(test_payload):
+
+    assert assertz_location(test_payload["user"], "home") == None
+    assert assertz_location(test_payload["user"]["work"]) == None
+    assert assertz_location(None) == None
+
+def test_assertz_location_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_location(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid location"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_location(test_payload["username"])
+    assert str(e.value) == "Invalid location"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_location(test_payload["location"])
+    assert str(e.value) == "Invalid location"
+
+
+##### assertz_phone #####
+
+def test_assertz_phone_ok(test_payload):
+
+    assert assertz_phone(test_payload["user"], "phone") == None
+    assert assertz_phone(None) == None
+
+def test_assertz_phone_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_phone(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid phone"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_phone(test_payload["username"])
+    assert str(e.value) == "Invalid phone"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_phone(test_payload["user"]["cellphone"])
+    assert str(e.value) == "Invalid phone"
+
+
+##### assertz_unauthorized #####
+
+def test_assertz_unauthorized_ok(test_payload):
+
+    assert assertz_unauthorized(test_payload["age"] < 18, "invalid age") == None
+    assert assertz_unauthorized(None, "invalid value") == None
+
+
+def test_assertz_unauthorized_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_unauthorized(test_payload["active"] == False, "inactive")
+    assert str(e.value) == "inactive"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_unauthorized(test_payload["age"] > 25, "age must be under 25")
+    assert str(e.value) == "age must be under 25"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_unauthorized(test_payload["username"] and test_payload["password"], "username or password shouldn not be empty")
+    assert str(e.value) == "username or password should not be empty"
