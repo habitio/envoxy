@@ -315,11 +315,14 @@ def assertz_reply(_expression, _error_msg, _status_code, _error_code):
     _file = '.'.join(caller.filename.split('/')[-3:])
     _lineno = caller.lineno
 
-    return  {
-        "status": _status_code,
-        "payload": {
-            "text": _error_msg,
-            "code": _error_code,
-            "assertion_failed": f"{_expression} failed on file {_file}, line {_lineno}"
+
+    if not _expression:
+
+        return  {
+            "status": _status_code,
+            "payload": {
+                "text": _error_msg,
+                "code": _error_code,
+                "assertion_failed": f"{caller.code_context} failed on file {_file}, line {_lineno}"
+            }
         }
-    }
