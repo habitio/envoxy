@@ -10,7 +10,6 @@ from inspect import getframeinfo, stack
 
 
 def assertz(_expression, _error_message, _error_code, _status_code):
-
     """
     :param _expression: a boolean expression to be validated
     :param _error_message: exception message to be passed as "text" param in payload response
@@ -20,112 +19,147 @@ def assertz(_expression, _error_message, _error_code, _status_code):
     if not _expression:
         raise ValidationException(_error_message, code=_error_code, status=_status_code)
 
+def assertz_reply(_expression, _error_msg, _error_code, _status_code):
+    """
+    same as assertz but instead of raising exception will return a dictionary
+    :param _expression:
+    :param _error_msg:
+    :param _status_code:
+    :param _error_code:
+    :return:
+    """
+    caller = getframeinfo(stack()[1][0])
+    _file = '.'.join(caller.filename.split('/')[-3:])
+    _lineno = caller.lineno
 
-def assertz_mandatory(_obj, _element=None, _error_code=1200, _status_code=status_codes.precondition_failed):
+    if not _expression:
+        return {
+            "status": _status_code,
+            "payload": {
+                "text": _error_msg,
+                "code": _error_code,
+                "assertion_failed": f"{caller.code_context} failed on file {_file}, line {_lineno}"
+            }
+        }
+
+def assertz_call(_expression, _error_msg, _error_code, _status_code, reply=False):
+    if not reply:
+        return assertz(_expression, _error_msg, _error_code, _status_code)
+    else:
+        return assertz_reply(_expression, _error_msg, _error_code, _status_code)
+
+
+def assertz_mandatory(_obj, _element=None, _error_code=1200, _status_code=status_codes.precondition_failed, reply=False):
     """
     Validates if an element is part of another object and value should't be an empty string
     when not given and _element only validates _ob
     """
-
     if isinstance(_element, str) and not _element:
-        assertz(_element, "Key must not be emtpy", 1201, _status_code)
+        return assertz_call(_element, "Key must not be emtpy", 1201, _status_code, reply=reply)
     elif _obj and _element is not None:
-        assertz(_element in _obj and _element is not None and _obj[_element], f"Mandatory: {_element}", _error_code, _status_code)
+        return assertz_call(_element in _obj and _element is not None and _obj[_element], f"Mandatory: {_element}", _error_code,
+                _status_code, reply=reply)
     else:
-        assertz(_obj, f"Mandatory: {_obj}", _error_code, _status_code)
+        return assertz_call(_obj, f"Mandatory: {_obj}", _error_code, _status_code, reply=reply)
 
 
-def assertz_string(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed):
+def assertz_string(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     if isinstance(_element, str) and key is None:
-        assertz(_element, f"Invalid value type: {_element}", _error_code, _status_code)
+        return assertz_call(_element, f"Invalid value type: {_element}", _error_code, _status_code, reply=reply)
     else:
-        assertz( key in _element and isinstance(_element[key], str), f"Invalid value type: {_element[key]}", _error_code, _status_code)
+        return assertz_call(key in _element and isinstance(_element[key], str), f"Invalid value type: {_element[key]}", _error_code,
+                _status_code, reply=reply)
 
 
-def assertz_integer(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_integer(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     if isinstance(_element, int) and key is None:
-        assertz(_element, f"Invalid value type: {_element}", _error_code, _status_code)
+        return assertz_call(_element, f"Invalid value type: {_element}", _error_code, _status_code, reply=reply)
     else:
-        assertz(key in _element and isinstance(_element[key], int), f"Invalid value type: {_element[key]}", _error_code, _status_code)
+        return assertz_call(key in _element and isinstance(_element[key], int), f"Invalid value type: {_element[key]}", _error_code,
+                _status_code, reply=reply)
 
 
-def assertz_float(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_float(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     if isinstance(_element, float) and key is None:
-        assertz(_element, f"Invalid value type: {_element}", _error_code, _status_code)
+        return assertz_call(_element, f"Invalid value type: {_element}", _error_code, _status_code, reply=reply)
     else:
-        assertz(key in _element and isinstance(_element[key], float), f"Invalid value type: {_element[key]}", _error_code, _status_code)
+        return assertz_call(key in _element and isinstance(_element[key], float), f"Invalid value type: {_element[key]}",
+                _error_code, _status_code, reply=reply)
 
-def assertz_timestamp(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+def assertz_timestamp(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None or isinstance(_element, datetime.date) or isinstance(_element, datetime.date): return None
 
     if key is None:
-        assertz(Now.to_datetime(_element), f"Invalid value type: {_element}", _error_code, _status_code)
-    else :
-        assertz(key in _element and Now.to_datetime(_element[key]), f"Invalid value type: {_element[key]}", _error_code, _status_code)
+        return assertz_call(Now.to_datetime(_element), f"Invalid value type: {_element}", _error_code, _status_code, reply=reply)
+    else:
+        return assertz_call(key in _element and Now.to_datetime(_element[key]), f"Invalid value type: {_element[key]}", _error_code,
+                _status_code, reply=reply)
 
 
-def assertz_boolean(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_boolean(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     if isinstance(_element, bool) and key is None:
-        assertz(_element in [True, False], f"Invalid value type: {_element}", _error_code, _status_code)
+        return assertz_call(_element in [True, False], f"Invalid value type: {_element}", _error_code, _status_code, reply=reply)
     else:
-        assertz(key in _element and isinstance(_element[key], bool), f"Invalid value type: {_element[key]}", _error_code, _status_code)
+        return assertz_call(key in _element and isinstance(_element[key], bool), f"Invalid value type: {_element[key]}",
+                _error_code, _status_code, reply=reply)
 
 
-def assertz_array(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_array(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, f"Invalid value type: {key}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {key}", _error_code, _status_code, reply=reply)
 
     try:
-        assertz(isinstance(value, list) and value, f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(isinstance(value, list) and value, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
     except TypeError:
-        assertz(False, f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 
-def assertz_dict(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_dict(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, f"Invalid value type: {key}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {key}", _error_code, _status_code, reply=reply)
 
     try:
-        assertz((isinstance(value, dict) and value), f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call((isinstance(value, dict) and value), f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
     except TypeError:
 
-        assertz(False, f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 
-def assertz_json(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_json(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, f"Invalid value type: {key}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {key}", _error_code, _status_code, reply=reply)
 
     try:
-        assertz(json.loads(value), f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(json.loads(value), f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
     except (json.JSONDecodeError, TypeError):
 
-        assertz(False, f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 
-def assertz_complex(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_complex(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     msg = ""
@@ -148,28 +182,26 @@ def assertz_complex(_element, key=None, _error_code=1202,  _status_code=status_c
         is_array = False
         msg = str(e)
 
-    assertz(None in [is_json, is_dict, is_array], msg, _error_code, _status_code)
+    return assertz_call(None in [is_json, is_dict, is_array], msg, _error_code, _status_code, reply=reply)
 
 
-def assertz_uuid(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-
-
+def assertz_uuid(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, f"Invalid value type: {key}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {key}", _error_code, _status_code, reply=reply)
 
     try:
-        assertz(UUID(value), f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(UUID(value), f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
     except (ValueError, AttributeError, TypeError):
 
-        assertz(False, f"Invalid value type: {value}", _error_code, _status_code)
+        return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 
-def assertz_utf8(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+def assertz_utf8(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid utf-8 encoding"
@@ -177,15 +209,16 @@ def assertz_utf8(_element, key=None, _error_code=1202,  _status_code=status_code
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
-        assertz(value.encode(encoding='utf-8'), _error_msg, _error_code, _status_code)
+        return assertz_call(value.encode(encoding='utf-8'), _error_msg, _error_code, _status_code, reply=reply)
     except (UnicodeEncodeError, AttributeError):
 
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
-def assertz_ascii(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+def assertz_ascii(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid ascii encoding"
@@ -193,15 +226,16 @@ def assertz_ascii(_element, key=None, _error_code=1202,  _status_code=status_cod
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
-        assertz(value.encode(encoding='ascii'), _error_msg, _error_code, _status_code)
+        return assertz_call(value.encode(encoding='ascii'), _error_msg, _error_code, _status_code, reply=reply)
     except (UnicodeEncodeError, AttributeError):
 
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
-def assertz_hash(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+def assertz_hash(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid hash"
@@ -211,18 +245,19 @@ def assertz_hash(_element, key=None, _error_code=1202,  _status_code=status_code
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
-        assertz(re.match(HASH_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
+        return assertz_call(re.match(HASH_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
     except (AttributeError, TypeError):
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
-def assertz_token(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed):
+
+def assertz_token(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
-def assertz_uri(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
 
+def assertz_uri(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid uri"
@@ -230,14 +265,15 @@ def assertz_uri(_element, key=None, _error_code=1202,  _status_code=status_codes
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
         assertz(re.match(URI_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
     except (AttributeError, TypeError):
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
-def assertz_email(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+def assertz_email(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid email"
@@ -245,14 +281,15 @@ def assertz_email(_element, key=None, _error_code=1202,  _status_code=status_cod
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
-        assertz(re.match(EMAIL_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
+        return assertz_call(re.match(EMAIL_REGEX, value).group() == value, _error_msg, _error_code, _status_code, reply=reply)
     except (AttributeError, TypeError):
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
-def assertz_location(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+def assertz_location(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid location"
@@ -260,7 +297,7 @@ def assertz_location(_element, key=None, _error_code=1202,  _status_code=status_
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
 
@@ -278,13 +315,14 @@ def assertz_location(_element, key=None, _error_code=1202,  _status_code=status_
         else:
             raise TypeError
 
-        assertz(_expression, _error_msg, _error_code, _status_code)
+        return assertz_call(_expression, _error_msg, _error_code, _status_code, reply=reply)
 
 
     except (AttributeError, TypeError):
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
-def assertz_phone(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
+
+def assertz_phone(_element, key=None, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
     if _element is None: return None
 
     _error_msg = "Invalid phone"
@@ -292,37 +330,92 @@ def assertz_phone(_element, key=None, _error_code=1202,  _status_code=status_cod
     try:
         value = _element if key is None else _element[key]
     except KeyError:
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
     try:
-        assertz(re.match(PHONE_REGEX, value).group() == value, _error_msg, _error_code, _status_code)
+        return assertz_call(re.match(PHONE_REGEX, value).group() == value, _error_msg, _error_code, _status_code, reply=reply)
     except (AttributeError, TypeError):
-        assertz(False, _error_msg, _error_code, _status_code)
+        return assertz_call(False, _error_msg, _error_code, _status_code, reply=reply)
 
 
-def assertz_intersects(_element, key=None, _error_code=1202,  _status_code=status_codes.precondition_failed):
-    pass
+def assertz_intersects(x, y, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
+    _expression = set(x).intersection(y)
 
-def assertz_unauthorized(_expression, _error_msg, _error_code=1202):
-    assertz(_expression, _error_msg, _error_code, status_codes.unauthorized)
-
-def assertz_valid_values(_expression, _error_msg, _status_code, _error_code=1202):
-    assertz(_expression, _error_msg, _error_code, _status_code)
+    return assertz_call(_expression, f"No intersection between {x} and {y}", _error_code, _status_code, reply=reply)
 
 
-def assertz_reply(_expression, _error_msg, _status_code, _error_code):
-    caller = getframeinfo(stack()[1][0])
-    _file = '.'.join(caller.filename.split('/')[-3:])
-    _lineno = caller.lineno
+def assertz_unauthorized(_expression, _error_msg, _error_code=1202, reply=False):
+    return assertz_call(_expression, _error_msg, _error_code, status_codes.unauthorized, reply=reply)
 
 
-    if not _expression:
+def assertz_valid_values(_expression, _error_msg, _error_code=1202, _status_code=status_codes.precondition_failed, reply=False):
+    return assertz_call(_expression, _error_msg, _error_code, _status_code, reply=reply)
 
-        return  {
-            "status": _status_code,
-            "payload": {
-                "text": _error_msg,
-                "code": _error_code,
-                "assertion_failed": f"{caller.code_context} failed on file {_file}, line {_lineno}"
-            }
-        }
+
+def assertz_mandatory_reply(_element, key, _error_code, _status_code):
+    return assertz_mandatory(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_string_reply(_element, key, _error_code, _status_code):
+    return assertz_string(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_integer_reply(_element, key, _error_code, _status_code):
+    return assertz_integer(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_float_reply(_element, key, _error_code, _status_code):
+    return assertz_float(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_timestamp_reply(_element, key, _error_code, _status_code):
+    return assertz_timestamp(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_boolean_reply(_element, key, _error_code, _status_code):
+    return assertz_boolean(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_complex_reply(_element, key, _error_code, _status_code):
+    return assertz_complex(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_dict_reply(_element, key, _error_code, _status_code):
+    return assertz_dict(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_json_reply(_element, key, _error_code, _status_code):
+    return assertz_json(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_array_reply(_element, key, _error_code, _status_code):
+    return assertz_array(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_uuid_reply(_element, key, _error_code, _status_code):
+    return assertz_uuid(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_utf8_reply(_element, key, _error_code, _status_code):
+    return assertz_utf8(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_ascii_reply(_element, key, _error_code, _status_code):
+    return assertz_ascii(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_hash_reply(_element, key, _error_code, _status_code):
+    return assertz_hash(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_token_reply(_element, key, _error_code, _status_code):
+    return assertz_token(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_uri_reply(_element, key, _error_code, _status_code):
+    return assertz_uri(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_email_reply(_element, key, _error_code, _status_code):
+    return assertz_email(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_location_reply(_element, key, _error_code, _status_code):
+    return assertz_location(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_phone_reply(_element, key, _error_code, _status_code):
+    return assertz_phone(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_intersects_reply(_element, key, _error_code, _status_code):
+    return assertz_intersects(_element, key, _error_code, _status_code, reply=True)
+
+def assertz_unauthorized_reply(_element, key, _error_code):
+    return assertz_unauthorized(_element, key, _error_code, reply=True)
+
+def assertz_valid_values_reply(_element, key, _error_code, _status_code):
+    return assertz_valid_values(_element, key, _error_code, _status_code, reply=True)
+
+

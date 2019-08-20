@@ -433,9 +433,7 @@ def test_assertz_phone_nok(test_payload):
 
 def test_assertz_unauthorized_ok(test_payload):
 
-    assert assertz_unauthorized(test_payload["age"] < 18, "invalid age") == None
-    assert assertz_unauthorized(None, "invalid value") == None
-
+    assert assertz_unauthorized(test_payload["age"] > 18, "invalid age") == None
 
 def test_assertz_unauthorized_nok(test_payload):
 
@@ -444,9 +442,20 @@ def test_assertz_unauthorized_nok(test_payload):
     assert str(e.value) == "inactive"
 
     with pytest.raises(ValidationException) as e:
-        assertz_unauthorized(test_payload["age"] > 25, "age must be under 25")
+        assertz_unauthorized(test_payload["age"] < 25, "age must be under 25")
     assert str(e.value) == "age must be under 25"
 
     with pytest.raises(ValidationException) as e:
-        assertz_unauthorized(test_payload["username"] and test_payload["password"], "username or password shouldn not be empty")
+        assertz_unauthorized(test_payload["username"] and test_payload["password"], "username or password should not be empty")
     assert str(e.value) == "username or password should not be empty"
+
+
+def test_assertz_mandatory_reply_ok(test_payload):
+
+    _result = assertz_mandatory_reply(test_payload, "activated", 1000, 400)
+    assert 'payload' in _result
+    assert 'status' in _result
+    assert _result['status'] == 400
+    assert _result['payload']['code'] == 1000
+    assert _result['payload']['text'] == 'Mandatory: activated'
+
