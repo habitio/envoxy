@@ -47,6 +47,10 @@ HASH_LENGTH = 45
 HASH_CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 HASH_REGEX: str = r"[a-zA-Z0-9]{45}"
 
+TOKEN_LENGHT = 128
+TOKEN_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789"
+TOKEN_REGEX: str = r"[a-z0-9]{128}"
+
 URI_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
             "([^?#]*)" \
             "(?:\\?([^#]*))?" \
