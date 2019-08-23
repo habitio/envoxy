@@ -9,7 +9,10 @@ from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
 from ..exceptions import ValidationException
+import traceback
 
+class NoSocketException(Exception):
+    pass
 
 class ZMQ(Singleton):
 
@@ -18,6 +21,7 @@ class ZMQ(Singleton):
     _instances = {}
     _context = zmq.Context(ZEROMQ_CONTEXT)
     _poller = zmq.Poller()
+    _reconnecting = False
 
     def __init__(self):
 
@@ -58,79 +62,104 @@ class ZMQ(Singleton):
 
     def connect(self, instance):
 
+        _connected = []
+
         for _port in self.port_range(instance):
 
             try:
 
-                Log.info(f"Connecting {instance['url']}:{_port}")
+                _url =  f"{instance['url']}:{_port}"
 
-                instance['socket'].connect(f"{instance['url']}:{_port}")
+                Log.trace(f"Connecting {_url}")
+                instance['socket'].connect(_url)
 
-                if not instance['socket'].closed():
-                    Log.trace('>>> Successfully connected to ZEROMQ machine: {}'.format(f"{instance['url']}:{_port}"))
+                if not instance['socket'].closed:
+                    Log.trace(f'>>> Successfully connected to ZEROMQ machine: {_url}')
+                    _connected.append(_url)
                 else:
-                    instance['socket'].disconnect(f"{instance['url']}:{_port}")
+                    instance['socket'].disconnect(_url)
 
-            except:
+            except Exception as e:
+                Log.error(f'>>Exception during CONNECT {e}')
 
-                pass
-
-        self._poller.register(instance['socket'], zmq.POLLIN)
-
+        if len(_connected) > 0:
+            Log.trace(f">>Registering new socket {instance['socket']}")
+            self._poller.register(instance['socket'], zmq.POLLIN)
+        
     def disconnect(self, instance):
 
-        for _port in self.port_range(instance):
+        try:
+            
+            Log.trace(f"Disconnecting {instance['socket']}")
+            instance['socket'].close()
 
-            try:
+            if instance['socket'].closed:
+                Log.trace('>>> Successfully disconnected to ZEROMQ machine: {}'.format(f"{instance['socket']}"))
+                self._poller.unregister(instance['socket'])
 
-                Log.info(f"Disconnecting {instance['url']}:{_port}")
+                return True
 
-                instance['socket'].close(f"{instance['url']}:{_port}")
+        except Exception as e:
+            Log.error(f'>>Exception during DISCONNECT {e}')
+            return False
 
-                if instance['socket'].closed():
-                    Log.trace('>>> Successfully disconnected to ZEROMQ machine: {}'.format(f"{instance['url']}:{_port}"))
+        # for _port in self.port_range(instance):
 
-            except:
+        #     try:
 
-                pass
+        #         _url =  f"{instance['url']}:{_port}"
+        #         instance['socket'].close(f"{instance['url']}:{_port}")
 
-        self._poller.unregister(instance['socket'])
+        #         if instance['socket'].closed():
+        #             Log.trace('>>> Successfully disconnected to ZEROMQ machine: {}'.format(f"{instance['url']}:{_port}"))
+
+        # self._poller.unregister(instance['socket'])        
 
     def restore_socket_connection(self, instance, force_new_socket=False):
 
-        # Socket is confused. Close and remove it.
-        self.disconnect(instance)
-        
-        instance['retries_left'] -= 1
+        if self._reconnecting == True: return True  # already reconnecting
 
-        if instance['retries_left'] == 0:
-            Log.error(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {instance['url']}")
-            return False
-        
-        Log.error(f"ZMQ::send_and_recv : Reconnecting and resending: {instance['url']}")
+        self._reconnecting = True
 
-        # Create new connection
+        try:
 
-        if force_new_socket:
+            # Socket is confused. Close and remove it.
+            _result = self.disconnect(instance)
             
-            del instance['socket']
+            instance['retries_left'] -= 1
 
-            _socket = self._context.socket(zmq.REQ)
-            #_socket.setsockopt(zmq.LINGER, 0)
+            if instance['retries_left'] == 0:
+                Log.error(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {instance['url']}")
+                return False
+            
+            Log.error(f"ZMQ::send_and_recv : Reconnecting and resending: {instance['url']}")
 
-            instance['socket'] = _socket
+            # Create new connection
 
-        self.connect(instance)
+            if force_new_socket:
+                
+                del instance['socket']
+
+                _socket = self._context.socket(zmq.REQ)
+                #_socket.setsockopt(zmq.LINGER, 0)
+
+                instance['socket'] = _socket
+
+            self.connect(instance)
+
+        except Exception as e:
+            Log.error(f'>>Exception during RESTORE {e}')
+
+        self._reconnecting = False
 
         return True
 
     def send_and_recv(self, server_key, message):
-
         _response = None
         _instance = self._instances[server_key]
 
         try:
-            
+
             while _instance['retries_left']:
             
                 _instance['socket'].send_string('', zmq.SNDMORE)
@@ -141,7 +170,10 @@ class ZMQ(Singleton):
                     while True:
                         
                         _socks = dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT))
-                        
+
+                        if not _socks:
+                            raise NoSocketException(f'No socket availables for {_instance}')
+
                         if _socks.get(_instance['socket']) == zmq.POLLIN:
                             
                             _instance['socket'].recv() # discard delimiter
@@ -171,16 +203,16 @@ class ZMQ(Singleton):
                         break
 
     
-        except Exception as e:
-            
+        except NoSocketException as e:
+
             Log.error(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
 
-            if not self.restore_socket_connection(_instance, force_new_socket=True):
-                return None
+            self.restore_socket_connection(_instance, force_new_socket=True)
 
             return self.send_and_recv(server_key, message)
+            
 
-        return None
+        return _response
 
     def find_ports(self, server_key, file_path):
 
@@ -349,6 +381,9 @@ class Dispatcher():
 
     @staticmethod
     def validate_response(response):
+
+        if response is None:
+            raise ValidationException("Service Unavaliable", code=0, status=503)
 
         Log.trace(response)
 
