@@ -19,6 +19,7 @@ class View(object):
 
     def __init__(self) -> None:
         self.__flask_app: Flask = None
+        self.protocols = []
 
     def get_methods(self) -> List[str]:
         return [_method for _method in dir(self) if _method in ['get', 'post', 'put', 'patch', 'delete', 'on_event']]
@@ -36,6 +37,8 @@ class View(object):
         for _method in self.get_methods():
 
             if 'http' in _protocols:
+
+                if 'http' not in self.protocols: self.protocols.append('http')
 
                 _flask_endpoint = _endpoint
 
@@ -57,7 +60,11 @@ class View(object):
                     getattr(self, _method, 'Not Found')
                 ))
 
+
+
             if 'mqtt' in _protocols and _method == "on_event":
+
+                if 'mqtt' not in self.protocols: self.protocols.append('mqtt')
 
                 Log.system('{} [{}] Subscribing to topic "{}" calling the function "{}"'.format(
                     Log.style.apply('>>>', Log.style.BOLD),

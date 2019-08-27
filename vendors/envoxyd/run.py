@@ -128,6 +128,9 @@ def load_packages(_package_list):
 
     return _view_classes
 
+def setup_test_endpoints(test_string, method):
+    view_test = lambda test_string: (lambda: test_string)
+    app.add_url_rule('/test', 'test', view_func=view_test(test_string), methods=[method])
 
 if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
 
@@ -195,10 +198,14 @@ elif 'conf' in uwsgi.opt:
         # Loading from installed packages
         _view_classes.extend(load_packages(_package_list))
 
+        _protocols_enabled = []
 
         for _view_class in _view_classes:
             _instance = _view_class()
             _instance.set_flask(app)
+
+            _protocols_enabled.extend(_instance.protocols)
+
             uwsgi.log('\n')
             envoxy.log.system('[{}] Loaded "{}".\n'.format(
                 envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
@@ -215,6 +222,23 @@ elif 'conf' in uwsgi.opt:
 
         enable_cors = _conf_content.get('enable_cors', False)
         if enable_cors : CORS(app, supports_credentials=True)
+
+
+        # watchdog
+        try:
+
+            _protocols_enabled = list(set(_protocols_enabled))
+
+            if 'http' in _protocols_enabled:
+                setup_test_endpoints('test', 'POST')
+
+            keep_alive = _conf_content.get('boot', [])[0].get('keep_alive', 0)
+            from envoxy import Watchdog
+            Watchdog(keep_alive).start(_protocols_enabled)
+        except (KeyError, TypeError, ValueError, IndexError):
+            envoxy.log.system('[{}] watchdog not enabled, keep_alive missing!\n'.format(
+            envoxy.log.style.apply('---', envoxy.log.style.YELLOW_FG)
+        ))
 
     else:
 
