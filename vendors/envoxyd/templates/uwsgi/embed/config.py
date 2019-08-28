@@ -1,9 +1,8 @@
-import sys
-import os
 import json
-import uwsgi
+import os
 
 import envoxy
+import uwsgi
 
 if 'conf' in uwsgi.opt:
 
@@ -41,9 +40,11 @@ if 'conf' in uwsgi.opt:
 
     else:
 
-        envoxy.log.emergency('Configuration file not found in this path! Please check if the file exists or the permissions are enough.\n\n')
+        envoxy.log.emergency(
+            'Configuration file not found in this path! Please check if the file exists or the permissions are enough.\n\n')
         exit(-10)
 
 elif 'mode' not in uwsgi.opt:
-    envoxy.log.emergency('Configuration file not found! Please use ./envoxy [params] --set conf=<file> or ./envoxy [params] --set mode=test\n\n')
+    envoxy.log.emergency(
+        'Configuration file not found! Please use ./envoxy [params] --set conf=<file> or ./envoxy [params] --set mode=test\n\n')
     exit(-10)

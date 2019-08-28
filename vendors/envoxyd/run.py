@@ -1,17 +1,12 @@
-import sys
-import os
-import json
-import uwsgi
+import importlib.util
 import inspect
+import json
 import time
 
-import importlib.util
-
+import envoxy
+import uwsgi
 from flask import Flask, request
 from flask_cors import CORS
-
-
-import envoxy
 
 app = Flask(__name__)
 app.response_class = envoxy.Response
@@ -20,13 +15,14 @@ app.url_map.converters['str'] = app.url_map.converters['string']
 
 @app.before_request
 def before_request():
-
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         _request = '{} [{}] {}'.format(
             envoxy.log.style.apply('> Request', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', envoxy.log.style.GREEN_FG),
-            envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG)
+            envoxy.log.style.apply('{} {}'.format(request.method.upper(),
+                                                  request.full_path if request.full_path[-1] != '?' else request.path),
+                                   envoxy.log.style.BLUE_FG)
         )
         envoxy.log.trace(_request)
 
@@ -41,9 +37,9 @@ def before_request():
         envoxy.log.verbose(' | '.join(_outputs))
         del _outputs
 
+
 @app.after_request
 def after_request(response):
-
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         if response.status_code >= 100 and response.status_code <= 299:
@@ -56,7 +52,9 @@ def after_request(response):
         _response = '{} [{}] {} - {}'.format(
             envoxy.log.style.apply('< Response', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', _status_code_style),
-            envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG),
+            envoxy.log.style.apply('{} {}'.format(request.method.upper(),
+                                                  request.full_path if request.full_path[-1] != '?' else request.path),
+                                   envoxy.log.style.BLUE_FG),
             envoxy.log.style.apply(str(response.status_code), _status_code_style)
         )
         envoxy.log.trace(_response)
@@ -82,7 +80,6 @@ def after_request(response):
 
 
 def load_modules(_modules_list):
-
     _view_classes = []
 
     for _module_path in _modules_list:
@@ -98,8 +95,7 @@ def load_modules(_modules_list):
 
         for _name, _obj in inspect.getmembers(_module):
 
-            if _name == '__loader__' and isinstance(_obj, list) and len(_obj)>0:
-
+            if _name == '__loader__' and isinstance(_obj, list) and len(_obj) > 0:
                 envoxy.log.system('[{}] Loader: {}\n'.format(
                     envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
                     _obj
@@ -111,7 +107,6 @@ def load_modules(_modules_list):
 
 
 def load_packages(_package_list):
-
     _view_classes = []
 
     for _package in _package_list:
@@ -124,7 +119,6 @@ def load_packages(_package_list):
         _obj = importlib.import_module(f'{_package}.loader')
 
         if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
-
             envoxy.log.system('[{}] Loader: {}\n'.format(
                 envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
                 _obj
@@ -144,7 +138,6 @@ if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
 else:
     # Authentication
     _conf_content = uwsgi.opt.get('conf_content', {})
-
 
     _auth_conf = _conf_content.get('credentials')
     _credentials = envoxy.authenticate(_auth_conf)
@@ -191,8 +184,7 @@ else:
     ))
     app.debug_mode = debug_mode
 
-
     enable_cors = _conf_content.get('enable_cors', False)
-    if enable_cors : CORS(app, supports_credentials=True)
+    if enable_cors: CORS(app, supports_credentials=True)
 
 uwsgi.log('\n\n')

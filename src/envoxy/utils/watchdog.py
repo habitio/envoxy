@@ -1,13 +1,13 @@
-import threading
-import traceback
 import logging
+import threading
+import time
+import traceback
+
 import requests
 import uwsgi
-import time
 
-from ..utils.logs import Log as log
 from ..utils.config import Config
-
+from ..utils.logs import Log as log
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class Watchdog:
         self.thread = None
         self.interval = interval
 
-    def start(self, protocols_enabled):
+    def start(self):
         if self.interval is not None and self.interval > 0:
             try:
                 self.thread = threading.Thread(target=self.send_notification, name="watchdog")
