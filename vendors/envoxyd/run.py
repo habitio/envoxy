@@ -128,9 +128,6 @@ def load_packages(_package_list):
 
     return _view_classes
 
-def setup_test_endpoints(test_string, method):
-    view_test = lambda test_string: (lambda: test_string)
-    app.add_url_rule('/test', 'test', view_func=view_test(test_string), methods=[method])
 
 if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
 
@@ -227,14 +224,10 @@ elif 'conf' in uwsgi.opt:
         # watchdog
         try:
 
-            _protocols_enabled = list(set(_protocols_enabled))
-
-            if 'http' in _protocols_enabled:
-                setup_test_endpoints('test', 'POST')
 
             keep_alive = _conf_content.get('boot', [])[0].get('keep_alive', 0)
             from envoxy import Watchdog
-            Watchdog(keep_alive).start(_protocols_enabled)
+            Watchdog(keep_alive).start([])
         except (KeyError, TypeError, ValueError, IndexError):
             envoxy.log.system('[{}] watchdog not enabled, keep_alive missing!\n'.format(
             envoxy.log.style.apply('---', envoxy.log.style.YELLOW_FG)

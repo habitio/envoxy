@@ -47,8 +47,6 @@ class Watchdog:
                     _http_result = self._test_http()
                     _mqtt_result = self._test_mqtt()
 
-                    _host = Config.get_credentials()['endpoints']['http']
-
                     notify('WATCHDOG=1')
 
         except (KeyError, TypeError, ValueError):
