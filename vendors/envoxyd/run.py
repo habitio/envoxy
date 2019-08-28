@@ -3,6 +3,7 @@ import os
 import json
 import uwsgi
 import inspect
+import time
 
 import importlib.util
 
@@ -72,6 +73,11 @@ def after_request(response):
         envoxy.log.verbose(' | '.join(_outputs))
         del _outputs
 
+    _ts = time.time()
+    envoxy.log.verbose('updating last_event_ms {}'.format(_ts))
+
+    uwsgi.opt['last_event_ms'] = _ts
+
     return response
 
 
@@ -135,111 +141,58 @@ if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
     def index():
         return "ENVOXY Working!"
 
-elif 'conf' in uwsgi.opt:
-
-    _conf_path = uwsgi.opt['conf'].decode('utf-8')
-
-    envoxy.log.system('[{}] Configuration file param found: {}\n'.format(
-        envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG),
-        _conf_path
-    ))
-
-    if os.path.exists(_conf_path) and os.path.isfile(_conf_path):
-
-        envoxy.log.system('[{}] Configuration file exists! Trying to parse the file...\n'.format(
-            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG)
-        ))
-
-        _module_name = os.path.basename(_conf_path).replace('.json', '')
-
-        # try:
-        _conf_file = open(_conf_path, encoding='utf-8')
-        _conf_content = json.loads(_conf_file.read(), encoding='utf-8')
-        envoxy.log.system('[{}] The configuration file was parsed successfully!\n\n'.format(
-            envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)
-        ))
-
-        uwsgi.opt['conf_content'] = _conf_content
-
-        _log_conf = _conf_content.get('log') or _conf_content.get('$log')
-
-        if _log_conf and _log_conf.get('level'):
-            uwsgi.opt['log-level'] = bytes([int(_log_conf['level'])])
-
-        if _log_conf and _log_conf.get('format'):
-            uwsgi.opt['log-format'] = _log_conf['format']
-
-        # Authentication
-
-        _auth_conf = _conf_content.get('credentials')
-        _credentials = envoxy.authenticate(_auth_conf)
-        uwsgi.opt['credentials'] = _credentials
-
-        # Add plugins to conf
-        _plugins = _conf_content.get('plugins')
-        uwsgi.opt['plugins'] = _plugins
-
-        # Load project modules and packages
-        _modules_list = _conf_content.get('modules', [])
-        _package_list = _conf_content.get('packages', [])
-
-        if _modules_list and _package_list:
-            envoxy.log.emergency('Defining modules and packages at the same time is not allowed.\n\n')
-            exit(-10)
-
-        _view_classes = []
-
-        # Loading modules from path
-        _view_classes.extend(load_modules(_modules_list))
-
-        # Loading from installed packages
-        _view_classes.extend(load_packages(_package_list))
-
-        _protocols_enabled = []
-
-        for _view_class in _view_classes:
-            _instance = _view_class()
-            _instance.set_flask(app)
-
-            _protocols_enabled.extend(_instance.protocols)
-
-            uwsgi.log('\n')
-            envoxy.log.system('[{}] Loaded "{}".\n'.format(
-                envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
-                str(_view_class)
-            ))
-
-        debug_mode = _conf_content.get('debug', False)
-        envoxy.log.system('[{}] App in debug mode {}!\n'.format(
-            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
-            debug_mode
-        ))
-        app.debug_mode = debug_mode
+else:
+    # Authentication
+    _conf_content = uwsgi.opt.get('conf_content', {})
 
 
-        enable_cors = _conf_content.get('enable_cors', False)
-        if enable_cors : CORS(app, supports_credentials=True)
+    _auth_conf = _conf_content.get('credentials')
+    _credentials = envoxy.authenticate(_auth_conf)
+    uwsgi.opt['credentials'] = _credentials
 
+    # Add plugins to conf
+    _plugins = _conf_content.get('plugins')
+    uwsgi.opt['plugins'] = _plugins
 
-        # watchdog
-        try:
+    # Load project modules and packages
+    _modules_list = _conf_content.get('modules', [])
+    _package_list = _conf_content.get('packages', [])
 
-
-            keep_alive = _conf_content.get('boot', [])[0].get('keep_alive', 0)
-            from envoxy import Watchdog
-            Watchdog(keep_alive).start([])
-        except (KeyError, TypeError, ValueError, IndexError):
-            envoxy.log.system('[{}] watchdog not enabled, keep_alive missing!\n'.format(
-            envoxy.log.style.apply('---', envoxy.log.style.YELLOW_FG)
-        ))
-
-    else:
-
-        envoxy.log.emergency('Configuration file not found in this path! Please check if the file exists or the permissions are enough.\n\n')
+    if _modules_list and _package_list:
+        envoxy.log.emergency('Defining modules and packages at the same time is not allowed.\n\n')
         exit(-10)
 
-else:
-    envoxy.log.emergency('Configuration file not found! Please use ./envoxy [params] --set conf=<file> or ./envoxy [params] --set mode=test\n\n')
-    exit(-10)
+    _view_classes = []
+
+    # Loading modules from path
+    _view_classes.extend(load_modules(_modules_list))
+
+    # Loading from installed packages
+    _view_classes.extend(load_packages(_package_list))
+
+    _protocols_enabled = []
+
+    for _view_class in _view_classes:
+        _instance = _view_class()
+        _instance.set_flask(app)
+
+        _protocols_enabled.extend(_instance.protocols)
+
+        uwsgi.log('\n')
+        envoxy.log.system('[{}] Loaded "{}".\n'.format(
+            envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
+            str(_view_class)
+        ))
+
+    debug_mode = _conf_content.get('debug', False)
+    envoxy.log.system('[{}] App in debug mode {}!\n'.format(
+        envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
+        debug_mode
+    ))
+    app.debug_mode = debug_mode
+
+
+    enable_cors = _conf_content.get('enable_cors', False)
+    if enable_cors : CORS(app, supports_credentials=True)
 
 uwsgi.log('\n\n')
