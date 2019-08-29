@@ -129,7 +129,7 @@ class ZMQ(Singleton):
             instance['retries_left'] -= 1
 
             if instance['retries_left'] == 0:
-                Log.error(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {instance['url']}")
+                Log.alert(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {instance['url']}")
                 return False
             
             Log.error(f"ZMQ::send_and_recv : Reconnecting and resending: {instance['url']}")
@@ -172,7 +172,7 @@ class ZMQ(Singleton):
                         _socks = dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT))
 
                         if not _socks:
-                            raise NoSocketException(f'No socket availables for {_instance}')
+                            raise NoSocketException(f'No sockets available for {_instance}')
 
                         if _socks.get(_instance['socket']) == zmq.POLLIN:
                             
@@ -207,9 +207,9 @@ class ZMQ(Singleton):
 
             Log.error(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
 
-            self.restore_socket_connection(_instance, force_new_socket=True)
+            if self.restore_socket_connection(_instance, force_new_socket=True):
 
-            return self.send_and_recv(server_key, message)
+                return self.send_and_recv(server_key, message)
             
 
         return _response

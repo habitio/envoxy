@@ -4,7 +4,10 @@ import time
 import traceback
 
 import requests
-import uwsgi
+try:
+    import uwsgi
+except ImportError:
+    pass
 
 from ..utils.config import Config
 from ..utils.logs import Log as log
