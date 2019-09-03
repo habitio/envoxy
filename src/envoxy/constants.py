@@ -10,6 +10,7 @@ DELETE = 'delete'
 SERVER_NAME = 'Envoxy Server'
 
 ZEROMQ_POLLIN_TIMEOUT = 5 * 1000
+ZEROMQ_RETRY_TIMEOUT = 1
 ZEROMQ_REQUEST_RETRIES = 5
 ZEROMQ_CONTEXT = 1
 
@@ -41,3 +42,22 @@ REDIS_DEFAULT_TTL = CACHE_DEFAULT_TTL
 REDIS_DEFAULT_HOST = '127.0.0.1'
 REDIS_DEFAULT_PORT = '6379'
 
+# ASSERTS
+
+HASH_LENGTH = 45
+HASH_CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+HASH_REGEX: str = r"[a-zA-Z0-9]{45}"
+
+TOKEN_LENGHT = 128
+TOKEN_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789"
+TOKEN_REGEX: str = r"[a-z0-9]{128}"
+
+URI_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
+            "([^?#]*)" \
+            "(?:\\?([^#]*))?" \
+            "(?:#(.*))?"
+
+#EMAIL_REGEX: str = r"([a-zA-Z0-9])([a-zA-Z0-9+._-]*)@([a-zA-Z0-9])([a-zA-Z0-9+._-]*)"
+EMAIL_REGEX: str = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
+
+PHONE_REGEX: str = r"(?:\\(([0-9]){1,3}\\)([ ]*))?([0-9]){3,12}"

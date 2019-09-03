@@ -3,6 +3,7 @@ from .decorators import *
 from .views import *
 from .utils import *
 from .utils.logs import Log as log
+from .utils.watchdog import Watchdog
 from .cache import *
 
 from .zeromq.dispatcher import Dispatcher as zmqc

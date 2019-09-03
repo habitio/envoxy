@@ -1,16 +1,12 @@
-import sys
-import os
-import json
-import uwsgi
-import inspect
-
 import importlib.util
-
-from flask import Flask, request
-from flask_cors import CORS
-
+import inspect
+import json
+import time
 
 import envoxy
+import uwsgi
+from flask import Flask, request
+from flask_cors import CORS
 
 app = Flask(__name__)
 app.response_class = envoxy.Response
@@ -19,13 +15,14 @@ app.url_map.converters['str'] = app.url_map.converters['string']
 
 @app.before_request
 def before_request():
-
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         _request = '{} [{}] {}'.format(
             envoxy.log.style.apply('> Request', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', envoxy.log.style.GREEN_FG),
-            envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG)
+            envoxy.log.style.apply('{} {}'.format(request.method.upper(),
+                                                  request.full_path if request.full_path[-1] != '?' else request.path),
+                                   envoxy.log.style.BLUE_FG)
         )
         envoxy.log.trace(_request)
 
@@ -40,9 +37,9 @@ def before_request():
         envoxy.log.verbose(' | '.join(_outputs))
         del _outputs
 
+
 @app.after_request
 def after_request(response):
-
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         if response.status_code >= 100 and response.status_code <= 299:
@@ -55,7 +52,9 @@ def after_request(response):
         _response = '{} [{}] {} - {}'.format(
             envoxy.log.style.apply('< Response', envoxy.log.style.BOLD),
             envoxy.log.style.apply('HTTP', _status_code_style),
-            envoxy.log.style.apply('{} {}'.format(request.method.upper(), request.full_path if request.full_path[-1] != '?' else request.path), envoxy.log.style.BLUE_FG),
+            envoxy.log.style.apply('{} {}'.format(request.method.upper(),
+                                                  request.full_path if request.full_path[-1] != '?' else request.path),
+                                   envoxy.log.style.BLUE_FG),
             envoxy.log.style.apply(str(response.status_code), _status_code_style)
         )
         envoxy.log.trace(_response)
@@ -72,11 +71,15 @@ def after_request(response):
         envoxy.log.verbose(' | '.join(_outputs))
         del _outputs
 
+    _ts = time.time()
+    envoxy.log.verbose('updating last_event_ms {}'.format(_ts))
+
+    uwsgi.opt['last_event_ms'] = _ts
+
     return response
 
 
 def load_modules(_modules_list):
-
     _view_classes = []
 
     for _module_path in _modules_list:
@@ -92,8 +95,7 @@ def load_modules(_modules_list):
 
         for _name, _obj in inspect.getmembers(_module):
 
-            if _name == '__loader__' and isinstance(_obj, list) and len(_obj)>0:
-
+            if _name == '__loader__' and isinstance(_obj, list) and len(_obj) > 0:
                 envoxy.log.system('[{}] Loader: {}\n'.format(
                     envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
                     _obj
@@ -105,7 +107,6 @@ def load_modules(_modules_list):
 
 
 def load_packages(_package_list):
-
     _view_classes = []
 
     for _package in _package_list:
@@ -118,7 +119,6 @@ def load_packages(_package_list):
         _obj = importlib.import_module(f'{_package}.loader')
 
         if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
-
             envoxy.log.system('[{}] Loader: {}\n'.format(
                 envoxy.log.style.apply('...', envoxy.log.style.BLUE_FG),
                 _obj
@@ -135,94 +135,56 @@ if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
     def index():
         return "ENVOXY Working!"
 
-elif 'conf' in uwsgi.opt:
+else:
+    # Authentication
+    _conf_content = uwsgi.opt.get('conf_content', {})
 
-    _conf_path = uwsgi.opt['conf'].decode('utf-8')
+    _auth_conf = _conf_content.get('credentials')
+    _credentials = envoxy.authenticate(_auth_conf)
+    uwsgi.opt['credentials'] = _credentials
 
-    envoxy.log.system('[{}] Configuration file param found: {}\n'.format(
-        envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG),
-        _conf_path
-    ))
+    # Add plugins to conf
+    _plugins = _conf_content.get('plugins')
+    uwsgi.opt['plugins'] = _plugins
 
-    if os.path.exists(_conf_path) and os.path.isfile(_conf_path):
+    # Load project modules and packages
+    _modules_list = _conf_content.get('modules', [])
+    _package_list = _conf_content.get('packages', [])
 
-        envoxy.log.system('[{}] Configuration file exists! Trying to parse the file...\n'.format(
-            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG)
-        ))
-
-        _module_name = os.path.basename(_conf_path).replace('.json', '')
-
-        # try:
-        _conf_file = open(_conf_path, encoding='utf-8')
-        _conf_content = json.loads(_conf_file.read(), encoding='utf-8')
-        envoxy.log.system('[{}] The configuration file was parsed successfully!\n\n'.format(
-            envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)
-        ))
-
-        uwsgi.opt['conf_content'] = _conf_content
-
-        _log_conf = _conf_content.get('log') or _conf_content.get('$log')
-
-        if _log_conf and _log_conf.get('level'):
-            uwsgi.opt['log-level'] = bytes([int(_log_conf['level'])])
-
-        if _log_conf and _log_conf.get('format'):
-            uwsgi.opt['log-format'] = _log_conf['format']
-
-        # Authentication
-
-        _auth_conf = _conf_content.get('credentials')
-        _credentials = envoxy.authenticate(_auth_conf)
-        uwsgi.opt['credentials'] = _credentials
-
-        # Add plugins to conf
-        _plugins = _conf_content.get('plugins')
-        uwsgi.opt['plugins'] = _plugins
-
-        # Load project modules and packages
-        _modules_list = _conf_content.get('modules', [])
-        _package_list = _conf_content.get('packages', [])
-
-        if _modules_list and _package_list:
-            envoxy.log.emergency('Defining modules and packages at the same time is not allowed.\n\n')
-            exit(-10)
-
-        _view_classes = []
-
-        # Loading modules from path
-        _view_classes.extend(load_modules(_modules_list))
-
-        # Loading from installed packages
-        _view_classes.extend(load_packages(_package_list))
-
-
-        for _view_class in _view_classes:
-            _instance = _view_class()
-            _instance.set_flask(app)
-            uwsgi.log('\n')
-            envoxy.log.system('[{}] Loaded "{}".\n'.format(
-                envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
-                str(_view_class)
-            ))
-
-        debug_mode = _conf_content.get('debug', False)
-        envoxy.log.system('[{}] App in debug mode {}!\n'.format(
-            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
-            debug_mode
-        ))
-        app.debug_mode = debug_mode
-
-
-        enable_cors = _conf_content.get('enable_cors', False)
-        if enable_cors : CORS(app, supports_credentials=True)
-
-    else:
-
-        envoxy.log.emergency('Configuration file not found in this path! Please check if the file exists or the permissions are enough.\n\n')
+    if _modules_list and _package_list:
+        envoxy.log.emergency('Defining modules and packages at the same time is not allowed.\n\n')
         exit(-10)
 
-else:
-    envoxy.log.emergency('Configuration file not found! Please use ./envoxy [params] --set conf=<file> or ./envoxy [params] --set mode=test\n\n')
-    exit(-10)
+    _view_classes = []
+
+    # Loading modules from path
+    _view_classes.extend(load_modules(_modules_list))
+
+    # Loading from installed packages
+    _view_classes.extend(load_packages(_package_list))
+
+    _protocols_enabled = []
+
+    for _view_class in _view_classes:
+        _instance = _view_class()
+        _instance.set_flask(app)
+
+        _protocols_enabled.extend(_instance.protocols)
+
+        uwsgi.log('\n')
+        envoxy.log.system('[{}] Loaded "{}".\n'.format(
+            envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
+            str(_view_class)
+        ))
+
+    debug_mode = _conf_content.get('debug', False)
+    envoxy.log.system('[{}] App in debug mode {}!\n'.format(
+        envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
+        debug_mode
+    ))
+    app.debug_mode = debug_mode
+
+    enable_cors = _conf_content.get('enable_cors', False)
+    if enable_cors: CORS(app, supports_credentials=True)
 
 uwsgi.log('\n\n')
