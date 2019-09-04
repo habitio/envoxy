@@ -112,11 +112,11 @@ class RedisDBDispatcher():
 
     @staticmethod
     def get(server_key, key):
-        return RedisConnector.instance().redis.get_client(server_key, key)
+        return RedisConnector.instance().redis.get(server_key, key)
 
     @staticmethod
     def set(server_key, key, value):
-        return RedisConnector.instance().redis.get_client(server_key, key, value)
+        return RedisConnector.instance().redis.set(server_key, key, value)
 
     @staticmethod
     def client(server_key):

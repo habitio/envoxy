@@ -159,6 +159,35 @@ perms = couchdbc.get(
 )
 ```
 
+# REdis connector samples
+
+### Get value
+
+```
+from envoxy import redisc
+
+redisc.get(
+    "server_key",
+    "my_key"
+)
+
+redisc.set(
+    "server_key",
+    "my_key",
+    {
+        "a": 1,
+        "b": 2
+    }
+)
+
+# for more operations get raw client
+client = redisc.client('server_key')
+
+client.hgetall('my_hash')
+
+```
+
+
 # MQTT connector samples
 
 ## Publish

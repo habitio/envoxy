@@ -37,6 +37,13 @@
             "passwd": ""
         }
     },
+    "redis_servers": {
+        "$server_key": {
+            "bind": "127.0.0.1:6379",
+            "db": "${redis_db}",
+            "ttl": "${ttl_seconds}"
+        }
+    },
     "mqtt_servers": {
         "muzzley": {
             "bind": "mqtts://localhost:8000",
