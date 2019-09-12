@@ -1,5 +1,6 @@
 import requests
 from ..utils.logs import Log
+from urllib.parse import quote
 
 class Client:
 
@@ -65,7 +66,7 @@ class Client:
             'selector': _selector
         }
 
-    def base_request(self, db, method, data=None, find=False):
+    def base_request(self, db, method, data=None, find=False, uri=None):
 
         db_data = db.split('.')
 
@@ -74,7 +75,9 @@ class Client:
 
         host = self._instances[server_key]['conf']['bind']
         url = '{}/{}'.format(host, database)
+
         if find: url = f'{url}/_find'
+        if uri: url = f'{url}/{uri}'
 
         session = self._get_conn(server_key)
 
@@ -92,7 +95,6 @@ class Client:
         return None
 
     def find(self, db: str, fields: list, params: dict):
-
         data = self._get_selector(params)
         resp = self.base_request(db, 'POST', data=data, find=True)
 
@@ -103,14 +105,13 @@ class Client:
 
     def get(self, id: str, db: str):
 
-        params = {
-            "id": id
-        }
+        uri = quote(id, safe='')
+        resp = self.base_request(db, 'GET', find=False, uri=uri)
 
-        doc = self.find(db=db, fields=None, params=params)
-        doc = doc[0] if len(doc) else None
+        if resp.status_code in [ requests.codes.ok ]:
+            return resp.json()
 
-        return doc
+        return {}
 
     def post(self, db: str, payload: dict):
 

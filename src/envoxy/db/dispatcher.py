@@ -3,7 +3,7 @@ from ..utils.config import Config
 
 from ..postgresql.client import Client as PgClient
 from ..couchdb.client import Client as CouchDBClient
-
+from ..redis.client import Client as RedisDBClient
 
 class Connector(Singleton):
 
@@ -15,6 +15,10 @@ class Connector(Singleton):
     def couchdb(self):
         return self.couchdb_client
 
+    @property
+    def redis(self):
+        return self.redis_client
+
     def start_postgres_conn(self):
 
         # find postgres configuration and start client
@@ -25,7 +29,6 @@ class Connector(Singleton):
             raise Exception('Error to find PSQL Servers config')
 
         self.pgsql_client = PgClient(self._psql_confs)
-
 
     def start_couchdb_conn(self):
         """
@@ -40,16 +43,34 @@ class Connector(Singleton):
 
         self.couchdb_client = CouchDBClient(self._couchdb_confs)
 
+    def start_redis_conn(self):
+
+        # find redis configuration and start client
+
+        self._redis_confs = Config.get('redis_servers')
+        if not self._redis_confs:
+            raise Exception('Error to find REDIS Servers config')
+
+        self.redis_client = RedisDBClient(self._redis_confs)
+
 
 class CouchConnector(Connector):
 
     def __init__(self):
         self.start_couchdb_conn()
 
+
 class PgConnector(Connector):
 
     def __init__(self):
         self.start_postgres_conn()
+
+
+class RedisConnector(Connector):
+
+    def __init__(self):
+        self.start_redis_conn()
+
 
 class PgDispatcher():
 
@@ -86,3 +107,17 @@ class CouchDBDispatcher():
     def post(db=None, payload=None):
 
         return CouchConnector.instance().couchdb.post(db, payload)
+
+class RedisDBDispatcher():
+
+    @staticmethod
+    def get(server_key, key):
+        return RedisConnector.instance().redis.get(server_key, key)
+
+    @staticmethod
+    def set(server_key, key, value):
+        return RedisConnector.instance().redis.set(server_key, key, value)
+
+    @staticmethod
+    def client(server_key):
+        return RedisConnector.instance().redis.get_client(server_key)

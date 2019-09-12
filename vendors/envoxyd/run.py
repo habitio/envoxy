@@ -5,7 +5,7 @@ import time
 
 import envoxy
 import uwsgi
-from flask import Flask, request
+from flask import Flask, request, g
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -15,6 +15,8 @@ app.url_map.converters['str'] = app.url_map.converters['string']
 
 @app.before_request
 def before_request():
+    g.start = time.time()
+    
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         _request = '{} [{}] {}'.format(
@@ -75,6 +77,10 @@ def after_request(response):
     envoxy.log.verbose('updating last_event_ms {}'.format(_ts))
 
     uwsgi.opt['last_event_ms'] = _ts
+
+    duration = round(_ts - g.start, 2)
+
+    envoxy.log.verbose(f"Request {request.full_path if request.full_path[-1] != '?' else request.path} took {duration} sec")
 
     return response
 
