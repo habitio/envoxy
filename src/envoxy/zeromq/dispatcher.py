@@ -364,7 +364,7 @@ class Dispatcher():
     def validate_response(response):
 
         if response is None:
-            raise ValidationException("Service Unavaliable", code=0, status=503)
+            raise ValidationException("Service Unavailable", code=0, status=503)
 
         Log.trace(response)
 
