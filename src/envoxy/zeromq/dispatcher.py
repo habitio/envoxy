@@ -26,7 +26,6 @@ class ZMQ(Singleton):
     _instances = {}
     _context = zmq.Context(ZEROMQ_CONTEXT)
     _poller = zmq.Poller()
-    # _reconnecting = False
 
     def __init__(self):
 
@@ -39,7 +38,6 @@ class ZMQ(Singleton):
 
             _conf = self._server_confs[_server_key]
             _socket = self._context.socket(zmq.REQ)
-            #_socket.setsockopt(zmq.LINGER, 0)
 
             self._instances[_server_key] = {
                 'server_key': _server_key,
@@ -66,8 +64,7 @@ class ZMQ(Singleton):
 
                 if not instance['socket'].closed:
                     _connected.append(_url)
-                else:
-                    instance['socket'].disconnect(_url)
+                    break
 
             except Exception as e:
                 Log.error(f'>>Exception during CONNECT {e}')
@@ -96,41 +93,40 @@ class ZMQ(Singleton):
             Log.error(f'>>Exception during DISCONNECT {e}')
             return False
 
-    def restore_socket_connection(self, instance, force_new_socket=False):
+    def restore_socket_connection(self, server_key, force_new_socket=False):
 
         _restore_successful = True
 
         try:
 
-            if instance['retries_left'] > 0:
+            if self._instances[server_key]['retries_left'] > 0:
 
                 # Socket is confused. Close and remove it.
-                _result = self.disconnect(instance)
+                _result = self.disconnect(self._instances[server_key])
 
-                instance['retries_left'] -= 1
+                self._instances[server_key]['retries_left'] -= 1
 
-                Log.error(f"ZMQ::send_and_recv : Reconnecting and resending: {instance['url']} retry #{instance['retries_left']}")
+                Log.error(f"ZMQ::restore_socket_connection : Reconnecting and resending: {self._instances[server_key]['url']} retry #{self._instances[server_key]['retries_left']}")
 
                 if force_new_socket:  # Create new connection
 
-                    del instance['socket']
+                    del self._instances[server_key]['socket']
 
                     _socket = self._context.socket(zmq.REQ)
-                    #_socket.setsockopt(zmq.LINGER, 0)
 
-                    instance['socket'] = _socket
+                    self._instances[server_key]['socket'] = _socket
 
-                self.connect(instance)
+                self.connect(self._instances[server_key])
 
-                if dict(self._poller.poll(ZEROMQ_RETRY_TIMEOUT)):
+                if dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT)):
                     _restore_successful = True
 
         except Exception as e:
             Log.error(f'>>Exception during RESTORE {e}')
 
-        if instance['retries_left'] == 0 and not _restore_successful:
-            Log.alert(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {instance['url']}")
-            instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
+        if self._instances[server_key]['retries_left'] == 0 and not _restore_successful:
+            Log.alert(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {self._instances[server_key]['url']}")
+            self._instances[server_key]['retries_left'] = ZEROMQ_REQUEST_RETRIES
 
 
         return _restore_successful == True
@@ -158,34 +154,28 @@ class ZMQ(Singleton):
                         if _socks.get(_instance['socket']) == zmq.POLLIN:
                             
                             _instance['socket'].recv() # discard delimiter
-                            _response = _instance['socket'].recv() # actual message
-                            
-                            try:
-                                _response = json.loads(_response)
-                                _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
+                            _response = _instance['socket'].recv_json() # actual message
+                            _response = self._remove_header(_response, 'X-Cid')
 
-                                _response = self._remove_header(_response, 'X-Cid')
+                            _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
 
-                                return _response
-                            except Exception as e:
-                                _response = None
-                                Log.error(f"ZMQ::send_and_recv : Malformed reply from server: {_instance['url']}")
+                            return _response
 
                         else:
 
-                            if not self.restore_socket_connection(_instance):
+                            if not self.restore_socket_connection(server_key):
                                 break
                         
                 except IOError:
                     
                     Log.error(f"ZMQ::send_and_recv : Could not connect to ZeroMQ machine: {_instance['url']}")
 
-                    if not self.restore_socket_connection(_instance, force_new_socket=True):
+                    if not self.restore_socket_connection(server_key, force_new_socket=True):
                         break
     
         except NoSocketException as e:
             Log.error(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
-            if self.restore_socket_connection(_instance, force_new_socket=True):
+            if self.restore_socket_connection(server_key, force_new_socket=True):
                 return self.send_and_recv(server_key, message)
 
         if _instance['retries_left'] == 0: _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
@@ -374,11 +364,9 @@ class Dispatcher():
     def validate_response(response):
 
         if response is None:
-            raise ValidationException("Service Unavaliable", code=0, status=503)
+            raise ValidationException("Service Unavailable", code=0, status=503)
 
-        Log.trace(response)
-
-        if response.get('status') not in [200, 201] and ('elements' not in response.get('payload') or '_id' not in response.get('payload')):
+        if response.get('status') not in [200, 201, 204] and ('elements' not in response.get('payload') or '_id' not in response.get('payload')):
             msg = response.get('payload', {}).get('text', f"Resource error, code: {response['status']}, {response['resource']}")
             code = response.get('payload', {}).get('code', 0)
             raise ValidationException(msg, code=code, status=str(response.get('status')))
