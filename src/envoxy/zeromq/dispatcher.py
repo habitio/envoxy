@@ -64,7 +64,6 @@ class ZMQ(Singleton):
 
                 if not instance['socket'].closed:
                     _connected.append(_url)
-                    break
 
             except Exception as e:
                 Log.error(f'>>Exception during CONNECT {e}')
