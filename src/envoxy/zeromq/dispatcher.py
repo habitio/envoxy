@@ -366,8 +366,6 @@ class Dispatcher():
         if response is None:
             raise ValidationException("Service Unavailable", code=0, status=503)
 
-        Log.trace(response)
-
         if response.get('status') not in [200, 201, 204] and ('elements' not in response.get('payload') or '_id' not in response.get('payload')):
             msg = response.get('payload', {}).get('text', f"Resource error, code: {response['status']}, {response['resource']}")
             code = response.get('payload', {}).get('code', 0)
