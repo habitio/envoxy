@@ -105,7 +105,7 @@ class ZMQ(Singleton):
 
                 self._instances[server_key]['retries_left'] -= 1
 
-                Log.error(f"ZMQ::restore_socket_connection : Reconnecting and resending: {self._instances[server_key]['url']} retry #{self._instances[server_key]['retries_left']}")
+                Log.warning(f"ZMQ::restore_socket_connection : Reconnecting and resending: {self._instances[server_key]['url']} retry #{self._instances[server_key]['retries_left']}")
 
                 if force_new_socket:  # Create new connection
 
@@ -117,7 +117,7 @@ class ZMQ(Singleton):
 
                 self.connect(self._instances[server_key])
 
-                if dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT)):
+                if dict(self._poller.poll(ZEROMQ_RETRY_TIMEOUT)):
                     _restore_successful = True
 
         except Exception as e:
@@ -148,7 +148,7 @@ class ZMQ(Singleton):
                         _socks = dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT))
 
                         if not _socks:
-                            raise NoSocketException(f'No sockets available for {_instance}')
+                            raise NoSocketException(f'No events received in {ZEROMQ_POLLIN_TIMEOUT/1000} secs on {_instance["url"]}')
 
                         if _socks.get(_instance['socket']) == zmq.POLLIN:
                             
@@ -173,7 +173,7 @@ class ZMQ(Singleton):
                         break
     
         except NoSocketException as e:
-            Log.error(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
+            Log.warning(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
             if self.restore_socket_connection(server_key, force_new_socket=True):
                 return self.send_and_recv(server_key, message)
 
