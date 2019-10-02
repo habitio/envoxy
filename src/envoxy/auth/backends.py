@@ -69,6 +69,14 @@ def get_topic(_topic):
 
 class AuthBackendMixin:
 
+    @property
+    def AuthorizationException(self):
+        AuthBackend = get_auth_module()
+        try:
+            return AuthBackend.exception
+        except AttributeError:
+            return Exception
+
     def authenticate(self, request, *args, **kwargs):
         """
 
@@ -80,3 +88,12 @@ class AuthBackendMixin:
         topic = get_topic(_endpoint)
         AuthBackend = get_auth_module()
         return AuthBackend().authenticate(request, topic=topic, **kwargs)
+
+    def anonymous(self, request, *args, **kwargs):
+        """
+
+        :param request:
+        :return:
+        """
+        AuthBackend = get_auth_module()
+        return AuthBackend().anonymous(request)
