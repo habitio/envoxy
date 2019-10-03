@@ -13,12 +13,14 @@ class Response(FlaskResponse):
     def __init__(self, *args, **kwargs):
 
         response_headers = dict()
+        response_cookies = []
         
         if len(args) > 0:
 
             payload = args[0]['payload'] if 'payload' in args[0] else args[0]  # payload is defined in original body
             if 'status' in args[0]: kwargs['status'] = args[0]['status']  # get response status
             if 'headers' in args[0] : response_headers = args[0]['headers']  # headers are defined in original body
+            if 'cookies' in args[0] : response_cookies = args[0]['cookies']
             
             if isinstance(payload, list):
                 args = list(args)
@@ -39,6 +41,7 @@ class Response(FlaskResponse):
         })
 
         list(map((lambda header: self.headers.add_header(header[0], header[1])), response_headers.items()))
+        list(self.set_cookie(**cookie) for cookie in response_cookies)
 
     @classmethod
     def force_type(cls, rv, environ=None):
