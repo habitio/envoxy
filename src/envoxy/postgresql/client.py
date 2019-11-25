@@ -46,6 +46,8 @@ class Client:
         :return:
         """
 
+        conn = None
+
         try:
 
             if not sql:
@@ -61,12 +63,13 @@ class Client:
             cursor.execute(sql, params)
             data = list(map(dict, cursor.fetchall()))
 
-            if self.__conn is None :  self.release_conn(server_key, conn)
+            if self.__conn is None :  self.release_conn(server_key, conn) # query is not using transaction
 
             return data
 
         except psycopg2.DatabaseError as e:
             Log.error(e)
+            if conn is not None: self.release_conn(server_key, conn)
 
         return None
 
