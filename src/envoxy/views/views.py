@@ -105,10 +105,14 @@ class View(object):
             
             if request.is_json:
                 Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-                return make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
+                _resp =  make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
+                _resp.headers['X-Error'] = _code
+                return _resp
 
             Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status)
+            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers={
+                "X-Error": _code
+            })
 
 
     def cached_response(self, result):
