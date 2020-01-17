@@ -3,7 +3,7 @@ import sys
 import importlib
 
 import requests
-
+import datetime
 from ..utils.config import Config
 from ..utils.logs import Log
 
@@ -95,5 +95,7 @@ class AuthBackendMixin:
         :param request:
         :return:
         """
+        _endpoint = kwargs.get('endpoint', '')
+        topic = get_topic(_endpoint)
         AuthBackend = get_auth_module()
-        return AuthBackend().anonymous(request)
+        return AuthBackend().anonymous(request, topic=topic, **kwargs)
