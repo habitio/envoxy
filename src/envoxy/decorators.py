@@ -106,13 +106,7 @@ class auth_anonymous_allowed(object):
         def wrapped_func(view, request, *args, **kwargs):
             if self.kwargs: kwargs.update(**self.kwargs)
 
-            try:
-                headers = AuthBackendMixin().authenticate(request, *args, **kwargs)
-            except AuthBackendMixin().AuthorizationException as e:
-                Log.trace(e)
-                Log.warning('>> Anonymous user {}'.format(e))
-                headers = AuthBackendMixin().anonymous(request)
-
+            headers = AuthBackendMixin().anonymous(request, *args, **kwargs)
             if headers: kwargs.update(**headers)
 
             return func(view, request, *args, **kwargs)
