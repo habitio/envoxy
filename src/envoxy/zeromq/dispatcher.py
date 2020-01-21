@@ -8,6 +8,8 @@ from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
+from ..utils.singleton import SingletonPerThread
+
 from ..exceptions import ValidationException
 import traceback
 import time
@@ -19,7 +21,7 @@ class NoSocketException(Exception):
 class ZMQException(Exception):
     pass
 
-class ZMQ(Singleton):
+class ZMQ(SingletonPerThread):
 
     CACHE = {}
 
