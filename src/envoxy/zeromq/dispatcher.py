@@ -8,11 +8,14 @@ from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
-from ..utils.singleton import SingletonPerThread
 
 from ..exceptions import ValidationException
 import traceback
 import time
+
+from queue import Queue
+
+from concurrent.futures import ThreadPoolExecutor
 
 class NoSocketException(Exception):
     pass
@@ -21,13 +24,17 @@ class NoSocketException(Exception):
 class ZMQException(Exception):
     pass
 
-class ZMQ(SingletonPerThread):
+class ZMQ(Singleton):
 
     CACHE = {}
 
     _instances = {}
-    _context = zmq.Context(ZEROMQ_CONTEXT)
-    _poller = zmq.Poller()
+
+    _pollers = {
+        ''
+    }
+
+    _async_pool = ThreadPoolExecutor(max_workers=50)
 
     def __init__(self):
 
@@ -39,109 +46,52 @@ class ZMQ(SingletonPerThread):
         for _server_key in self._server_confs.keys():
 
             _conf = self._server_confs[_server_key]
-            _socket = self._context.socket(zmq.REQ)
 
             self._instances[_server_key] = {
                 'server_key': _server_key,
                 'conf': _conf,
                 'auto_discovery': _conf.get('auto_discovery', {}),
-                'socket': _socket,
-                'url': f"tcp://{_conf.get('host')}",
+                'url': f"tcp://{_conf.get('host')}:{_conf.get('port')",
                 'retries_left': ZEROMQ_REQUEST_RETRIES
             }
 
-            self.connect(self._instances[_server_key])
-
-    def connect(self, instance):
-
-        _connected = []
-
-        for _port in self.port_range(instance):
-
-            try:
-
-                _url =  f"{instance['url']}:{_port}"
-                Log.trace(f"Connecting {_url} {instance['socket']} {instance['socket'].closed}")
-                instance['socket'].connect(_url)
-
-                if not instance['socket'].closed:
-                    _connected.append(_url)
-
-            except Exception as e:
-                Log.error(f'>>Exception during CONNECT {e}')
-
-        if len(_connected) > 0:
-            Log.trace(f">>> Successfully connected to ZEROMQ machine: {', '.join(_connected)}")
-            Log.trace(f">>Registering new socket {instance['socket']}")
-            self._poller.register(instance['socket'], zmq.POLLIN)
-
-            return True
+    def worker(self, server_key, message):
         
-    def disconnect(self, instance):
+        while True:
+            task = self._queue.get()
+            response = self._send_and_recv(server_key, message)
+            self._queue.put(response)
+            self._queue.task_done()
 
-        try:
-            
-            Log.trace(f"Disconnecting {instance['socket']}")
-            instance['socket'].close()
-
-            if instance['socket'].closed:
-                Log.trace('>>> Successfully disconnected to ZEROMQ machine: {}'.format(f"{instance['socket']}"))
-                self._poller.unregister(instance['socket'])
-
-                return True
-
-        except Exception as e:
-            Log.error(f'>>Exception during DISCONNECT {e}')
-            return False
-
-    def restore_socket_connection(self, server_key, force_new_socket=False):
-
-        _restore_successful = True
-
-        try:
-
-            if self._instances[server_key]['retries_left'] > 0:
-
-                # Socket is confused. Close and remove it.
-                _result = self.disconnect(self._instances[server_key])
-
-                self._instances[server_key]['retries_left'] -= 1
-
-                Log.warning(f"ZMQ::restore_socket_connection : Reconnecting and resending: {self._instances[server_key]['url']} retry #{self._instances[server_key]['retries_left']}")
-
-                if force_new_socket:  # Create new connection
-
-                    del self._instances[server_key]['socket']
-
-                    _socket = self._context.socket(zmq.REQ)
-
-                    self._instances[server_key]['socket'] = _socket
-
-                self.connect(self._instances[server_key])
-
-                if dict(self._poller.poll(ZEROMQ_RETRY_TIMEOUT)):
-                    _restore_successful = True
-
-        except Exception as e:
-            Log.error(f'>>Exception during RESTORE {e}')
-
-        if self._instances[server_key]['retries_left'] == 0 and not _restore_successful:
-            Log.alert(f"ZMQ::send_and_recv : Server seems to be offline, abandoning: {self._instances[server_key]['url']}")
-            self._instances[server_key]['retries_left'] = ZEROMQ_REQUEST_RETRIES
-
-
-        return _restore_successful == True
+    def send_and_recv_future(self, message):
+        return self.send_and_recv_future('muzzley-platform', message)
+    
+    def send_and_recv_future(self, server_key, message):
+        return self._async_pool.submit(self._send_and_recv, (server_key, message))
+    
+    def send_and_recv(self, message):
+        return self.send_and_recv('muzzley-platform', message)
 
     def send_and_recv(self, server_key, message):
+        
         _response = None
         _instance = self._instances[server_key]
 
         try:
 
             while _instance['retries_left']:
+
+                _context = zmq.Context(ZEROMQ_CONTEXT)
+                _zmq_poller = zmq.Poller()
+
+                _socket = _context.socket(zmq.REQ)
+                _socket.linger = 0
+
+                _socket.connect(f"{instance['url']}")
+
+                self._poller.register(_socket, zmq.POLLIN)
             
-                _instance['socket'].send_string('', zmq.SNDMORE)
-                _instance['socket'].send_string(json.dumps(message))
+                _instance['socket'].send_multiparts([b'', json.dumps(message).encode('utf-8'))
                     
                 try:
                     
@@ -152,34 +102,39 @@ class ZMQ(SingletonPerThread):
                         if not _socks:
                             raise NoSocketException(f'No events received in {ZEROMQ_POLLIN_TIMEOUT/1000} secs on {_instance["url"]}')
 
-                        if _socks.get(_instance['socket']) == zmq.POLLIN:
+                        if _socks.get(_socket) == zmq.POLLIN:
+
+                            _socket = _socks[_socket]
                             
-                            _instance['socket'].recv() # discard delimiter
-                            _response = _instance['socket'].recv_json() # actual message
+                            _recv = _socket.recv_multiparts() 
+                            _recv.pop(0) # discard delimiter
+                            _response = _recv.pop(0) # actual message
+                            
                             _response = self._remove_header(_response, 'X-Cid')
+                            
+                            self._remove_keys(_response, ['protocol', 'performative', 'resource'])
 
                             _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
 
+                            _socket.close()
+                            _context.term()
+
                             return _response
-
-                        else:
-
-                            if not self.restore_socket_connection(server_key):
-                                break
                         
                 except IOError:
                     
                     Log.error(f"ZMQ::send_and_recv : Could not connect to ZeroMQ machine: {_instance['url']}")
 
-                    if not self.restore_socket_connection(server_key, force_new_socket=True):
-                        break
+                    break
     
         except NoSocketException as e:
+           
             Log.warning(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
-            if self.restore_socket_connection(server_key, force_new_socket=True):
-                return self.send_and_recv(server_key, message)
+            
+            return self.send_and_recv(server_key, message)
 
-        if _instance['retries_left'] == 0: _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
+        if _instance['retries_left'] == 0: 
+            _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
 
         return _response
 
@@ -246,6 +201,12 @@ class ZMQ(SingletonPerThread):
 
         return _response
 
+    def _remove_keys(self, _response, keys):
+
+        for key in keys:
+            if 'key' in _response:
+                _response.pop(key, None)
+
 class Dispatcher():
 
     @staticmethod
@@ -266,7 +227,7 @@ class Dispatcher():
             return _headers
 
     @staticmethod
-    def get(server_key, url, params=None, payload=None, headers=None):
+    def get(server_key, url, params=None, payload=None, headers=None, future=False):
 
         _message = {
             'resource': url,
@@ -279,7 +240,10 @@ class Dispatcher():
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
 
-        return ZMQ.instance().send_and_recv(server_key, _message)
+        if future:
+            return ZMQ.instance().send_and_recv(server_key, _message)
+        else:
+            return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
     def post(server_key, url, params=None, payload=None, headers=None):
@@ -295,7 +259,10 @@ class Dispatcher():
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
         
-        return ZMQ.instance().send_and_recv(server_key, _message)
+        if future:
+            return ZMQ.instance().send_and_recv(server_key, _message)
+        else:
+            return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
     def put(server_key, url, params=None, payload=None, headers=None):
@@ -311,7 +278,10 @@ class Dispatcher():
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
         
-        return ZMQ.instance().send_and_recv(server_key, _message)
+        if future:
+            return ZMQ.instance().send_and_recv(server_key, _message)
+        else:
+            return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
     def patch(server_key, url, params=None, payload=None, headers=None):
@@ -327,7 +297,10 @@ class Dispatcher():
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
         
-        return ZMQ.instance().send_and_recv(server_key, _message)
+        if future:
+            return ZMQ.instance().send_and_recv(server_key, _message)
+        else:
+            return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
     def delete(server_key, url, params=None, payload=None, headers=None):
@@ -343,7 +316,10 @@ class Dispatcher():
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
         
-        return ZMQ.instance().send_and_recv(server_key, _message)
+        if future:
+            return ZMQ.instance().send_and_recv(server_key, _message)
+        else:
+            return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
     def head(server_key, url, params=None, payload=None, headers=None):
@@ -359,7 +335,10 @@ class Dispatcher():
         if headers and isinstance(headers, dict):
             _message['headers'].update(headers)
         
-        return ZMQ.instance().send_and_recv(server_key, _message)
+        if future:
+            return ZMQ.instance().send_and_recv(server_key, _message)
+        else:
+            return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
     def validate_response(response):
