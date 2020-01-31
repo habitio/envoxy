@@ -4,7 +4,7 @@ import uuid
 
 import zmq
 
-from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT, ZEROMQ_REQUEST_RETRIES, ZEROMQ_CONTEXT, ZEROMQ_RETRY_TIMEOUT, ZEROMQ_MAX_WORKERS
+from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT, ZEROMQ_POLLER_RETRIES, ZEROMQ_CONTEXT, ZEROMQ_RETRY_TIMEOUT, ZEROMQ_MAX_WORKERS
 from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
@@ -31,7 +31,7 @@ class ZMQ(Singleton):
 
     _available_workers = []
 
-    _async_pool = ThreadPoolExecutor(max_workers=ZMQ_MAX_WORKERS, thread_name_prefix='zmqc-worker')
+    _async_pool = ThreadPoolExecutor(max_workers=ZEROMQ_MAX_WORKERS, thread_name_prefix='zmqc-worker')
 
     def __init__(self):
 
@@ -50,7 +50,7 @@ class ZMQ(Singleton):
                 'url': f"tcp://{_conf.get('host')}:{_conf.get('port')}"
             }
 
-        for i in range(ZMQ_MAX_WORKERS):
+        for i in range(ZEROMQ_MAX_WORKERS):
             self.add_worker(f'zmqc-poller-{i}')
 
     def add_worker(self, worker_id):
@@ -65,13 +65,29 @@ class ZMQ(Singleton):
     def free_worker(self, worker_id, socket=None):
         
         if socket:
-            self._workers[worker_id]['poller'].unregister(_socket)
-            socket.close()
+            
+            try:
+                self._workers[worker_id]['poller'].unregister(socket)
+            except KeyError as e:
+                pass
+            finally:
+                socket.close()
         
         self._available_workers.append(worker_id)
+
+    def remove_header(self, _response, header):
+
+        if 'headers' in _response and header in _response['headers']:
+            _response['headers'].pop(header, None)
+
+    def remove_keys(self, _response, keys):
+
+        for key in keys:
+            if key in _response:
+                _response.pop(key, None)
     
     def send_and_recv_future(self, server_key, message):
-        return self._async_pool.submit(self._send_and_recv, (server_key, message))
+        return self._async_pool.submit(self.send_and_recv, server_key, message)
 
     def send_and_recv(self, server_key, message):
         
@@ -87,37 +103,40 @@ class ZMQ(Singleton):
                 _worker = self._workers[_worker_id]
 
                 _socket = _worker['context'].socket(zmq.REQ)
-                _socket.linger = 0
+                #_socket.linger = 0
 
-                _socket.connect(f"{instance['url']}")
+                _socket.connect(f"{_instance['url']}")
 
                 _worker['poller'].register(_socket, zmq.POLLIN)
             
-                _socket.send_multiparts([b'', json.dumps(message).encode('utf-8')])
+                _socket.send_multipart([b'', json.dumps(message).encode('utf-8')])
                     
                 try:
+
+                    _poller_attempt = 0
                     
                     while True:
                         
                         _socks = dict(_worker['poller'].poll(ZEROMQ_POLLIN_TIMEOUT))
 
                         if not _socks:
-                            
-                            self.free_worker(_worker_id, socket=_socket)
 
-                            raise NoSocketException(f'No events received in {ZEROMQ_POLLIN_TIMEOUT/1000} secs on {_instance["url"]}')
+                            _poller_attempt += 1
+
+                            if _poller_attempt <= ZEROMQ_POLLER_RETRIES:
+                                continue
+                            else:
+                                raise NoSocketException(f'No events received in {(ZEROMQ_POLLIN_TIMEOUT/1000)*ZEROMQ_POLLER_RETRIES} secs on {_instance["url"]}')
 
                         if _socks.get(_socket) == zmq.POLLIN:
-
-                            _socket = _socks[_socket]
                             
-                            _recv = _socket.recv_multiparts() 
+                            _recv = _socket.recv_multipart() 
                             _recv.pop(0) # discard delimiter
-                            _response = _recv.pop(0) # actual message
+                            _response = json.loads(_recv.pop(0).decode('utf-8')) # actual message
                             
-                            self._remove_header(_response, 'X-Cid')
+                            self.remove_header(_response, 'X-Cid')
                             
-                            self._remove_keys(_response, ['protocol', 'performative'])
+                            self.remove_keys(_response, ['protocol', 'performative'])
 
                             self.free_worker(_worker_id, socket=_socket)
 
