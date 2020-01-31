@@ -4,6 +4,9 @@ import json
 import time
 
 import envoxy
+
+from envoxy import zmqc, Response
+
 import uwsgi
 from flask import Flask, request, g
 from flask_cors import CORS
@@ -182,6 +185,35 @@ else:
             envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
             str(_view_class)
         ))
+
+    @app.route('/v3/<path:path>')
+    def catch_all_v3(path):
+        
+        _method = request.method.lowercase()
+
+        fn = getattr(zmqc, _method), None)
+
+        if fn:
+
+            try:
+
+                return Response(
+                    fn.__call__(
+                        zmqc.instance()._instances.keys()[0], 
+                        f'/v3/{path}', 
+                        params=request.args if request.args else None,
+                        headers=request.headers.items() if request.headers else None
+                        payload=request.get_json() if request.is_json else None
+                    )
+                )
+            
+            except IndexError as e:
+
+                envoxy.log.error(f'There is no default ZMQ Server Backend enabled for V3 endpoints')    
+        
+        else:
+
+            envoxy.log.error(f'Method "{request.method}" not found for "/v3/{path}"')
 
     debug_mode = _conf_content.get('debug', False)
     envoxy.log.system('[{}] App in debug mode {}!\n'.format(

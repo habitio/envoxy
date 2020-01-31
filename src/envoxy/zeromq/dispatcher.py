@@ -103,7 +103,7 @@ class ZMQ(Singleton):
                 _worker = self._workers[_worker_id]
 
                 _socket = _worker['context'].socket(zmq.REQ)
-                #_socket.linger = 0
+                _socket.linger = 0
 
                 _socket.connect(f"{_instance['url']}")
 
@@ -174,6 +174,10 @@ class ZMQ(Singleton):
 
 
 class Dispatcher():
+
+    @staticmethod
+    def instance():
+        return ZMQ.instance()
 
     @staticmethod
     def generate_headers(client_id=None):
