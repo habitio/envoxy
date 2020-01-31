@@ -1,9 +1,10 @@
 import json
+import time
 import uuid
 
 import zmq
 
-from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT, ZEROMQ_REQUEST_RETRIES, ZEROMQ_CONTEXT, ZEROMQ_RETRY_TIMEOUT
+from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT, ZEROMQ_REQUEST_RETRIES, ZEROMQ_CONTEXT, ZEROMQ_RETRY_TIMEOUT, ZEROMQ_MAX_WORKERS
 from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
@@ -12,8 +13,6 @@ from ..utils.singleton import Singleton
 from ..exceptions import ValidationException
 import traceback
 import time
-
-from queue import Queue
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -26,15 +25,13 @@ class ZMQException(Exception):
 
 class ZMQ(Singleton):
 
-    CACHE = {}
-
     _instances = {}
 
-    _pollers = {
-        ''
-    }
+    _workers = {}
 
-    _async_pool = ThreadPoolExecutor(max_workers=50)
+    _available_workers = []
+
+    _async_pool = ThreadPoolExecutor(max_workers=ZMQ_MAX_WORKERS, thread_name_prefix='zmqc-worker')
 
     def __init__(self):
 
@@ -50,18 +47,28 @@ class ZMQ(Singleton):
             self._instances[_server_key] = {
                 'server_key': _server_key,
                 'conf': _conf,
-                'auto_discovery': _conf.get('auto_discovery', {}),
-                'url': f"tcp://{_conf.get('host')}:{_conf.get('port')",
-                'retries_left': ZEROMQ_REQUEST_RETRIES
+                'url': f"tcp://{_conf.get('host')}:{_conf.get('port')}"
             }
 
-    def worker(self, server_key, message):
+        for i in range(ZMQ_MAX_WORKERS):
+            self.add_worker(f'zmqc-poller-{i}')
+
+    def add_worker(self, worker_id):
         
-        while True:
-            task = self._queue.get()
-            response = self._send_and_recv(server_key, message)
-            self._queue.put(response)
-            self._queue.task_done()
+        self._workers[worker_id] = {
+            'context': zmq.Context(ZEROMQ_CONTEXT),
+            'poller': zmq.Poller()
+        }
+
+        self.free_worker(worker_id)
+
+    def free_worker(self, worker_id, socket=None):
+        
+        if socket:
+            self._workers[worker_id]['poller'].unregister(_socket)
+            socket.close()
+        
+        self._available_workers.append(worker_id)
 
     def send_and_recv_future(self, message):
         return self.send_and_recv_future('muzzley-platform', message)
@@ -79,17 +86,18 @@ class ZMQ(Singleton):
 
         try:
 
-            while _instance['retries_left']:
+            while self._available_workers:
 
-                _context = zmq.Context(ZEROMQ_CONTEXT)
-                _zmq_poller = zmq.Poller()
+                _worker_id = self._available_workers.pop()
 
-                _socket = _context.socket(zmq.REQ)
+                _worker = self._workers[_worker_id]
+
+                _socket = _worker['context'].socket(zmq.REQ)
                 _socket.linger = 0
 
                 _socket.connect(f"{instance['url']}")
 
-                self._poller.register(_socket, zmq.POLLIN)
+                _worker['poller'].register(_socket, zmq.POLLIN)
             
                 _instance['socket'].send_multiparts([b'', json.dumps(message).encode('utf-8'))
                     
@@ -97,9 +105,12 @@ class ZMQ(Singleton):
                     
                     while True:
                         
-                        _socks = dict(self._poller.poll(ZEROMQ_POLLIN_TIMEOUT))
+                        _socks = dict(_worker['poller'].poll(ZEROMQ_POLLIN_TIMEOUT))
 
                         if not _socks:
+                            
+                            self.free_worker(_worker_id, socket=_socket)
+
                             raise NoSocketException(f'No events received in {ZEROMQ_POLLIN_TIMEOUT/1000} secs on {_instance["url"]}')
 
                         if _socks.get(_socket) == zmq.POLLIN:
@@ -110,14 +121,11 @@ class ZMQ(Singleton):
                             _recv.pop(0) # discard delimiter
                             _response = _recv.pop(0) # actual message
                             
-                            _response = self._remove_header(_response, 'X-Cid')
+                            self._remove_header(_response, 'X-Cid')
                             
-                            self._remove_keys(_response, ['protocol', 'performative', 'resource'])
+                            self._remove_keys(_response, ['protocol', 'performative'])
 
-                            _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
-
-                            _socket.close()
-                            _context.term()
+                            self.free_worker(_worker_id, socket=_socket)
 
                             return _response
                         
@@ -125,87 +133,32 @@ class ZMQ(Singleton):
                     
                     Log.error(f"ZMQ::send_and_recv : Could not connect to ZeroMQ machine: {_instance['url']}")
 
-                    break
+                    self.free_worker(_worker_id, socket=_socket)
+
+                    time.sleep(ZEROMQ_RETRY_TIMEOUT)
     
         except NoSocketException as e:
            
             Log.warning(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
+
+            self.free_worker(_worker_id, socket=_socket)
+
+            time.sleep(ZEROMQ_RETRY_TIMEOUT)
             
             return self.send_and_recv(server_key, message)
 
-        if _instance['retries_left'] == 0: 
-            _instance['retries_left'] = ZEROMQ_REQUEST_RETRIES
+        except Exception as e:
+           
+            Log.warning(f"ZMQ::send_and_recv : Unexpected error. It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
+
+            self.free_worker(_worker_id, socket=_socket)
+
+            time.sleep(ZEROMQ_RETRY_TIMEOUT)
+            
+            return self.send_and_recv(server_key, message)
 
         return _response
 
-    ########## helpers ##########
-
-    def port_range(self, instance):
-
-        _port_range = []
-
-        if instance['auto_discovery']:
-            _port_range = self.find_ports(instance['server_key'], instance['auto_discovery'].get('file'))
-
-        if not _port_range:
-            _port_range = self.get_port_range(instance['conf'])
-
-        return _port_range
-
-    def find_ports(self, server_key, file_path):
-
-        _port_range = []
-
-        try:
-
-            with open(file_path) as ports_file:
-                lines = ports_file.readlines()
-                services = list(filter(lambda x: x.find(server_key) != -1, lines))
-
-                Log.notice(f"{len(services)} entries found for {server_key}")
-
-                for service in services:
-                    try:
-                        port = service.split()[1].split(':')[1]  # PID/SERVICE_NAME IP_ADDR:UDP_PORT
-                        _port_range.append(int(port.strip()))
-                    except ValueError:
-                        continue
-        except OSError:
-            Log.warning('Error finding ports')
-
-        return _port_range
-
-    def get_port_range(self, _conf):
-        _port_range = []
-
-        if ',' in _conf.get('port'):
-            _port_parts = _conf.get('port').split(',')
-        else:
-            _port_parts = [_conf.get('port')]
-
-        for _port_part in _port_parts:
-
-            if ':' in _port_part:
-                _port_range = _port_part.split(':')[:2]
-
-                _port_range = range(int(_port_range[0]), int(_port_range[1]))
-            else:
-                _port_range = [_port_part]
-
-        return _port_range
-
-    def _remove_header(self, _response, header):
-
-        if 'headers' in _response and header in _response['headers']:
-            response = _response['headers'].pop(header)
-
-        return _response
-
-    def _remove_keys(self, _response, keys):
-
-        for key in keys:
-            if 'key' in _response:
-                _response.pop(key, None)
 
 class Dispatcher():
 
@@ -237,16 +190,16 @@ class Dispatcher():
             'performative': Performative.GET
         }
 
-        if headers and isinstance(headers, dict):
-            _message['headers'].update(headers)
+        if headers:
+            _message['headers'].update(dict(headers))
 
-        if future:
+        if not future:
             return ZMQ.instance().send_and_recv(server_key, _message)
         else:
             return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
-    def post(server_key, url, params=None, payload=None, headers=None):
+    def post(server_key, url, params=None, payload=None, headers=None, future=False):
             
         _message = {
             'resource': url,
@@ -256,16 +209,16 @@ class Dispatcher():
             'performative': Performative.POST
         }
 
-        if headers and isinstance(headers, dict):
-            _message['headers'].update(headers)
+        if headers:
+            _message['headers'].update(dict(headers))
         
-        if future:
+        if not future:
             return ZMQ.instance().send_and_recv(server_key, _message)
         else:
             return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
-    def put(server_key, url, params=None, payload=None, headers=None):
+    def put(server_key, url, params=None, payload=None, headers=None, future=False):
             
         _message = {
             'resource': url,
@@ -275,16 +228,16 @@ class Dispatcher():
             'performative': Performative.PUT
         }
 
-        if headers and isinstance(headers, dict):
-            _message['headers'].update(headers)
+        if headers:
+            _message['headers'].update(dict(headers))
         
-        if future:
+        if not future:
             return ZMQ.instance().send_and_recv(server_key, _message)
         else:
             return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
-    def patch(server_key, url, params=None, payload=None, headers=None):
+    def patch(server_key, url, params=None, payload=None, headers=None, future=False):
             
         _message = {
             'resource': url,
@@ -294,16 +247,16 @@ class Dispatcher():
             'performative': Performative.PATCH
         }
         
-        if headers and isinstance(headers, dict):
-            _message['headers'].update(headers)
+        if headers:
+            _message['headers'].update(dict(headers))
         
-        if future:
+        if not future:
             return ZMQ.instance().send_and_recv(server_key, _message)
         else:
             return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
-    def delete(server_key, url, params=None, payload=None, headers=None):
+    def delete(server_key, url, params=None, payload=None, headers=None, future=False):
             
         _message = {
             'resource': url,
@@ -313,16 +266,16 @@ class Dispatcher():
             'performative': Performative.DELETE
         }
 
-        if headers and isinstance(headers, dict):
-            _message['headers'].update(headers)
+        if headers:
+            _message['headers'].update(dict(headers))
         
-        if future:
+        if not future:
             return ZMQ.instance().send_and_recv(server_key, _message)
         else:
             return ZMQ.instance().send_and_recv_future(server_key, _message)
 
     @staticmethod
-    def head(server_key, url, params=None, payload=None, headers=None):
+    def head(server_key, url, params=None, payload=None, headers=None, future=False):
             
         _message = {
             'resource': url,
@@ -332,10 +285,10 @@ class Dispatcher():
             'performative': Performative.HEAD
         }
 
-        if headers and isinstance(headers, dict):
-            _message['headers'].update(headers)
+        if headers:
+            _message['headers'].update(dict(headers))
         
-        if future:
+        if not future:
             return ZMQ.instance().send_and_recv(server_key, _message)
         else:
             return ZMQ.instance().send_and_recv_future(server_key, _message)
