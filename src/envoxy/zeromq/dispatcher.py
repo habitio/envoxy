@@ -99,7 +99,7 @@ class ZMQ(Singleton):
 
                 _worker['poller'].register(_socket, zmq.POLLIN)
             
-                _instance['socket'].send_multiparts([b'', json.dumps(message).encode('utf-8'))
+                _socket.send_multiparts([b'', json.dumps(message).encode('utf-8'))
                     
                 try:
                     
