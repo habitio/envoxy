@@ -69,15 +69,9 @@ class ZMQ(Singleton):
             socket.close()
         
         self._available_workers.append(worker_id)
-
-    def send_and_recv_future(self, message):
-        return self.send_and_recv_future('muzzley-platform', message)
     
     def send_and_recv_future(self, server_key, message):
         return self._async_pool.submit(self._send_and_recv, (server_key, message))
-    
-    def send_and_recv(self, message):
-        return self.send_and_recv('muzzley-platform', message)
 
     def send_and_recv(self, server_key, message):
         
@@ -178,7 +172,7 @@ class Dispatcher():
                 _headers['X-Cid'] = str(uuid.uuid4())
                     
             return _headers
-
+    
     @staticmethod
     def get(server_key, url, params=None, payload=None, headers=None, future=False):
 
