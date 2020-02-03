@@ -237,7 +237,12 @@ class Dispatcher():
                 _server_key = _message.pop('server_key')
                 
                 _futures.append(
-                    _loop.run_in_executor(ZMQ.instance().send_and_recv, _server_key, _message)
+                    _loop.run_in_executor(
+                        ZMQ.instance()._executor, 
+                        ZMQ.instance().send_and_recv, 
+                        _server_key, 
+                        _message
+                    )
                 )
 
             if _futures:
