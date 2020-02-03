@@ -4,6 +4,7 @@ import uuid
 
 import zmq
 
+from ..asserts import *
 from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT, ZEROMQ_POLLER_RETRIES, ZEROMQ_CONTEXT, ZEROMQ_RETRY_TIMEOUT, ZEROMQ_MAX_WORKERS
 from ..utils.config import Config
 from ..utils.datetime import Now
@@ -13,6 +14,8 @@ from ..utils.singleton import Singleton
 from ..exceptions import ValidationException
 import traceback
 import time
+
+import asyncio
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -31,7 +34,7 @@ class ZMQ(Singleton):
 
     _available_workers = []
 
-    _async_pool = ThreadPoolExecutor(max_workers=ZEROMQ_MAX_WORKERS, thread_name_prefix='zmqc-worker')
+    _executor = None
 
     def __init__(self):
 
@@ -52,6 +55,8 @@ class ZMQ(Singleton):
 
         for i in range(ZEROMQ_MAX_WORKERS):
             self.add_worker(f'zmqc-poller-{i}')
+
+        self._executor = ThreadPoolExecutor(max_workers=ZEROMQ_MAX_WORKERS, thread_name_prefix='zmqc-worker')
 
     def add_worker(self, worker_id):
         
@@ -87,7 +92,7 @@ class ZMQ(Singleton):
                 _response.pop(key, None)
     
     def send_and_recv_future(self, server_key, message):
-        return self._async_pool.submit(self.send_and_recv, server_key, message)
+        return self._executor.submit(self.send_and_recv, server_key, message)
 
     def send_and_recv(self, server_key, message):
         
@@ -182,20 +187,67 @@ class Dispatcher():
     @staticmethod
     def generate_headers(client_id=None):
         
-            _headers = {
-                'Accept': 'application/json',
-                'Accept-Charset': 'utf-8',
-                'Date': Now.api_format(),
-                'User-Agent': SERVER_NAME
-            }
-            
-            if client_id:
-                _headers['X-Cid'] = client_id
-            else:
-                _headers['X-Cid'] = str(uuid.uuid4())
-                    
-            return _headers
+        _headers = {
+            'Accept': 'application/json',
+            'Accept-Charset': 'utf-8',
+            'Date': Now.api_format(),
+            'User-Agent': SERVER_NAME
+        }
+        
+        if client_id:
+            _headers['X-Cid'] = client_id
+        else:
+            _headers['X-Cid'] = str(uuid.uuid4())
+                
+        return _headers
     
+    @staticmethod
+    def bulk_requests(request_list):
+
+        _loop = asyncio.get_event_loop()
+
+        _messages = []
+        
+        for _request in request_list:
+
+            assertz_string(_request, 'server_key')
+            assertz_integer(_request, 'performative')
+            assertz_uri(_request, 'url')
+
+            _message = {
+                'server_key': _request['server_key'],
+                'resource': _request['url'],
+                'headers': Dispatcher.generate_headers(),
+                'params': _request.get('params'),
+                'payload': _request.get('payload'),
+                'performative': _request['performative']
+            }
+
+            if _request.get('headers'):
+                _message['headers'].update(dict(_request['headers']))
+
+            _messages.append(_messages)
+        
+        if _messages:
+            
+            _futures = []
+
+            for _message in _messages:
+
+                _server_key = _message.pop('server_key')
+                
+                _futures.append(
+                    _loop.run_in_executor(ZMQ.instance().send_and_recv, _server_key, _message)
+                )
+
+            if _futures:
+
+                _future = asyncio.gather(*_futures)
+
+                return _loop.run_until_complete(_future)
+        
+        return []
+        
     @staticmethod
     def get(server_key, url, params=None, payload=None, headers=None, future=False):
 
