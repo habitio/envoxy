@@ -80,16 +80,16 @@ class ZMQ(Singleton):
         
         self._available_workers.append(worker_id)
 
-    def remove_header(self, _response, header):
+    def remove_header(self, response, header):
 
-        if 'headers' in _response and header in _response['headers']:
-            _response['headers'].pop(header, None)
+        if 'headers' in response and header in response['headers']:
+            response['headers'].pop(header, None)
 
-    def remove_keys(self, _response, keys):
+    def remove_keys(self, response, keys):
 
         for key in keys:
-            if key in _response:
-                _response.pop(key, None)
+            if key in response:
+                response.pop(key, None)
     
     def send_and_recv_future(self, server_key, message):
         return self._executor.submit(self.send_and_recv, server_key, message)
