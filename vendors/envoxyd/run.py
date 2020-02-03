@@ -186,34 +186,50 @@ else:
             str(_view_class)
         ))
 
-    @app.route('/v3/<path:path>')
-    def catch_all_v3(path):
-        
-        _method = request.method.lowercase()
+    
+    _default_zmq_backend = _conf_content.get('default_zmq_backend')
 
-        fn = getattr(zmqc, _method), None)
+    if _default_zmq_backend and _default_zmq_backend.get('enabled'):
 
-        if fn:
+        _path_prefix = _default_zmq_backend.get('path_prefix', '/')
 
-            try:
-
-                return Response(
-                    fn.__call__(
-                        zmqc.instance()._instances.keys()[0], 
-                        f'/v3/{path}', 
-                        params=request.args if request.args else None,
-                        headers=request.headers.items() if request.headers else None
-                        payload=request.get_json() if request.is_json else None
-                    )
-                )
+        try:
             
-            except IndexError as e:
+            _server_key = _default_zmq_backend.get('server_key', next(iter(zmqc.instance()._instances.keys())))
+            
+            @app.route(f'{_path_prefix}<path:path>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'])
+            def default_zmq_backend(path):
+                
+                _method = request.method.lower()
 
-                envoxy.log.error(f'There is no default ZMQ Server Backend enabled for V3 endpoints')    
-        
-        else:
+                _fn = getattr(zmqc, _method, None)
 
-            envoxy.log.error(f'Method "{request.method}" not found for "/v3/{path}"')
+                if _fn:
+
+                    return Response(
+                        _fn.__call__(
+                            _server_key, 
+                            f'{_path_prefix}{path}', 
+                            params=request.args if request.args else None,
+                            headers=request.headers.items() if request.headers else None,
+                            payload=request.get_json() if request.is_json else None
+                        )
+                    )
+                                
+                else:
+
+                    envoxy.log.error(f'Method "{request.method}" not found in "{_path_prefix}{path}" URI handler')
+
+            envoxy.log.system('[{}] Default ZMQ Backend enabled pointing to the: "{}"\n    - Listening all endpoints on: {}*\n'.format(
+                envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
+                _server_key,
+                _path_prefix
+            ))
+
+        except StopIteration as e:
+
+            envoxy.log.error(f'There is no default ZMQ Server Backend enabled for V3 endpoints')
+
 
     debug_mode = _conf_content.get('debug', False)
     envoxy.log.system('[{}] App in debug mode {}!\n'.format(
