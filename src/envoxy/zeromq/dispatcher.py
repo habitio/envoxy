@@ -206,7 +206,7 @@ class Dispatcher():
 
         _loop = asyncio.get_event_loop()
 
-        _messages = []
+        _requests = []
         
         for _request in request_list:
 
@@ -215,41 +215,29 @@ class Dispatcher():
             assertz_uri(_request, 'url')
 
             _message = {
-                'server_key': _request['server_key'],
+                'performative': _request['performative'],
                 'resource': _request['url'],
                 'headers': Dispatcher.generate_headers(),
                 'params': _request.get('params'),
-                'payload': _request.get('payload'),
-                'performative': _request['performative']
+                'payload': _request.get('payload')
             }
 
-            if _request.get('headers'):
+            if 'headers' in _request and _request.get('headers'):
                 _message['headers'].update(dict(_request['headers']))
 
-            _messages.append(_messages)
+            _requests.append((_request['server_key'], _message))
         
-        if _messages:
-            
-            _futures = []
+        if _requests:
 
-            for _message in _messages:
-
-                _server_key = _message.pop('server_key')
+            _executor = ZMQ.instance()._executor
+            _func = ZMQ.instance().send_and_recv
                 
-                _futures.append(
-                    _loop.run_in_executor(
-                        ZMQ.instance()._executor, 
-                        ZMQ.instance().send_and_recv, 
-                        _server_key, 
-                        _message
-                    )
-                )
+            _futures = [
+                _loop.run_in_executor(_executor, _func, _server_key, _message) 
+                for _server_key, _message in _requests
+            ]
 
-            if _futures:
-
-                _future = asyncio.gather(*_futures)
-
-                return _loop.run_until_complete(_future)
+            return _loop.run_until_complete(asyncio.gather(*_futures)) if _futures else []
         
         return []
         
