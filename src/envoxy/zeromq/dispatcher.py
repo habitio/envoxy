@@ -210,8 +210,13 @@ class Dispatcher():
         
         for _request in request_list:
 
+            assertz_mandatory(_request, 'server_key')
             assertz_string(_request, 'server_key')
+            
+            assertz_mandatory(_request, 'performative')
             assertz_integer(_request, 'performative')
+            
+            assertz_mandatory(_request, 'url')
             assertz_uri(_request, 'url')
 
             _message = {
