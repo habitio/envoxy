@@ -60,7 +60,7 @@ def assertz_mandatory(_obj, _element=None, _error_code=1200, _status_code=DEFAUL
     if isinstance(_element, str) and not _element:
         return assertz_call(_element, "Key must not be emtpy", 1201, _status_code, reply=reply)
     elif _obj and _element is not None:
-        return assertz_call(_element in _obj and _element is not None and _obj[_element], f"Mandatory: {_element}", _error_code,
+        return assertz_call(_element in _obj and _element is not None and _obj[_element] is not None, f"Mandatory: {_element}", _error_code,
                 _status_code, reply=reply)
     else:
         return assertz_call(_obj, f"Mandatory: {_obj}", _error_code, _status_code, reply=reply)
