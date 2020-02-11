@@ -347,25 +347,25 @@ def test_assertz_hash_nok(test_payload):
 
 ##### assertz_uri #####
 
-def test_assertz_uri_ok(test_payload):
+def test_assertz_url_ok(test_payload):
 
-    assert assertz_uri(test_payload, "website") == None
-    assert assertz_uri(test_payload["sample_uri"]) == None
-    assert assertz_uri(None) == None
+    assert assertz_url(test_payload, "website") == None
+    assert assertz_url(test_payload["sample_uri"]) == None
+    assert assertz_url(None) == None
 
-def test_assertz_uri_nok(test_payload):
-
-    with pytest.raises(ValidationException) as e:
-        assertz_uri(test_payload["user"], "icon")
-    assert str(e.value) == "Invalid uri"
+def test_assertz_url_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
-        assertz_uri(test_payload["user"]["alias"])
-    assert str(e.value) == "Invalid uri"
+        assertz_url(test_payload["user"], "icon")
+    assert str(e.value) == "Invalid url"
 
     with pytest.raises(ValidationException) as e:
-        assertz_uri(test_payload["application_ids"])
-    assert str(e.value) == "Invalid uri"
+        assertz_url(test_payload["user"]["alias"])
+    assert str(e.value) == "Invalid url"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_url(test_payload["application_ids"])
+    assert str(e.value) == "Invalid url"
 
 ##### assertz_email #####
 

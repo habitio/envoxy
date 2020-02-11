@@ -53,10 +53,12 @@ TOKEN_LENGHT = 128
 TOKEN_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789"
 TOKEN_REGEX: str = r"[a-z0-9]{128}"
 
-URI_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
+URL_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
             "([^?#]*)" \
             "(?:\\?([^#]*))?" \
             "(?:#(.*))?"
+
+URI_REGEX: str = r"([^?#]*)(?:\\?([^#]*))?(?:#(.*))?"
 
 #EMAIL_REGEX: str = r"([a-zA-Z0-9])([a-zA-Z0-9+._-]*)@([a-zA-Z0-9])([a-zA-Z0-9+._-]*)"
 EMAIL_REGEX: str = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"

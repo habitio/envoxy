@@ -1,11 +1,12 @@
 from requests import codes as status_codes
+
 from .exceptions import ValidationException
 import json
 import datetime
 from .utils.datetime import Now
 from uuid import UUID
 import re
-from .constants import HASH_REGEX, URI_REGEX, EMAIL_REGEX, PHONE_REGEX, TOKEN_REGEX
+from .constants import HASH_REGEX, URI_REGEX, EMAIL_REGEX, PHONE_REGEX, TOKEN_REGEX, URL_REGEX
 from inspect import getframeinfo, stack
 
 DEFAULT_STATUS_CODE = status_codes.precondition_failed
@@ -263,6 +264,8 @@ def assertz_token(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _stat
 def assertz_uri(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
     return assertz_regex(URI_REGEX, "Invalid uri", _element, key, _error_code, _status_code, reply=reply)
 
+def assertz_url(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
+    return assertz_regex(URL_REGEX, "Invalid url", _element, key, _error_code, _status_code, reply=reply)
 
 def assertz_email(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
     return assertz_regex(EMAIL_REGEX, "Invalid email", _element, key, _error_code, _status_code, reply=reply)
