@@ -1,11 +1,12 @@
 from requests import codes as status_codes
+
 from .exceptions import ValidationException
 import json
 import datetime
 from .utils.datetime import Now
 from uuid import UUID
 import re
-from .constants import HASH_REGEX, URI_REGEX, EMAIL_REGEX, PHONE_REGEX, TOKEN_REGEX
+from .constants import HASH_REGEX, URI_REGEX, EMAIL_REGEX, PHONE_REGEX, TOKEN_REGEX, URL_REGEX
 from inspect import getframeinfo, stack
 
 DEFAULT_STATUS_CODE = status_codes.precondition_failed
@@ -60,7 +61,7 @@ def assertz_mandatory(_obj, _element=None, _error_code=1200, _status_code=DEFAUL
     if isinstance(_element, str) and not _element:
         return assertz_call(_element, "Key must not be emtpy", 1201, _status_code, reply=reply)
     elif _obj and _element is not None:
-        return assertz_call(_element in _obj and _element is not None and _obj[_element], f"Mandatory: {_element}", _error_code,
+        return assertz_call(_element in _obj and _element is not None and _obj[_element] is not None, f"Mandatory: {_element}", _error_code,
                 _status_code, reply=reply)
     else:
         return assertz_call(_obj, f"Mandatory: {_obj}", _error_code, _status_code, reply=reply)
@@ -263,6 +264,8 @@ def assertz_token(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _stat
 def assertz_uri(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
     return assertz_regex(URI_REGEX, "Invalid uri", _element, key, _error_code, _status_code, reply=reply)
 
+def assertz_url(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
+    return assertz_regex(URL_REGEX, "Invalid url", _element, key, _error_code, _status_code, reply=reply)
 
 def assertz_email(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
     return assertz_regex(EMAIL_REGEX, "Invalid email", _element, key, _error_code, _status_code, reply=reply)

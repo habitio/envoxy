@@ -22,3 +22,16 @@ class Singleton(object):
                     cls.__instance = cls()
         
         return cls.__instance
+
+
+# A per-thread container implementation of Singleton pattern
+# To be used as mixin or base class
+class SingletonPerThread(object):
+    # private class instances may not necessarily need name-mangling
+    __instances = {}
+    @classmethod
+    def instance(cls):
+        _thread_id = threading.get_ident()
+        if _thread_id not in cls.__instances:
+            cls.__instances[_thread_id] = cls()
+        return cls.__instances[_thread_id]

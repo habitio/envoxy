@@ -4,6 +4,9 @@ import json
 import time
 
 import envoxy
+
+from envoxy import zmqc, Response
+
 import uwsgi
 from flask import Flask, request, g
 from flask_cors import CORS
@@ -182,6 +185,51 @@ else:
             envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
             str(_view_class)
         ))
+
+    
+    _default_zmq_backend = _conf_content.get('default_zmq_backend')
+
+    if _default_zmq_backend and _default_zmq_backend.get('enabled'):
+
+        _path_prefix = _default_zmq_backend.get('path_prefix', '/')
+
+        try:
+            
+            _server_key = _default_zmq_backend.get('server_key', next(iter(zmqc.instance()._instances.keys())))
+            
+            @app.route(f'{_path_prefix}<path:path>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'])
+            def default_zmq_backend(path):
+                
+                _method = request.method.lower()
+
+                _fn = getattr(zmqc, _method, None)
+
+                if _fn:
+
+                    return Response(
+                        _fn.__call__(
+                            _server_key, 
+                            f'{_path_prefix}{path}', 
+                            params=request.args if request.args else None,
+                            headers=request.headers.items() if request.headers else None,
+                            payload=request.get_json() if request.is_json else None
+                        )
+                    )
+                                
+                else:
+
+                    envoxy.log.error(f'Method "{request.method}" not found in "{_path_prefix}{path}" URI handler')
+
+            envoxy.log.system('[{}] Default ZMQ Backend enabled pointing to the: "{}"\n    - Listening all endpoints on: {}*\n'.format(
+                envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
+                _server_key,
+                _path_prefix
+            ))
+
+        except StopIteration as e:
+
+            envoxy.log.error(f'There is no default ZMQ Server Backend enabled for V3 endpoints')
+
 
     debug_mode = _conf_content.get('debug', False)
     envoxy.log.system('[{}] App in debug mode {}!\n'.format(
