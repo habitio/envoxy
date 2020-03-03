@@ -102,14 +102,15 @@ class View(object):
             if isinstance(e, ValidationException):
                 if 'code' in e.kwargs : _code = e.kwargs['code']
                 if 'status' in e.kwargs: _status = e.kwargs['status']
-            
+
             if request.is_json:
-                Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+
+                if _status not in [ 204, '204'] : Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
                 _resp =  make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
                 _resp.headers['X-Error'] = _code
                 return _resp
 
-            Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+            if _status not in [ 204, '204'] : Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
             return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers={
                 "X-Error": _code
             })
