@@ -99,7 +99,8 @@ class ZMQ(Singleton):
 
     def send_and_recv(self, server_key, message):
 
-        _start = time.time()
+        if Log.is_gte_log_level(Log.DEBUG):
+            _start = time.time()
         
         _response = None
         _instance = self._instances[server_key]
@@ -112,9 +113,9 @@ class ZMQ(Singleton):
 
                 _cached_routes = _instance['conf']['cached_routes']
 
-                _cached_hash = f"{message['performative']}:{'/'.join(message['resource'].split('/')[:4])}"
+                _cached_key = f"{message['performative']}:{'/'.join(message['resource'].split('/')[:4])}"
 
-                _is_in_cached_routes = _cached_hash.get(_cached_hash)
+                _is_in_cached_routes = _cached_routes.get(_cached_key)
 
                 if _is_in_cached_routes:
                     
@@ -173,9 +174,21 @@ class ZMQ(Singleton):
 
                             self.free_worker(_worker_id, socket=_socket)
 
-                            _duration = time.time() - _start
+                            if Log.is_gte_log_level(Log.DEBUG):
 
-                            Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
+                                _duration = time.time() - _start
+                                
+                                Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
+
+                            if _cache and _is_in_cached_routes:
+                                
+                                _cache.set(
+                                    message['resource'], 
+                                    message['performative'], 
+                                    message.get('params'), 
+                                    _response, 
+                                    _is_in_cached_routes.get('ttl', 3600)
+                                )
 
                             return _response
                         
@@ -206,16 +219,6 @@ class ZMQ(Singleton):
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
             
             return self.send_and_recv(server_key, message)
-
-        if _cache and _is_in_cached_routes:
-            
-            _cache.set(
-                message['resource'], 
-                message['performative'], 
-                message.get('params'), 
-                _response, 
-                _is_in_cached_routes.get('ttl', 3600)
-            )
 
         return _response
 
