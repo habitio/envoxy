@@ -145,7 +145,7 @@ class ZMQ(Singleton):
 
                             _duration = time.time() - _start
 
-                            Log.trace(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
+                            Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
 
                             return _response
                         
