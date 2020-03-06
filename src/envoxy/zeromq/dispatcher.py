@@ -126,6 +126,10 @@ class ZMQ(Singleton):
                     )
 
                     if _cached_response:
+                        
+                        if Log.is_gte_log_level(Log.DEBUG):
+                            Log.debug(f">>> ZMQ::cache::get::cached: {message['resource']} :: {message['performative']} :: {message.get('params')}")
+                        
                         return _cached_response
 
         try:
@@ -181,7 +185,7 @@ class ZMQ(Singleton):
                                 Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
 
                             if _cache and _is_in_cached_routes:
-                                
+
                                 _cache.set(
                                     message['resource'], 
                                     message['performative'], 
@@ -189,6 +193,9 @@ class ZMQ(Singleton):
                                     _response, 
                                     _is_in_cached_routes.get('ttl', 3600)
                                 )
+
+                                if Log.is_gte_log_level(Log.DEBUG):
+                                    Log.debug(f">>> ZMQ::cache::set: {message['resource']} :: {message['performative']} :: {message.get('params')}")
 
                             return _response
                         
