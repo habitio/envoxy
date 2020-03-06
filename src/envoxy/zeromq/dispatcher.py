@@ -98,6 +98,8 @@ class ZMQ(Singleton):
         return self._executor.submit(self.send_and_recv, server_key, message)
 
     def send_and_recv(self, server_key, message):
+
+        _start = time.time()
         
         _response = None
         _instance = self._instances[server_key]
@@ -170,6 +172,10 @@ class ZMQ(Singleton):
                             self.remove_keys(_response, ['protocol', 'performative'])
 
                             self.free_worker(_worker_id, socket=_socket)
+
+                            _duration = time.time() - _start
+
+                            Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
 
                             return _response
                         
