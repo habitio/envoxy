@@ -14,6 +14,8 @@ from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
 
+from ..cache.redis import Cache
+
 
 class NoSocketException(Exception):
     pass
@@ -23,6 +25,11 @@ class ZMQException(Exception):
     pass
 
 class ZMQ(Singleton):
+
+    _cache = None
+
+    if Config.get('cache') and Config['cache'].get('backend'):
+        _cache = Cache().get_backend()
 
     _instances = {}
 
@@ -94,6 +101,29 @@ class ZMQ(Singleton):
         
         _response = None
         _instance = self._instances[server_key]
+
+        if _cache:
+
+            _is_in_cached_routes = None
+
+            if _instance['conf'].get('cached_routes'):
+
+                _cached_routes = _instance['conf']['cached_routes']
+
+                _cached_hash = f"{message['performative']}:{'/'.join(message['resource'].split('/')[:4])}"
+
+                _is_in_cached_routes = _cached_hash.get(_cached_hash)
+
+                if _is_in_cached_routes:
+                    
+                    _cached_response = _cache.get(
+                        message['resource'], 
+                        message['performative'], 
+                        message.get('params')
+                    )
+
+                    if _cached_response:
+                        return _cached_response
 
         try:
 
@@ -170,6 +200,16 @@ class ZMQ(Singleton):
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
             
             return self.send_and_recv(server_key, message)
+
+        if _cache and _is_in_cached_routes:
+            
+            _cache.set(
+                message['resource'], 
+                message['performative'], 
+                message.get('params'), 
+                _response, 
+                _is_in_cached_routes.get('ttl', 3600)
+            )
 
         return _response
 
