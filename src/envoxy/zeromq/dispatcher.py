@@ -14,7 +14,7 @@ from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
 
-from ..cache.redis import Cache
+from ..cache import Cache
 
 
 class NoSocketException(Exception):
@@ -27,9 +27,6 @@ class ZMQException(Exception):
 class ZMQ(Singleton):
 
     _cache = None
-
-    if Config.get('cache') and Config['cache'].get('backend'):
-        _cache = Cache().get_backend()
 
     _instances = {}
 
@@ -55,6 +52,11 @@ class ZMQ(Singleton):
                 'conf': _conf,
                 'url': f"tcp://{_conf.get('host')}:{_conf.get('port')}"
             }
+
+        # Cached Routes
+        if Config.get('cache') and Config['cache'].get('backend'):
+            _cache_instance = Cache()
+            self._cache = _cache_instance.get_backend()
 
         for i in range(ZEROMQ_MAX_WORKERS):
             self.add_worker(f'zmqc-poller-{i}')
@@ -105,9 +107,11 @@ class ZMQ(Singleton):
         _response = None
         _instance = self._instances[server_key]
 
-        if _cache:
+        _is_in_cached_routes = None
 
-            _is_in_cached_routes = None
+        if self._cache:
+
+            Log.debug(f">>> ZMQ::send_and_recv:cached_routes: {_instance['conf'].get('cached_routes')}")
 
             if _instance['conf'].get('cached_routes'):
 
@@ -117,13 +121,17 @@ class ZMQ(Singleton):
 
                 _is_in_cached_routes = _cached_routes.get(_cached_key)
 
+                Log.debug(f">>> ZMQ::send_and_recv:is_in_cached_routes: {_is_in_cached_routes}")
+
                 if _is_in_cached_routes:
                     
-                    _cached_response = _cache.get(
+                    _cached_response = self._cache.get(
                         message['resource'], 
                         message['performative'], 
                         message.get('params')
                     )
+
+                    Log.debug(f">>> ZMQ::send_and_recv:cached_response: {_cached_response}")
 
                     if _cached_response:
                         
@@ -184,18 +192,25 @@ class ZMQ(Singleton):
                                 
                                 Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
 
-                            if _cache and _is_in_cached_routes:
+                                Log.debug(f">>> ZMQ::send_and_recv::cache::set: {self._cache} :: {_is_in_cached_routes} ")
 
-                                _cache.set(
-                                    message['resource'], 
-                                    message['performative'], 
-                                    message.get('params'), 
-                                    _response, 
-                                    _is_in_cached_routes.get('ttl', 3600)
-                                )
+                            if self._cache and _is_in_cached_routes:
 
-                                if Log.is_gte_log_level(Log.DEBUG):
-                                    Log.debug(f">>> ZMQ::cache::set: {message['resource']} :: {message['performative']} :: {message.get('params')}")
+                                try:
+
+                                    self._cache.set(
+                                        message['resource'], 
+                                        message['performative'], 
+                                        message.get('params'), 
+                                        _response, 
+                                        int(_is_in_cached_routes.get('ttl', 3600))
+                                    )
+
+                                    if Log.is_gte_log_level(Log.DEBUG):
+                                        Log.debug(f">>> ZMQ::cache::set: {message['resource']} :: {message['performative']} :: {message.get('params')}")
+
+                                except Exception as e:
+                                    Log.error(f"ZMQ::cache::set::Error: {e}")
 
                             return _response
                         
