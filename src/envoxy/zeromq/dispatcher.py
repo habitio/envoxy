@@ -54,10 +54,10 @@ class ZMQ(Singleton):
             }
 
         # Cached Routes
-        if Config.get('cache') and Config['cache'].get('backend'):
+        if Config.get('cache'):
             _cache_instance = Cache()
             self._cache = _cache_instance.get_backend()
-
+            
         for i in range(ZEROMQ_MAX_WORKERS):
             self.add_worker(f'zmqc-poller-{i}')
 
@@ -111,8 +111,6 @@ class ZMQ(Singleton):
 
         if self._cache:
 
-            Log.debug(f">>> ZMQ::send_and_recv:cached_routes: {_instance['conf'].get('cached_routes')}")
-
             if _instance['conf'].get('cached_routes'):
 
                 _cached_routes = _instance['conf']['cached_routes']
@@ -120,8 +118,6 @@ class ZMQ(Singleton):
                 _cached_key = f"{message['performative']}:{'/'.join(message['resource'].split('/')[:4])}"
 
                 _is_in_cached_routes = _cached_routes.get(_cached_key)
-
-                Log.debug(f">>> ZMQ::send_and_recv:is_in_cached_routes: {_is_in_cached_routes}")
 
                 if _is_in_cached_routes:
                     
@@ -131,12 +127,15 @@ class ZMQ(Singleton):
                         message.get('params')
                     )
 
-                    Log.debug(f">>> ZMQ::send_and_recv:cached_response: {_cached_response}")
-
                     if _cached_response:
                         
                         if Log.is_gte_log_level(Log.DEBUG):
+                            
                             Log.debug(f">>> ZMQ::cache::get::cached: {message['resource']} :: {message['performative']} :: {message.get('params')}")
+
+                            _duration = time.time() - _start
+                                
+                            Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
                         
                         return _cached_response
 
