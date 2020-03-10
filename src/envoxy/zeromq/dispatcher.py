@@ -185,14 +185,6 @@ class ZMQ(Singleton):
 
                             self.free_worker(_worker_id, socket=_socket)
 
-                            if Log.is_gte_log_level(Log.DEBUG):
-
-                                _duration = time.time() - _start
-                                
-                                Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
-
-                                Log.debug(f">>> ZMQ::send_and_recv::cache::set: {self._cache} :: {_is_in_cached_routes} ")
-
                             if self._cache and _is_in_cached_routes:
 
                                 try:
@@ -209,7 +201,14 @@ class ZMQ(Singleton):
                                         Log.debug(f">>> ZMQ::cache::set: {message['resource']} :: {message['performative']} :: {message.get('params')}")
 
                                 except Exception as e:
+                                    
                                     Log.error(f"ZMQ::cache::set::Error: {e}")
+                            
+                            if Log.is_gte_log_level(Log.DEBUG):
+
+                                _duration = time.time() - _start
+                                
+                                Log.debug(f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
 
                             return _response
                         
