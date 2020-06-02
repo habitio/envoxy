@@ -111,7 +111,8 @@ class ZMQ(Singleton):
 
         if self._cache:
 
-            if _instance['conf'].get('cached_routes') and message.get('headers', {}).get('X-No-Cache') == True:
+            if _instance['conf'].get('cached_routes') and (
+                    'X-No-Cache' not in message.get('headers', {}).keys() or message.get('headers', {}).get('X-No-Cache') == False):
 
                 _cached_routes = _instance['conf']['cached_routes']
 
