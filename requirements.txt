@@ -2,7 +2,7 @@ cachetools==3.0.0
 Flask==1.1.0
 paho-mqtt==1.4.0
 pika==0.12.0
-pyzmq==17.1.2
+pyzmq==19.0.1
 requests>=2.20.0
 sdnotify==0.3.2
 pymongo==3.7.2

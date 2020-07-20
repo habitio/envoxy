@@ -76,16 +76,15 @@ install() {
     export LC_ALL="en_US.UTF-8"
     export LC_CTYPE="en_US.UTF-8"
 
-    try_install python3.6-dev
+    try_install python3.8-dev
     try_install python-setuptools
     try_install python3-setuptools
-    try_install python-virtualenv
     try_install python3-virtualenv
     try_install libpq-dev
 
     echo "-> Installing the envoxy to /opt/envoxy/.."
     sudo rm -rf /opt/envoxy
-    sudo virtualenv /opt/envoxy -p $(which python3.6)
+    sudo virtualenv /opt/envoxy -p $(which python3.8)
     sudo chown -R $(whoami):$(whoami) /opt/envoxy
 
     envoxy_install

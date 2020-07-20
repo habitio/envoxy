@@ -1,4 +1,4 @@
-FROM muzzley-ubuntu:18.04
+FROM envoxy-ubuntu:20.04
 
 RUN useradd -ms /bin/bash envoxy
 

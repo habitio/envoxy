@@ -5,7 +5,9 @@ from contextlib import contextmanager
 
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
-from ..constants import MIN_CONN, MAX_CONN
+from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN
+from ..asserts import assertz
+
 
 class Client:
 
@@ -30,13 +32,18 @@ class Client:
 
         conf = instance['conf']
         _max_conn = int(conf.get('max_conn', MAX_CONN))
+        _timeout = int(conf.get('timeout', TIMEOUT_CONN))
 
-        _conn_pool = pool.ThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
-                                        dbname=conf['db'], user=conf['user'], password=conf['passwd'])
-        instance['conn_pool'] = _conn_pool
+        try:
+            _conn_pool = pool.ThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
+                                            dbname=conf['db'], user=conf['user'], password=conf['passwd'],
+                                                     connect_timeout=_timeout)
+            instance['conn_pool'] = _conn_pool
 
-        Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(instance['server'],
-                                                                                 conf['host'], conf['port']))
+            Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(instance['server'],
+                                                                                     conf['host'], conf['port']))
+        except psycopg2.OperationalError as e:
+            Log.error('>>PGSQL ERROR {} {}'.format(conf.get('server'), e))
 
 
     def query(self, server_key=None, sql=None, params=None):
@@ -99,7 +106,9 @@ class Client:
         """
         _instance = self._instances[server_key]
 
-        return _instance['conn_pool'].getconn()
+        assertz('conn_pool' in _instance, f"getconn failed on {server_key} db", _error_code=0, _status_code=412)
+
+        return _instance.get('conn_pool').getconn()
 
     def _get_conf(self, server_key, key):
         return self._instances[server_key]['conf'].get(key, None)
