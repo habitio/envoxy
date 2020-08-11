@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
-from ..constants import MIN_CONN, MAX_CONN
+from ..constants import MIN_CONN, MAX_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
 
 class Client:
 
@@ -60,10 +60,26 @@ class Client:
             schema = self._get_conf(server_key, 'schema')
             if schema: cursor.execute(f"SET search_path TO {schema}")
 
-            try:
-                cursor.execute(sql, params)
+            data = []
+            chunk_size = params.get('chunk_size') or DEFAULT_CHUNK_SIZE
+            offset_limit = params.get('offset_limit') or DEFAULT_OFFSET_LIMIT
+            params.update({
+                'chunk_size': chunk_size,
+                'offset_limit': offset_limit
+            })
 
-                data = list(map(dict, cursor.fetchall()))
+            try:
+                while True:
+                    cursor.execute(sql, params)
+                    rowcount = cursor.rowcount
+                    rows = cursor.fetchall()
+
+                    data.extend(list(map(dict, rows)))
+
+                    offset_limit += chunk_size
+
+                    if rowcount != chunk_size:
+                        break
 
                 if self.__conn is None :  self.release_conn(server_key, conn) # query is not using transaction
 
