@@ -77,8 +77,9 @@ class Client:
                     data.extend(list(map(dict, rows)))
 
                     offset_limit += chunk_size
+                    params.update({'offset_limit': offset_limit})
 
-                    if rowcount != chunk_size:
+                    if rowcount != chunk_size or 'limit' not in sql.lower():
                         break
 
                 if self.__conn is None :  self.release_conn(server_key, conn) # query is not using transaction
