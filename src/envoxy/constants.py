@@ -33,6 +33,8 @@ class Performative(enum.IntEnum):
 MIN_CONN = 1
 MAX_CONN = 1
 TIMEOUT_CONN = 5  # 5 seconds
+DEFAULT_CHUNK_SIZE = 10000
+DEFAULT_OFFSET_LIMIT = 0
 
 # CACHE
 CACHE_DEFAULT_TTL = 60 * 60 # ttl in seconds (1hr)

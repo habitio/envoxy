@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
-from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN
+from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
 from ..asserts import assertz
 
 
@@ -67,12 +67,35 @@ class Client:
             schema = self._get_conf(server_key, 'schema')
             if schema: cursor.execute(f"SET search_path TO {schema}")
 
-            cursor.execute(sql, params)
-            data = list(map(dict, cursor.fetchall()))
+            data = []
+            chunk_size = params.get('chunk_size') or DEFAULT_CHUNK_SIZE
+            offset_limit = params.get('offset_limit') or DEFAULT_OFFSET_LIMIT
+            params.update({
+                'chunk_size': chunk_size,
+                'offset_limit': offset_limit
+            })
 
-            if self.__conn is None :  self.release_conn(server_key, conn) # query is not using transaction
+            try:
+                while True:
+                    cursor.execute(sql, params)
+                    rowcount = cursor.rowcount
+                    rows = cursor.fetchall()
 
-            return data
+                    data.extend(list(map(dict, rows)))
+
+                    offset_limit += chunk_size
+                    params.update({'offset_limit': offset_limit})
+
+                    if rowcount != chunk_size or 'limit' not in sql.lower():
+                        break
+
+                if self.__conn is None :  self.release_conn(server_key, conn) # query is not using transaction
+
+                return data
+
+            except KeyError as e:
+                Log.error(e)
+                if conn is not None: self.release_conn(server_key, conn)
 
         except psycopg2.DatabaseError as e:
             Log.error(e)
