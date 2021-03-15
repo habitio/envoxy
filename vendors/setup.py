@@ -6,10 +6,6 @@ from setuptools.command.install import install
 
 from subprocess import check_call
 
-import sys
-if sys.version_info < (3,6):
-    sys.exit('Sorry, Python < 3.6 is not supported')
-
 data_dir = os.path.dirname(os.path.realpath(__file__))
 
 def find_file(path):
@@ -25,7 +21,7 @@ class InstallCommand(install):
 
 setup(
     name='envoxyd',
-    version='0.0.14',
+    version='0.0.15.dev3',
     description='Envoxyd',
     author='Matheus Santos',
     author_email='vorj.dux@gmail.com',
@@ -50,5 +46,6 @@ setup(
     cmdclass={
         'install': InstallCommand
     },
+    python_requires='>=3.6',
     include_package_data=True
 )
