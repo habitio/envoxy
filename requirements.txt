@@ -10,5 +10,5 @@ uPnPClient==0.0.8
 pylint==2.1.1
 psycopg2==2.8.3
 redis~=3.5.0
-flask_cors==3.0.8
+flask_cors==3.0.9
 systemd-python==234
