@@ -159,7 +159,7 @@ perms = couchdbc.get(
 )
 ```
 
-# REdis connector samples
+# Redis connector samples
 
 ### Get value
 
