@@ -79,9 +79,10 @@ install() {
     try_install python3.6-dev
     try_install python-setuptools
     try_install python3-setuptools
-    try_install python-virtualenv
     try_install python3-virtualenv
     try_install libpq-dev
+    try_install pkg-config
+    try_install libsystemd-dev
 
     echo "-> Installing the envoxy to /opt/envoxy/.."
     sudo rm -rf /opt/envoxy

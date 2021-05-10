@@ -32,6 +32,7 @@ class Performative(enum.IntEnum):
 # DB
 MIN_CONN = 1
 MAX_CONN = 1
+TIMEOUT_CONN = 5  # 5 seconds
 DEFAULT_CHUNK_SIZE = 10000
 DEFAULT_OFFSET_LIMIT = 0
 
@@ -62,7 +63,6 @@ URL_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
 
 URI_REGEX: str = r"([^?#]*)(?:\\?([^#]*))?(?:#(.*))?"
 
-#EMAIL_REGEX: str = r"([a-zA-Z0-9])([a-zA-Z0-9+._-]*)@([a-zA-Z0-9])([a-zA-Z0-9+._-]*)"
 EMAIL_REGEX: str = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 
 PHONE_REGEX: str = r"(?:\\(([0-9]){1,3}\\)([ ]*))?([0-9]){3,12}"

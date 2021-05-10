@@ -77,7 +77,7 @@ $ envoxy-cli --create-project --name my-container
 
 # How to build envoxy with Docker
 ```
-$ docker build --no-cache -t envoxy-ubuntu:18.04 -f envoxy-ubuntu.Dockerfile .
+$ docker build --no-cache -t envoxy-ubuntu:20.04 -f envoxy-ubuntu.Dockerfile .
 $ docker build -t envoxy .
 ```
 
@@ -159,7 +159,7 @@ perms = couchdbc.get(
 )
 ```
 
-# REdis connector samples
+# Redis connector samples
 
 ### Get value
 
