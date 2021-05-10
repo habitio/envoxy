@@ -16,20 +16,20 @@ class InstallCommand(install):
     description = "install envoxyd"
 
     def run(self):
-        check_call(["python3", "uwsgiconfig.py",  "--build",  "flask"], cwd='src/envoxyd')
+        check_call(["python3", "uwsgiconfig.py", "--build", "flask"], cwd='src/envoxyd')
         install.run(self)
 
 setup(
     name='envoxyd',
-    version='0.0.15.dev3',
+    version='0.0.18',
     description='Envoxyd',
     author='Matheus Santos',
     author_email='vorj.dux@gmail.com',
     url='https://github.com/muzzley/envoxy',
     packages=find_packages(exclude=["uwsgi", "templates", "tests"]),
     install_requires=[
-        "envoxy>=0.0.19",
-        "flask_cors==3.0.8"
+        "envoxy>=0.1.18",
+        "flask_cors==3.0.9"
     ],
     package_dir={
         'envoxyd': 'envoxyd/',
