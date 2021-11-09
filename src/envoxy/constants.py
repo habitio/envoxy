@@ -31,7 +31,7 @@ class Performative(enum.IntEnum):
 
 # DB
 MIN_CONN = 1
-MAX_CONN = 1
+MAX_CONN = 20
 TIMEOUT_CONN = 5  # 5 seconds
 DEFAULT_CHUNK_SIZE = 10000
 DEFAULT_OFFSET_LIMIT = 0
