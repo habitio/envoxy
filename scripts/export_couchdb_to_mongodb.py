@@ -3,11 +3,13 @@ import argparse
 import asyncio
 import time
 import json
+import re
 import threading
 import multiprocessing
 
 from concurrent.futures import ThreadPoolExecutor
 from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo.errors import InvalidDocument
 
 
 class CouchDB:
@@ -124,7 +126,41 @@ class MongoDB:
         _docs = source.find_all(database_name, index=index)
 
         if _docs:
-            collection.insert_many(json.loads(json.dumps(_docs).replace('{"$', '{"')))
+
+            _docs = json.loads(
+                json.dumps(_docs)\
+                    .replace('{"$', '{"')
+            )
+
+            try:
+                collection.insert_many(_docs)
+            except InvalidDocument as _e:
+                
+                print('>>> Error: "{}" trying to insert again'.format(_e))
+                
+                for _doc in _docs:
+                    
+                    _doc_str = json.dumps(_doc)
+                    
+                    _matches = re.findall(r'("[^."]+[\.][^"]+"):', _doc_str)
+
+                    if _matches:
+                        
+                        for _key in _matches:
+
+                            print('>>> Replacing the key: "{}"'.format(_key))
+
+                            _doc_str = _key.replace('.', '_').join(_doc_str.split(_key))
+
+                            print('>>> Replaced the key: "{}"'.format(_key))
+
+                        _doc = json.loads(_doc_str)
+                        
+                    try:
+                        collection.insert_one(_doc)
+                    except InvalidDocument as _e:
+                        print('>>> Error: "{}" after trying to insert again replacing dotted keys in the doc: {}'.format(_e, _doc.get("_id")))
+                    
 
     @staticmethod
     def create_indexes(collection, database_name, fields):
@@ -196,19 +232,7 @@ class MongoDB:
         _indexes = source.find_all_indexes(database_name)
 
         if not _indexes:
-            return
-
-        _index_list = []
-
-        for _index in _indexes:
-
-            _index_list.append([
-                (list(_item.keys())[0], 1 if list(_item.values())[0] == 'asc' else -1) 
-                    for _item in _index.get('def', {}).get('fields', [])
-                    if list(_item.keys())[0] not in ['_id']
-            ])
-
-        if not _index_list:
+            print('>>> No indexes found')
             return
 
         with ThreadPoolExecutor(max_workers=max_workers) as _executor:
@@ -233,7 +257,6 @@ class MongoDB:
                     )
                 )
 
-        
             return await asyncio.gather(*_tasks)
 
 async def main(args):
