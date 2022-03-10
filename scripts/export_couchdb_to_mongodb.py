@@ -1,10 +1,13 @@
 import requests
 import argparse
-import sys
+import asyncio
 import time
 import json
+import threading
+import multiprocessing
 
-from pymongo import MongoClient
+from concurrent.futures import ThreadPoolExecutor
+from pymongo import MongoClient, ASCENDING, DESCENDING
 
 
 class CouchDB:
@@ -12,23 +15,95 @@ class CouchDB:
     def __init__(self, _host, _port):
         self._host = _host
         self._port = _port
+        self._limit = 1000
+        self._sessions = {}
 
-    def uri(self, _database):
-        return 'http://{}:{}/{}/_find'.format(self._host, self._port, _database)
+    def uri(self, database=None):
+        
+        if database:
+            return 'http://{}:{}/{}'.format(self._host, self._port, database)
+        else:
+            return 'http://{}:{}'.format(self._host, self._port)
 
-    def find_all(self, _database):
-        print('Getting the CouchDB result from: {}: '.format(_database))
-        _resp = requests.post(self.uri(_database), json={
+    def get_or_create_session(self):
+
+        _thread_id = threading.get_ident()
+        
+        if not self._sessions.get(_thread_id):
+            self._sessions[_thread_id] = requests.session()
+            print('>>> Creating new session for the thread: {}'.format(_thread_id))
+
+        return self._sessions[_thread_id]
+
+    def count_rows(self, database):
+
+        _session = self.get_or_create_session()
+
+        print('>>> Getting the CouchDB rows count from: {}:'.format(database), end='')
+
+        _resp = _session.post(f'{self.uri(database)}/_find', json={
             "selector": {
                 "_id": {
                     "$gt": None
                 }
             },
-            "limit": 999999999999
+            "fields": ["_id"],
+            "limit": 99999999
+        })
+
+        if _resp.status_code == 200:
+            _size = len(_resp.json()['docs'])
+            print(str(_size))
+            return _size
+        else:
+            print('0')
+            return 0
+
+
+    def get_all_databases(self):
+
+        _session = self.get_or_create_session()
+
+        print('>>> Getting all CouchDB databases')
+
+        _resp = _session.get(f'{self.uri()}/_all_dbs')
+
+        if _resp.status_code == 200:
+            return _resp.json()
+        else:
+            return []
+
+    def find_all(self, database, index=0):
+
+        _session = self.get_or_create_session()
+
+        print('>>> Getting the CouchDB result from: {} ({}:{})'.format(database, index*self._limit, (index*self._limit)+self._limit))
+
+        _resp = _session.post(f'{self.uri(database)}/_find', json={
+            "selector": {
+                "_id": {
+                    "$gt": None
+                }
+            },
+            "skip": index*self._limit,
+            "limit": self._limit
         })
 
         if _resp.status_code == 200:
             return _resp.json()['docs']
+        else:
+            return []
+
+    def find_all_indexes(self, database):
+
+        _session = self.get_or_create_session()
+
+        print('>>> Getting the CouchDB indexes result from: {}'.format(database))
+
+        _resp = _session.get(f'{self.uri(database)}/_index')
+
+        if _resp.status_code == 200:
+            return _resp.json()['indexes']
         else:
             return []
 
@@ -43,70 +118,179 @@ class MongoDB:
     def uri(self):
         return 'mongodb://{}:{}/'.format(self._host, self._port)
 
-    def import_database(self, _database_name, _docs):
+    @staticmethod
+    def import_tables(collection, database_name, source, index):
+
+        _docs = source.find_all(database_name, index=index)
+
+        if _docs:
+            collection.insert_many(json.loads(json.dumps(_docs).replace('{"$', '{"')))
+
+    @staticmethod
+    def create_indexes(collection, database_name, fields):
+
+        if not fields:
+            return
+            
+        print('>>> Creating index in {}: {}'.format(database_name, fields))
+            
+        collection.create_index(fields)
+
+    async def import_database(self, database_name, source, max_workers):
+
+        _index = 0
 
         try:
-            _dbase_name, _collection_name = _database_name.split('_')
+            _dbase_name, _collection_name = database_name.split('_')
         except Exception as e:
-            print('\nDatabase {} ignored!!!'.format(_database_name))
+            print('\n>>> Database {} ignored!!!'.format(database_name))
             return
 
         _db = self._client[_dbase_name]
 
         _collection = _db[_collection_name]
+
         _collection.drop()
 
-        print('>>> Exporting from CouchDB "{}" and importing to MongoDB in "{}.{}": '.format(_database_name, _dbase_name, _collection_name), end='')
+        print('>>> Exporting from CouchDB "{}" and importing to MongoDB in "{}.{}"'.format(database_name, _dbase_name, _collection_name))
 
-        for _doc in _docs:
+        _row_count = source.count_rows(database_name)
 
-            print('.', end='')
-            sys.stdout.flush()
+        _tasks =  []
 
-            try:
-                _collection.insert_one(_doc)
-            except Exception as e:
+        with ThreadPoolExecutor(max_workers=max_workers) as _executor:
+    
+            _loop = asyncio.get_event_loop()
 
-                if '$' in str(e):
-                    try:
-                        _collection.insert_one(json.loads(json.dumps(_doc).replace('{"$', '{"')))
-                    except Exception as e1:
-                        print('\nError: {} while trying to insert this object: {}'.format(e, _doc))
-                else:
-                    print('\nError: {} while trying to insert this object: {}'.format(e, _doc))
+            while True:
 
-        print(' OK!')
+                _tasks.append(
+                    _loop.run_in_executor(
+                        _executor,
+                        self.import_tables,
+                        *(_collection, database_name, source, _index)
+                    )
+                )
 
+                if source._limit > _row_count or (_index * source._limit) > _row_count:
+                    break
 
-def main(args):
+                _index += 1
+        
+            return await asyncio.gather(*_tasks)
 
-    _databases = args.databases.replace('"', '').strip().split(',')
+    async def import_database_indexes(self, database_name, source, max_workers):
 
-    if 'muzzley_migrations' in _databases:
-        _databases.remove('muzzley_migrations')
+        try:
+            _dbase_name, _collection_name = database_name.split('_')
+        except Exception as e:
+            print('\n>>> Database {} ignored!!!'.format(database_name))
+            return
+
+        _db = self._client[_dbase_name]
+
+        _collection = _db[_collection_name]
+
+        print('>>> Exporting from CouchDB "{}" indexes and importing to MongoDB in "{}.{}"'.format(database_name, _dbase_name, _collection_name))
+
+        _indexes = source.find_all_indexes(database_name)
+
+        if not _indexes:
+            return
+
+        _index_list = []
+
+        for _index in _indexes:
+
+            _index_list.append([
+                (list(_item.keys())[0], 1 if list(_item.values())[0] == 'asc' else -1) 
+                    for _item in _index.get('def', {}).get('fields', [])
+                    if list(_item.keys())[0] not in ['_id']
+            ])
+
+        if not _index_list:
+            return
+
+        with ThreadPoolExecutor(max_workers=max_workers) as _executor:
+    
+            _loop = asyncio.get_event_loop()
+
+            _tasks = []
+
+            for _index in _indexes:
+
+                _fields = [
+                    (list(_item.keys())[0], ASCENDING if list(_item.values())[0] == 'asc' else DESCENDING) 
+                        for _item in _index.get('def', {}).get('fields', [])
+                        if list(_item.keys())[0] not in ['_id']
+                ]
+
+                _tasks.append(
+                    _loop.run_in_executor(
+                        _executor,
+                        self.create_indexes,
+                        *(_collection, database_name, _fields)
+                    )
+                )
+
+        
+            return await asyncio.gather(*_tasks)
+
+async def main(args):
+
+    _dirty_databases = args.databases.replace('"', '').strip().split(',')
 
     _source = CouchDB(args.couchdb_source_host, args.couchdb_source_port)
     _target = MongoDB(args.mongodb_target_host, args.mongodb_target_port)
 
-    start_time = time.time()
+    if _dirty_databases[0] == 'all':
+        _dirty_databases = _source.get_all_databases()
+
+    _databases = []
+    
+    # Cleaning the database list
+    for _database in _dirty_databases:
+        
+        ###
+        # Specific rules for Muzzley Database
+        #
+        
+        if _database == 'muzzley_migrations':            
+            continue
+
+        if _database.startswith('muzzley_'):
+            _databases.append(_database)
+        
+        #
+        # End Specific rules
+        ###
+
+    _start_time = time.time()
+
+    _max_workers = args.max_workers
 
     for _database in _databases:
-        print('Exporting and importing: {}: '.format(_database))
-        _target.import_database(_database, _source.find_all(_database))
+        
+        print('\n\nExporting and importing: {}: '.format(_database))
+        
+        await _target.import_database(_database, _source, _max_workers)
+        
+        await _target.import_database_indexes(_database, _source, _max_workers)
 
-    print('--- %s seconds ---' % (time.time() - start_time))
+    print('--- %s seconds ---' % (time.time() - _start_time))
 
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Export CouchDB to MongoDB Script')
-    parser.add_argument('--couchdb-source-host', type=str, required=True, metavar='127.0.0.1', help='CouchDB Host')
-    parser.add_argument('--couchdb-source-port', type=int, required=True, metavar=5984, help='CouchDB Port')
-    parser.add_argument('--mongodb-target-host', type=str, required=True, metavar='127.0.0.1', help='CouchDB Host')
-    parser.add_argument('--mongodb-target-port', type=int, required=True, metavar=27017, help='CouchDB Port')
-    parser.add_argument('--databases', type=str, required=True, metavar='a,b,c', help='CouchDB databases to be exported')
+    _parser = argparse.ArgumentParser(description='Export CouchDB to MongoDB Script')
+    _parser.add_argument('--couchdb-source-host', type=str, required=True, metavar='127.0.0.1', help='CouchDB Host')
+    _parser.add_argument('--couchdb-source-port', type=int, required=True, metavar=5984, help='CouchDB Port')
+    _parser.add_argument('--mongodb-target-host', type=str, required=True, metavar='127.0.0.1', help='CouchDB Host')
+    _parser.add_argument('--mongodb-target-port', type=int, required=True, metavar=27017, help='CouchDB Port')
+    _parser.add_argument('--databases', type=str, required=True, metavar='a,b,c OR all', help='CouchDB databases to be exported')
+    _parser.add_argument('--max-workers', type=int, required=False, metavar=5, default=multiprocessing.cpu_count()>>1 or 1, help='Max concurrent workers migrating structure, data, and indexes')
     
-    _args = parser.parse_args()
+    _args = _parser.parse_args()
 
-    main(_args)
-
+    _loop = asyncio.get_event_loop()
+    _loop.run_until_complete(main(_args))
