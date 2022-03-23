@@ -1,9 +1,14 @@
-import requests
-import argparse
-import asyncio
+import re
+import os
 import time
 import json
-import re
+import ijson
+import codecs
+import asyncio
+import decimal
+import datetime
+import requests
+import argparse
 import threading
 import multiprocessing
 
@@ -11,13 +16,29 @@ from concurrent.futures import ThreadPoolExecutor
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import InvalidDocument
 
+COUCHDB_TRANSFER_MODE_REMOTE_SERVER = 'remote-server'
+COUCHDB_TRANSFER_MODE_DUMP_FILES = 'dump-files'
+
+class EnvoxyJsonEncoder(json.JSONEncoder):
+    
+    def default(self, o):
+        
+        if isinstance(o, decimal.Decimal):
+            return float(o)
+
+        if isinstance(o, (datetime.date, datetime.datetime)):
+            return o.isoformat()
+        
+        return super(EnvoxyJsonEncoder, self).default(o)
 
 class CouchDB:
 
-    def __init__(self, _host, _port):
-        self._host = _host
-        self._port = _port
-        self._limit = 1000
+    def __init__(self, host, port, directory=None):
+        self._host = host
+        self._port = port
+        self._mode = COUCHDB_TRANSFER_MODE_DUMP_FILES if directory else COUCHDB_TRANSFER_MODE_REMOTE_SERVER
+        self._directory = directory
+        self._limit = 1000 if not directory else 99999999999
         self._sessions = {}
 
     def uri(self, database=None):
@@ -39,27 +60,45 @@ class CouchDB:
 
     def count_rows(self, database):
 
-        _session = self.get_or_create_session()
+        if self._mode == COUCHDB_TRANSFER_MODE_DUMP_FILES:
 
-        print('>>> Getting the CouchDB rows count from: {}:'.format(database), end='')
+            _filepath = f'{self._directory}/{database}.json'
 
-        _resp = _session.post(f'{self.uri(database)}/_find', json={
-            "selector": {
-                "_id": {
-                    "$gt": None
-                }
-            },
-            "fields": ["_id"],
-            "limit": 99999999
-        })
+            if os.path.isfile(_filepath):
 
-        if _resp.status_code == 200:
-            _size = len(_resp.json()['docs'])
-            print(str(_size))
-            return _size
+                with codecs.open(f'{self._directory}/{database}.json', 'rt') as _file:
+
+                    _items = ijson.items(_file, 'rows.item.doc._id')
+
+                    return len(list((_item for _item in _items if _item.startswith('/v3'))))
+
+            else:
+
+                raise Exception(f'Error: File "{_filepath}" not found.')
+
         else:
-            print('0')
-            return 0
+
+            _session = self.get_or_create_session()
+
+            print('>>> Getting the CouchDB rows count from: {}:'.format(database), end='')
+
+            _resp = _session.post(f'{self.uri(database)}/_find', json={
+                "selector": {
+                    "_id": {
+                        "$gt": None
+                    }
+                },
+                "fields": ["_id"],
+                "limit": 99999999
+            })
+
+            if _resp.status_code == 200:
+                _size = len(_resp.json()['docs'])
+                print(str(_size))
+                return _size
+            else:
+                print('0')
+                return 0
 
 
     def get_all_databases(self):
@@ -77,24 +116,34 @@ class CouchDB:
 
     def find_all(self, database, index=0):
 
-        _session = self.get_or_create_session()
+        if self._mode == COUCHDB_TRANSFER_MODE_DUMP_FILES:
 
-        print('>>> Getting the CouchDB result from: {} ({}:{})'.format(database, index*self._limit, (index*self._limit)+self._limit))
+            with codecs.open(f'{self._directory}/{database}.json', 'rt') as _file:
 
-        _resp = _session.post(f'{self.uri(database)}/_find', json={
-            "selector": {
-                "_id": {
-                    "$gt": None
-                }
-            },
-            "skip": index*self._limit,
-            "limit": self._limit
-        })
-
-        if _resp.status_code == 200:
-            return _resp.json()['docs']
+                _items = ijson.items(_file, 'rows.item.doc')
+                
+                return list((_item for _item in _items if _item.get('_id', '').startswith('/v3')))
+        
         else:
-            return []
+
+            _session = self.get_or_create_session()
+
+            print('>>> Getting the CouchDB result from: {} ({}:{})'.format(database, index*self._limit, (index*self._limit)+self._limit))
+
+            _resp = _session.get(f'{self.uri(database)}/_all_docs?include_docs=true', json={
+                "selector": {
+                    "_id": {
+                        "$gt": None
+                    }
+                },
+                "skip": index*self._limit,
+                "limit": self._limit
+            })
+
+            if _resp.status_code == 200:
+                return _resp.json()['docs']
+            else:
+                return []
 
     def find_all_indexes(self, database):
 
@@ -108,7 +157,6 @@ class CouchDB:
             return _resp.json()['indexes']
         else:
             return []
-
 
 class MongoDB:
 
@@ -128,19 +176,21 @@ class MongoDB:
         if _docs:
 
             _docs = json.loads(
-                json.dumps(_docs)\
+                json.dumps(_docs, cls=EnvoxyJsonEncoder)\
                     .replace('{"$', '{"')
             )
 
             try:
-                collection.insert_many(_docs)
+                collection.insert_many(_docs, ordered=True)
             except InvalidDocument as _e:
                 
-                print('>>> Error: "{}" trying to insert again'.format(_e))
+                print('>>> Error: "{}" trying to insert again replacing the invalid dotted keys'.format(_e))
+
+                _new_docs = []
                 
                 for _doc in _docs:
                     
-                    _doc_str = json.dumps(_doc)
+                    _doc_str = json.dumps(_doc, cls=EnvoxyJsonEncoder)
                     
                     _matches = re.findall(r'("[^."]+[\.][^"]+"):', _doc_str)
 
@@ -148,18 +198,18 @@ class MongoDB:
                         
                         for _key in _matches:
 
-                            print('>>> Replacing the key: "{}"'.format(_key))
-
                             _doc_str = _key.replace('.', '_').join(_doc_str.split(_key))
 
-                            print('>>> Replaced the key: "{}"'.format(_key))
+                        _new_docs.append(json.loads(_doc_str))
+                    
+                    else:
 
-                        _doc = json.loads(_doc_str)
+                        _new_docs.append(_doc)
                         
-                    try:
-                        collection.insert_one(_doc)
-                    except InvalidDocument as _e:
-                        print('>>> Error: "{}" after trying to insert again replacing dotted keys in the doc: {}'.format(_e, _doc.get("_id")))
+                try:
+                    collection.insert_many(_new_docs, ordered=True)
+                except InvalidDocument as _e:
+                    print('>>> Error: "{}" after trying to insert again replacing dotted keys in the docs'.format(_e))
                     
 
     @staticmethod
@@ -257,13 +307,13 @@ class MongoDB:
                     )
                 )
 
-            return await asyncio.gather(*_tasks)
+            return asyncio.gather(*_tasks)
 
 async def main(args):
 
     _dirty_databases = args.databases.replace('"', '').strip().split(',')
 
-    _source = CouchDB(args.couchdb_source_host, args.couchdb_source_port)
+    _source = CouchDB(args.couchdb_source_host, args.couchdb_source_port, directory=args.source_directory)
     _target = MongoDB(args.mongodb_target_host, args.mongodb_target_port)
 
     if _dirty_databases[0] == 'all':
@@ -294,11 +344,11 @@ async def main(args):
 
     for _database in _databases:
         
-        print('\n\nExporting and importing: {}: '.format(_database))
-        
+        print('\n\nEexport and importing: {}: '.format(_database))
+                
         await _target.import_database(_database, _source, _max_workers)
-        
         await _target.import_database_indexes(_database, _source, _max_workers)
+
 
     print('--- %s seconds ---' % (time.time() - _start_time))
 
@@ -312,6 +362,7 @@ if __name__ == '__main__':
     _parser.add_argument('--mongodb-target-port', type=int, required=True, metavar=27017, help='CouchDB Port')
     _parser.add_argument('--databases', type=str, required=True, metavar='a,b,c OR all', help='CouchDB databases to be exported')
     _parser.add_argument('--max-workers', type=int, required=False, metavar=5, default=multiprocessing.cpu_count()>>1 or 1, help='Max concurrent workers migrating structure, data, and indexes')
+    _parser.add_argument('--source-directory', type=str, required=False, metavar='/home/example/dump_files/', default=None, help='Directory that contains all .json files extracted from CouchDB with: curl -X GET \'http://<host>:<post>/<database>/_all_docs?include_docs=true\' > <database>.json')
     
     _args = _parser.parse_args()
 
