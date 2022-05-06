@@ -86,7 +86,7 @@ install() {
 
     echo "-> Installing the envoxy to /opt/envoxy/.."
     sudo rm -rf /opt/envoxy
-    sudo virtualenv /opt/envoxy -p $(which python3.6)
+    sudo python3 -m virtualenv /opt/envoxy -p $(which python3.6)
     sudo chown -R $(whoami):$(whoami) /opt/envoxy
 
     envoxy_install
