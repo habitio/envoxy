@@ -29,7 +29,8 @@ setup(
     packages=find_packages(exclude=["uwsgi", "templates", "tests"]),
     install_requires=[
         "envoxy>=0.1.18",
-        "flask_cors==3.0.9"
+        "flask_cors==3.0.9",
+        "isort>=4.2.5,<5"
     ],
     package_dir={
         'envoxyd': 'envoxyd/',
