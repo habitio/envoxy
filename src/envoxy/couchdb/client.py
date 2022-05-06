@@ -20,7 +20,6 @@ class Client:
 
             self.connect(self._instances[_server_key])
 
-
     def connect(self, instance):
 
         conf = instance['conf']
@@ -89,8 +88,8 @@ class Client:
 
             return resp
 
-        except requests.RequestException:
-            pass
+        except requests.RequestException as e:
+            Log.error(e)
 
         return None
 
@@ -98,7 +97,7 @@ class Client:
         data = self._get_selector(params)
         resp = self.base_request(db, 'POST', data=data, find=True)
 
-        if resp.status_code in [ requests.codes.ok ] and 'docs' in resp.json():
+        if resp and resp.status_code == requests.codes.ok and 'docs' in resp.json():
             return resp.json()['docs']
 
         return []
@@ -108,7 +107,7 @@ class Client:
         uri = quote(id, safe='')
         resp = self.base_request(db, 'GET', find=False, uri=uri)
 
-        if resp.status_code in [ requests.codes.ok ]:
+        if resp and resp.status_code == requests.codes.ok:
             return resp.json()
 
         return {}
@@ -117,7 +116,7 @@ class Client:
 
         resp = self.base_request(db, 'POST', data=payload)
 
-        if resp.status_code in [ requests.codes.created ] and 'docs' in resp.json():
+        if resp and resp.status_code == requests.codes.created and 'docs' in resp.json():
             return resp.json()['docs']
 
         return resp.json()

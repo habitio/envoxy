@@ -266,11 +266,29 @@ class Dispatcher():
             _headers['X-Cid'] = str(uuid.uuid4())
                 
         return _headers
+
+    @staticmethod    
+    def _get_or_create_eventloop():
+        
+        try:
+            
+            return asyncio.get_event_loop()
+
+        except RuntimeError as ex:
+            
+            if "There is no current event loop in thread" in str(ex):
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                return asyncio.get_event_loop()
+            
+            raise ex
     
     @staticmethod
     def bulk_requests(request_list):
 
-        _loop = asyncio.get_event_loop()
+        _loop = Dispatcher._get_or_create_eventloop()
 
         _requests = []
         
