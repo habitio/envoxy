@@ -1,12 +1,27 @@
-from psycopg2 import pool
+from psycopg2.pool import ThreadedConnectionPool
 import psycopg2.extras
 import psycopg2.sql as sql
 from contextlib import contextmanager
+from threading import Semaphore
 
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
 from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
 from ..asserts import assertz
+
+
+class SemaphoreThreadedConnectionPool(ThreadedConnectionPool):
+    def __init__(self, minconn, maxconn, *args, **kwargs):
+        self._semaphore = Semaphore(maxconn)
+        super().__init__(minconn, maxconn, *args, **kwargs)
+
+    def getconn(self, *args, **kwargs):
+        self._semaphore.acquire()
+        return super().getconn(*args, **kwargs)
+
+    def putconn(self, *args, **kwargs):
+        super().putconn(*args, **kwargs)
+        self._semaphore.release()
 
 
 class Client:
@@ -27,7 +42,6 @@ class Client:
 
             self.connect(self._instances[_server_key])
 
-
     def connect(self, instance):
 
         conf = instance['conf']
@@ -35,16 +49,15 @@ class Client:
         _timeout = int(conf.get('timeout', TIMEOUT_CONN))
 
         try:
-            _conn_pool = pool.ThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
-                                            dbname=conf['db'], user=conf['user'], password=conf['passwd'],
-                                                     connect_timeout=_timeout)
+            _conn_pool = SemaphoreThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
+                                                         dbname=conf['db'], user=conf['user'], password=conf['passwd'],
+                                                         connect_timeout=_timeout)
             instance['conn_pool'] = _conn_pool
 
             Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(instance['server'],
-                                                                                     conf['host'], conf['port']))
+                                                                                 conf['host'], conf['port']))
         except psycopg2.OperationalError as e:
             Log.error('>>PGSQL ERROR {} {}'.format(conf.get('server'), e))
-
 
     def query(self, server_key=None, sql=None, params=None):
         """
@@ -60,12 +73,14 @@ class Client:
             if not sql:
                 raise DatabaseException("Sql cannot be empty")
 
-            conn = self.__conn if self.__conn is not None else self._get_conn(server_key)
+            conn = self.__conn if self.__conn is not None else self._get_conn(
+                server_key)
 
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
             schema = self._get_conf(server_key, 'schema')
-            if schema: cursor.execute(f"SET search_path TO {schema}")
+            if schema:
+                cursor.execute(f"SET search_path TO {schema}")
 
             data = []
             chunk_size = params.get('chunk_size') or DEFAULT_CHUNK_SIZE
@@ -89,25 +104,29 @@ class Client:
                     if rowcount != chunk_size or 'limit' not in sql.lower():
                         break
 
-                if self.__conn is None :  self.release_conn(server_key, conn) # query is not using transaction
+                if self.__conn is None:
+                    # query is not using transaction
+                    self.release_conn(server_key, conn)
 
                 return data
 
             except KeyError as e:
                 Log.error(e)
-                if conn is not None: self.release_conn(server_key, conn)
+                if conn is not None:
+                    self.release_conn(server_key, conn)
 
         except psycopg2.DatabaseError as e:
             Log.error(e)
-            if conn is not None: self.release_conn(server_key, conn)
+            if conn is not None:
+                self.release_conn(server_key, conn)
 
         return None
-
 
     def insert(self, db_table: str, data: dict):
 
         if not self.__conn:
-            raise DatabaseException("Insert must be inside a transaction block")
+            raise DatabaseException(
+                "Insert must be inside a transaction block")
 
         columns = data.keys()
 
@@ -121,7 +140,6 @@ class Client:
 
         cursor.execute(query, list(data.values()))
 
-
     def _get_conn(self, server_key):
         """
         :param server_key: database identifier
@@ -129,7 +147,8 @@ class Client:
         """
         _instance = self._instances[server_key]
 
-        assertz('conn_pool' in _instance, f"getconn failed on {server_key} db", _error_code=0, _status_code=412)
+        assertz('conn_pool' in _instance,
+                f"getconn failed on {server_key} db", _error_code=0, _status_code=412)
 
         return _instance.get('conn_pool').getconn()
 
@@ -140,7 +159,6 @@ class Client:
         _instance = self._instances[server_key]
         _instance['conn_pool'].putconn(conn)
 
-
     @contextmanager
     def transaction(self, server_key):
 
@@ -150,7 +168,7 @@ class Client:
         try:
             yield self
 
-        except (psycopg2.DatabaseError, DatabaseException) as e :
+        except (psycopg2.DatabaseError, DatabaseException) as e:
             Log.error("rollback transaction, {}".format(e))
             self.__conn.rollback()
 
@@ -158,5 +176,3 @@ class Client:
             self.__conn.commit()
             self.release_conn(server_key, self.__conn)
             self.__conn = None
-
-
