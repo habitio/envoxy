@@ -14,21 +14,26 @@ class Response(FlaskResponse):
 
         response_headers = dict()
         response_cookies = []
-        
+
         if len(args) > 0:
 
             payload = args[0]['payload'] if 'payload' in args[0] else args[0]  # payload is defined in original body
-            if 'status' in args[0]: kwargs['status'] = args[0]['status']  # get response status
-            if 'headers' in args[0] : response_headers = args[0]['headers']  # headers are defined in original body
-            if 'cookies' in args[0] : response_cookies = args[0]['cookies']
-            
+
+            if isinstance(args[0], dict):
+                if 'status' in args[0]:
+                    kwargs['status'] = args[0].get('status')  # get response status
+                if 'headers' in args[0]:
+                    response_headers = args[0].get('headers')  # headers are defined in original body
+                if 'cookies' in args[0]:
+                    response_cookies = args[0].get('cookies')
+
             if isinstance(payload, list):
                 args = list(args)
                 args[0] = json.dumps({
                     'elements': payload,
                     'size': len(payload)
                 }, cls=EnvoxyJsonEncoder)
-            
+
             elif isinstance(args[0], dict):
                 args = list(args)
                 args[0] = json.dumps(payload, cls=EnvoxyJsonEncoder)
