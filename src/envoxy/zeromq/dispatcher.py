@@ -10,12 +10,12 @@ from ..asserts import *
 from ..cache import Cache
 from ..constants import (SERVER_NAME, ZEROMQ_MAX_WORKERS,
                          ZEROMQ_POLLER_RETRIES, ZEROMQ_POLLIN_TIMEOUT,
-                         ZEROMQ_RETRY_TIMEOUT, Performative)
+                         ZEROMQ_RETRY_TIMEOUT, ZEROMQ_CONTEXT, Performative)
 from ..exceptions import ValidationException
 from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
-from ..utils.singleton import SingletonPerThread
+from ..utils.singleton import Singleton
 
 
 class NoSocketException(Exception):
@@ -24,7 +24,7 @@ class NoSocketException(Exception):
 class ZMQException(Exception):
     pass
 
-class ZMQ(SingletonPerThread):
+class ZMQ(Singleton):
 
     def __init__(self):
 
@@ -64,7 +64,7 @@ class ZMQ(SingletonPerThread):
     def add_worker(self, worker_id):
         
         self._workers[worker_id] = {
-            'context': zmq.Context(self._thread_id),
+            'context': zmq.Context(ZEROMQ_CONTEXT),
             'poller': zmq.Poller(),
             'socket': None
         }
@@ -77,20 +77,18 @@ class ZMQ(SingletonPerThread):
 
         _socket = _worker['socket']
 
-        if _socket is None:
-            _create_socket = True
-        elif _socket.closed:
-            _create_socket = True
-            _socket = None
-        else:
-            _create_socket = False
+        if _socket is None or _socket.closed:
 
-        if _create_socket:
+            _poller = _worker['poller']
+            
+            if _socket is not None:
+                _poller.unregister(_socket)
+                _socket = None
+                
             _socket = _worker['context'].socket(zmq.REQ)
-            _socket.setsockopt(zmq.IDENTITY, worker_id.encode('utf-8'))
-            _socket.linger = 0
             _socket.connect(self._instances[server_key]['url'])
-            _worker['poller'].register(_socket, zmq.POLLIN)
+            _socket.setsockopt(zmq.LINGER, 0)
+            _poller.register(_socket, zmq.POLLIN)    
 
         return _socket
 
