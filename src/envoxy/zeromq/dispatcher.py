@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -6,37 +7,34 @@ from concurrent.futures import ThreadPoolExecutor
 import zmq
 
 from ..asserts import *
-from ..constants import Performative, SERVER_NAME, ZEROMQ_POLLIN_TIMEOUT, ZEROMQ_POLLER_RETRIES, ZEROMQ_CONTEXT, \
-    ZEROMQ_RETRY_TIMEOUT, ZEROMQ_MAX_WORKERS
+from ..cache import Cache
+from ..constants import (SERVER_NAME, ZEROMQ_MAX_WORKERS,
+                         ZEROMQ_POLLER_RETRIES, ZEROMQ_POLLIN_TIMEOUT,
+                         ZEROMQ_RETRY_TIMEOUT, ZEROMQ_CONTEXT, Performative)
 from ..exceptions import ValidationException
 from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
 
-from ..cache import Cache
-
 
 class NoSocketException(Exception):
     pass
-
 
 class ZMQException(Exception):
     pass
 
 class ZMQ(Singleton):
 
-    _cache = None
-
-    _instances = {}
-
-    _workers = {}
-
-    _available_workers = []
-
-    _executor = None
-
     def __init__(self):
+
+        self._cache = None
+        self._instances = {}
+        self._workers = {}
+        self._available_workers = []
+        self._executor = None
+
+        self._thread_id = threading.get_ident()
 
         self._server_confs = Config.get('zmq_servers')
 
@@ -58,30 +56,58 @@ class ZMQ(Singleton):
             _cache_instance = Cache()
             self._cache = _cache_instance.get_backend()
             
-        for i in range(ZEROMQ_MAX_WORKERS):
-            self.add_worker(f'zmqc-poller-{i}')
+        for _i in range(ZEROMQ_MAX_WORKERS):
+            self.add_worker(f'zmqc-poller-{_i}')
 
-        self._executor = ThreadPoolExecutor(max_workers=ZEROMQ_MAX_WORKERS, thread_name_prefix='zmqc-worker')
+        self._executor = ThreadPoolExecutor(max_workers=ZEROMQ_MAX_WORKERS, thread_name_prefix=f'zmqc-worker-{self._thread_id}')
 
     def add_worker(self, worker_id):
         
         self._workers[worker_id] = {
             'context': zmq.Context(ZEROMQ_CONTEXT),
-            'poller': zmq.Poller()
+            'poller': zmq.Poller(),
+            'socket': None
         }
 
         self.free_worker(worker_id)
 
-    def free_worker(self, worker_id, socket=None):
-        
-        if socket:
+    def get_or_create_socket(self, server_key, worker_id):
+
+        _worker = self._workers[worker_id]
+
+        _socket = _worker['socket']
+
+        if _socket is None or _socket.closed:
+
+            _poller = _worker['poller']
             
-            try:
-                self._workers[worker_id]['poller'].unregister(socket)
-            except KeyError as e:
-                pass
-            finally:
-                socket.close()
+            if _socket is not None:
+                _poller.unregister(_socket)
+                _socket = None
+                
+            _socket = _worker['context'].socket(zmq.REQ)
+            _socket.connect(self._instances[server_key]['url'])
+            _socket.setsockopt(zmq.LINGER, 0)
+            _poller.register(_socket, zmq.POLLIN)    
+
+        return _socket
+
+    def free_worker(self, worker_id, close_socket=False):
+        
+        if close_socket:
+
+            _worker = self._workers[worker_id]
+            _socket = _worker['socket']
+
+            if _socket is not None:
+                
+                try:
+                    _worker['poller'].unregister(_socket)
+                except KeyError:
+                    pass
+                finally:
+                    _socket.close()
+                    _socket = None
         
         self._available_workers.append(worker_id)
 
@@ -92,9 +118,10 @@ class ZMQ(Singleton):
 
     def remove_keys(self, response, keys):
 
-        for key in keys:
-            if key in response:
-                response.pop(key, None)
+        for _key in keys:
+            
+            if _key in response:
+                response.pop(_key, None)
     
     def send_and_recv_future(self, server_key, message):
         return self._executor.submit(self.send_and_recv, server_key, message)
@@ -148,12 +175,7 @@ class ZMQ(Singleton):
 
                 _worker = self._workers[_worker_id]
 
-                _socket = _worker['context'].socket(zmq.REQ)
-                _socket.linger = 0
-
-                _socket.connect(f"{_instance['url']}")
-
-                _worker['poller'].register(_socket, zmq.POLLIN)
+                _socket = self.get_or_create_socket(server_key, _worker_id)
             
                 _socket.send_multipart([b'', json.dumps(message).encode('utf-8')])
                     
@@ -184,7 +206,7 @@ class ZMQ(Singleton):
                             
                             self.remove_keys(_response, ['protocol', 'performative'])
 
-                            self.free_worker(_worker_id, socket=_socket)
+                            self.free_worker(_worker_id)
 
                             if self._cache and _is_in_cached_routes:
 
@@ -217,7 +239,7 @@ class ZMQ(Singleton):
                     
                     Log.error(f"ZMQ::send_and_recv : Could not connect to ZeroMQ machine: {_instance['url']}")
 
-                    self.free_worker(_worker_id, socket=_socket)
+                    self.free_worker(_worker_id, close_socket=True)
 
                     time.sleep(ZEROMQ_RETRY_TIMEOUT)
     
@@ -225,7 +247,7 @@ class ZMQ(Singleton):
            
             Log.warning(f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
 
-            self.free_worker(_worker_id, socket=_socket)
+            self.free_worker(_worker_id, close_socket=True)
 
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
             
@@ -235,7 +257,7 @@ class ZMQ(Singleton):
            
             Log.warning(f"ZMQ::send_and_recv : Unexpected error. It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
 
-            self.free_worker(_worker_id, socket=_socket)
+            self.free_worker(_worker_id, close_socket=True)
 
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
             
