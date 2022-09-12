@@ -8,14 +8,14 @@ import zmq
 
 from ..asserts import *
 from ..cache import Cache
-from ..constants import (SERVER_NAME, ZEROMQ_MAX_WORKERS,
+from ..constants import (SERVER_NAME, ZEROMQ_MAX_WORKERS_PER_THREAD,
                          ZEROMQ_POLLER_RETRIES, ZEROMQ_POLLIN_TIMEOUT,
                          ZEROMQ_RETRY_TIMEOUT, ZEROMQ_CONTEXT, Performative)
 from ..exceptions import ValidationException
 from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
-from ..utils.singleton import Singleton
+from ..utils.singleton import SingletonPerThread
 
 
 class NoSocketException(Exception):
@@ -24,7 +24,7 @@ class NoSocketException(Exception):
 class ZMQException(Exception):
     pass
 
-class ZMQ(Singleton):
+class ZMQ(SingletonPerThread):
 
     def __init__(self):
 
@@ -35,6 +35,14 @@ class ZMQ(Singleton):
         self._executor = None
 
         self._thread_id = threading.get_ident()
+
+        try:
+            _workers_conf = Config.get('zmq_workers')
+            self._max_workers = int(_workers_conf.get('max_per_thread', ZEROMQ_MAX_WORKERS_PER_THREAD))
+        except Exception:
+            self._max_workers = ZEROMQ_MAX_WORKERS_PER_THREAD
+
+        Log.info(f'ZMQ: thread({self._thread_id}) max workers: {self._max_workers}')
 
         self._server_confs = Config.get('zmq_servers')
 
@@ -56,10 +64,10 @@ class ZMQ(Singleton):
             _cache_instance = Cache()
             self._cache = _cache_instance.get_backend()
             
-        for _i in range(ZEROMQ_MAX_WORKERS):
-            self.add_worker(f'zmqc-poller-{_i}')
+        for _i in range(self._max_workers):
+            self.add_worker(f'zmqc-poller-{self._thread_id}-{_i}')
 
-        self._executor = ThreadPoolExecutor(max_workers=ZEROMQ_MAX_WORKERS, thread_name_prefix=f'zmqc-worker-{self._thread_id}')
+        self._executor = ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix=f'zmqc-worker-{self._thread_id}')
 
     def add_worker(self, worker_id):
         
@@ -82,8 +90,13 @@ class ZMQ(Singleton):
             _poller = _worker['poller']
             
             if _socket is not None:
-                _poller.unregister(_socket)
-                _socket = None
+
+                try:
+                    _poller.unregister(_socket)
+                except KeyError:
+                    pass
+                finally:
+                    _socket = None
                 
             _socket = _worker['context'].socket(zmq.REQ)
             _socket.connect(self._instances[server_key]['url'])
@@ -198,15 +211,16 @@ class ZMQ(Singleton):
 
                         if _socks.get(_socket) == zmq.POLLIN:
                             
-                            _recv = _socket.recv_multipart() 
+                            _recv = _socket.recv_multipart()
+
+                            self.free_worker(_worker_id)
+                            
                             _recv.pop(0) # discard delimiter
                             _response = json.loads(_recv.pop(0).decode('utf-8')) # actual message
                             
                             self.remove_header(_response, 'X-Cid')
                             
                             self.remove_keys(_response, ['protocol', 'performative'])
-
-                            self.free_worker(_worker_id)
 
                             if self._cache and _is_in_cached_routes:
 
