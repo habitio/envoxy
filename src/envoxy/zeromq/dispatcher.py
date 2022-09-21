@@ -192,13 +192,18 @@ class ZMQ(Singleton):
         try:
 
             while True:
+    
+                # Test without any lock
+                if not self._available_workers:
+                    time.sleep(0.01)
+                    continue
 
                 with self._lock:
                     
+                    # Check again with lock to make sure that the list is not empty
                     if not self._available_workers:
-                        time.sleep(0.01)
                         continue
-                    
+
                     _worker_id = self._available_workers.pop()
 
                 _worker = self._workers[_worker_id]
