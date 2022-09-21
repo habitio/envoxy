@@ -8,14 +8,14 @@ import zmq
 
 from ..asserts import *
 from ..cache import Cache
-from ..constants import (SERVER_NAME, ZEROMQ_MAX_WORKERS_PER_THREAD,
+from ..constants import (SERVER_NAME, ZEROMQ_CONTEXT, ZEROMQ_MAX_WORKERS,
                          ZEROMQ_POLLER_RETRIES, ZEROMQ_POLLIN_TIMEOUT,
-                         ZEROMQ_RETRY_TIMEOUT, ZEROMQ_CONTEXT, Performative)
+                         ZEROMQ_RETRY_TIMEOUT, Performative)
 from ..exceptions import ValidationException
 from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
-from ..utils.singleton import SingletonPerThread
+from ..utils.singleton import Singleton
 
 
 class NoSocketException(Exception):
@@ -24,7 +24,7 @@ class NoSocketException(Exception):
 class ZMQException(Exception):
     pass
 
-class ZMQ(SingletonPerThread):
+class ZMQ(Singleton):
 
     def __init__(self):
 
@@ -33,16 +33,22 @@ class ZMQ(SingletonPerThread):
         self._workers = {}
         self._available_workers = []
         self._executor = None
-
-        self._thread_id = threading.get_ident()
+        self._lock = threading.Lock()
 
         try:
             _workers_conf = Config.get('zmq_workers')
-            self._max_workers = int(_workers_conf.get('max_per_thread', ZEROMQ_MAX_WORKERS_PER_THREAD))
+            self._thread_poll_executor_max_workers = int(_workers_conf.get('thread_poll_executor_max_workers', ZEROMQ_MAX_WORKERS))
         except Exception:
-            self._max_workers = ZEROMQ_MAX_WORKERS_PER_THREAD
+            self._thread_poll_executor_max_workers = ZEROMQ_MAX_WORKERS
 
-        Log.info(f'ZMQ: thread({self._thread_id}) max workers: {self._max_workers}')
+        try:
+            _workers_conf = Config.get('zmq_workers')
+            self._max_workers = int(_workers_conf.get('context_max_workers', ZEROMQ_MAX_WORKERS))
+        except Exception:
+            self._max_workers = ZEROMQ_MAX_WORKERS
+
+        Log.info(f'ZMQ: ThreadPoolExecutor max workers: {self._thread_poll_executor_max_workers}')
+        Log.info(f'ZMQ: Context max workers: {self._max_workers}')
 
         self._server_confs = Config.get('zmq_servers')
 
@@ -65,17 +71,19 @@ class ZMQ(SingletonPerThread):
             self._cache = _cache_instance.get_backend()
             
         for _i in range(self._max_workers):
-            self.add_worker(f'zmqc-poller-{self._thread_id}-{_i}')
+            self.add_worker(f'zmqc-poller-{_i}')
 
-        self._executor = ThreadPoolExecutor(max_workers=self._max_workers, thread_name_prefix=f'zmqc-worker-{self._thread_id}')
+        self._executor = ThreadPoolExecutor(max_workers=self._thread_poll_executor_max_workers, thread_name_prefix=f'zmqc-worker')
 
     def add_worker(self, worker_id):
         
-        self._workers[worker_id] = {
-            'context': zmq.Context(ZEROMQ_CONTEXT),
-            'poller': zmq.Poller(),
-            'socket': None
-        }
+        with self._lock:
+
+            self._workers[worker_id] = {
+                'context': zmq.Context(ZEROMQ_CONTEXT),
+                'poller': zmq.Poller(),
+                'socket': None
+            }
 
         self.free_worker(worker_id)
 
@@ -122,7 +130,8 @@ class ZMQ(SingletonPerThread):
                     _socket.close()
                     _socket = None
         
-        self._available_workers.append(worker_id)
+        with self._lock:    
+            self._available_workers.append(worker_id)
 
     def remove_header(self, response, header):
 
@@ -182,9 +191,20 @@ class ZMQ(SingletonPerThread):
 
         try:
 
-            while self._available_workers:
+            while True:
+    
+                # Test without any lock
+                if not self._available_workers:
+                    time.sleep(0.01)
+                    continue
 
-                _worker_id = self._available_workers.pop()
+                with self._lock:
+                    
+                    # Check again with lock to make sure that the list is not empty
+                    if not self._available_workers:
+                        continue
+
+                    _worker_id = self._available_workers.pop()
 
                 _worker = self._workers[_worker_id]
 
@@ -256,6 +276,8 @@ class ZMQ(SingletonPerThread):
                     self.free_worker(_worker_id, close_socket=True)
 
                     time.sleep(ZEROMQ_RETRY_TIMEOUT)
+
+                    return self.send_and_recv(server_key, message)
     
         except NoSocketException as e:
            
@@ -276,8 +298,6 @@ class ZMQ(SingletonPerThread):
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
             
             return self.send_and_recv(server_key, message)
-
-        return _response
 
 
 class Dispatcher():
