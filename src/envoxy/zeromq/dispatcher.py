@@ -303,6 +303,13 @@ class ZMQ(Singleton):
 class Dispatcher():
 
     @staticmethod
+    def initialize():
+        try:
+            Dispatcher.instance()
+        except Exception as e:
+            Log.error(f"ZMQ::Dispatcher::initialize::Error: {e}")
+
+    @staticmethod
     def instance():
         return ZMQ.instance()
 

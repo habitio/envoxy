@@ -1,14 +1,16 @@
 import re
 import uuid
 import traceback
+
 from typing import List
 
 from flask import Flask, request, Response as FlaskResponse, make_response, jsonify
+
 from .containers import Response
 from ..exceptions import ValidationException
 from ..utils.logs import Log
 
-from ..mqtt.dispatcher import MqttDispatcher as mqttc
+from ..mqtt.dispatcher import Dispatcher as mqttc
 
 REGEX_VAR_PATTERN: str = r'(?P<all>{(?P<var>[^:]+):(?P<type>[^}]+)})'
 
@@ -60,8 +62,6 @@ class View(object):
                     getattr(self, _method, 'Not Found')
                 ))
 
-
-
             if 'mqtt' in _protocols and _method == "on_event":
 
                 if 'mqtt' not in self.protocols: self.protocols.append('mqtt')
@@ -75,8 +75,6 @@ class View(object):
 
                 mqttc.subscribe(_server, _endpoint, getattr(self, _method, 'Not Found'))
 
-
-
     def _dispatch(self, _method, _endpoint, _protocol):
 
         def _wrapper(*args, **kwargs):
@@ -86,7 +84,6 @@ class View(object):
         _wrapper.__name__ = '__wrapper__{}__{}__{}'.format(self.__class__.__name__, _method, _protocol)
         
         return _wrapper
-
 
     def dispatch(self, request, _method, _endpoint, *args, **kwargs):
         kwargs.update({ 'endpoint': _endpoint })
@@ -114,7 +111,6 @@ class View(object):
             return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers={
                 "X-Error": _code
             })
-
 
     def cached_response(self, result):
         return Response(result)
