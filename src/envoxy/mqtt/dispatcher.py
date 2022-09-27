@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 import uuid
 
 import paho.mqtt.client as paho
@@ -11,7 +12,6 @@ from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
 
-
 RC_LIST = {
     0: "Connection successful",
     1: "Connection refused - incorrect protocol version",
@@ -20,6 +20,9 @@ RC_LIST = {
     4: "Connection refused - bad username or password",
     5: "Connection refused - not authorised"
 }
+
+paho.Client.connected_flag = False # create flag in class
+paho.Client.bad_connection_flag = False # create flag in class
 
 
 class MqttConnector(Singleton):
@@ -85,8 +88,19 @@ class MqttConnector(Singleton):
                 _instance['password'] = _instance['credentials']['access_token']
 
     def is_connected(self, server_key):
-        _instance = self._instances.get(server_key)
-        return _instance and _instance['mqtt_client'] is not None and _instance['mqtt_client'].connected_flag
+        
+        _mqtt_client = self._instances[server_key]['mqtt_client']
+        
+        _is_connected = (_mqtt_client is not None and _mqtt_client.connected_flag is True and _mqtt_client.bad_connection_flag is False)
+        
+        Log.debug(
+            f"Mqtt - is_connected - mqtt client: {_mqtt_client}, " \
+            f"connected flag: {_mqtt_client.connected_flag if _mqtt_client else None}, " \
+            f"bad connection flag: {_mqtt_client.bad_connection_flag if _mqtt_client else None}, " \
+            f"is connected: {_is_connected}"
+        )
+        
+        return _is_connected
 
     def disconnect(self, server_key):
 
@@ -155,7 +169,7 @@ class MqttConnector(Singleton):
             
             else:
                 
-                client.connected_flag = False
+                client.bad_connection_flag = True
                 
                 raise Exception(
                     RC_LIST.get(rc, f"Unknown error: result code {rc}, userdata {userdata}, flags {flags}")
@@ -165,6 +179,12 @@ class MqttConnector(Singleton):
             
             Log.error(e)
 
+    def _on_disconnect(self, client, userdata, rc):
+        
+        Log.verbose(f"Mqtt - Disconnected, result code {rc}, userdata {userdata}")
+
+        client.connected_flag=False
+
     def connect(self, server_key):
 
         try:
@@ -173,26 +193,41 @@ class MqttConnector(Singleton):
 
             _instance = self._instances[server_key]
 
-            _instance['mqtt_client'] = paho.Client()
-            _instance['mqtt_client'].on_connect = self._on_connect
-            _instance['mqtt_client'].username_pw_set(username=_instance['username'], password=_instance['password'])
+            with _instance['lock']:
 
-            if not _instance['mqtt_client']._ssl and _instance['schema'] == "mqtts":
-                _instance['mqtt_client'].tls_set(ca_certs=_instance['conf']['cert_path'])
+                _instance['mqtt_client'] = paho.Client()
+                _instance['mqtt_client'].on_connect = self._on_connect
+                _instance['mqtt_client'].on_disconnect = self._on_disconnect
+                _instance['mqtt_client'].username_pw_set(username=_instance['username'], password=_instance['password'])
 
-            _instance['mqtt_client'].user_data_set({'server_key': server_key})
+                if not _instance['mqtt_client']._ssl and _instance['schema'] == "mqtts":
+                    _instance['mqtt_client'].tls_set(ca_certs=_instance['conf']['cert_path'])
 
-            _instance['mqtt_client'].connect(_instance['host'], _instance['port'])
-            _instance['mqtt_client'].loop_start()
+                _instance['mqtt_client'].user_data_set({'server_key': server_key})
 
-            Log.notice('New MQTT conn: {}, schema = {}, host = {}, port = {}, username = {}'.format(
-                _instance['mqtt_client'],
-                _instance['schema'],
-                _instance['host'],
-                _instance['port'],
-                _instance['username'],
-                
-            ))
+                _instance['mqtt_client'].connect(_instance['host'], _instance['port'])
+
+                _instance['mqtt_client'].loop_start()
+
+                Log.notice('New MQTT conn: {}, schema = {}, host = {}, port = {}, username = {}'.format(
+                    _instance['mqtt_client'],
+                    _instance['schema'],
+                    _instance['host'],
+                    _instance['port'],
+                    _instance['username'],
+                    
+                ))
+
+                _mqtt_client = _instance['mqtt_client']
+
+                while not _mqtt_client.connected_flag and not _mqtt_client.bad_connection_flag: #wait in loop:
+                    Log.notice('Waiting for MQTT connection...')
+                    time.sleep(0.1)
+
+                if _mqtt_client.bad_connection_flag:
+                    Log.error('Bad connection to MQTT server')
+                    self.disconnect(server_key)
+                    return False
 
             return True
 
@@ -212,7 +247,7 @@ class MqttConnector(Singleton):
                 if not self.connect(server_key):
                     return False
             else:
-                if self.reconnect(server_key):
+                if not self.reconnect(server_key):
                     return False
 
         try:
@@ -322,7 +357,18 @@ class MqttConnector(Singleton):
         return True
 
 
-class MqttDispatcher():
+class Dispatcher():
+
+    @staticmethod
+    def initialize():
+        try:
+            Dispatcher.instance()
+        except Exception as e:
+            Log.error(f"MQTT::Dispatcher::initialize::Error: {e}")
+
+    @staticmethod
+    def instance():
+        return MqttConnector.instance()
 
     @staticmethod
     def generate_headers(client_id=None):
@@ -344,10 +390,15 @@ class MqttDispatcher():
     @staticmethod
     def publish(server_key, topic, message, no_envelope=False):
 
-        return MqttConnector.instance().publish(server_key, topic, message, no_envelope=no_envelope, headers=MqttDispatcher.generate_headers())
+        return MqttConnector.instance().publish(
+            server_key, 
+            topic, 
+            message, 
+            no_envelope=no_envelope, 
+            headers=Dispatcher.generate_headers()
+        )
 
     @staticmethod
     def subscribe(server_key, topic, callback=None):
 
         return MqttConnector.instance().subscribe(server_key, topic, callback=callback)
-
