@@ -128,10 +128,15 @@ class MqttConnector(Singleton):
         try:
             
             _instance = self._instances.get(server_key)
+
+            _mqtt_client = _instance['mqtt_client'] if _instance else None
             
-            if _instance and _instance['mqtt_client'] is not None:
+            if _mqtt_client is not None:
                 
-                _instance['mqtt_client'].reconnect()
+                _mqtt_client.reconnect()
+
+                _mqtt_client.connected_flag = True
+                _mqtt_client.bad_connection_flag = False
                 
                 return True
 
@@ -152,6 +157,7 @@ class MqttConnector(Singleton):
             if rc == 0:
                 
                 client.connected_flag = True
+                client.bad_connection_flag = False
                 
                 Log.verbose(f"Mqtt - Connected, result code {rc}, userdata {userdata}, flags {flags}")
 
@@ -218,13 +224,18 @@ class MqttConnector(Singleton):
                     
                 ))
 
-                _mqtt_client = _instance['mqtt_client']
-
-                while not _mqtt_client.connected_flag and not _mqtt_client.bad_connection_flag: #wait in loop:
-                    Log.notice('Waiting for MQTT connection...')
+                while not _instance['mqtt_client'].connected_flag and not _instance['mqtt_client'].bad_connection_flag: #wait in loop:
+                    
+                    Log.notice(
+                        f"Waiting for MQTT connection... server key: {server_key}, " \
+                        f"mqtt client: {_instance['mqtt_client']}, " \
+                        f"connected flag: {_instance['mqtt_client'].connected_flag if _instance['mqtt_client'] else None}, " \
+                        f"bad connection flag: {_instance['mqtt_client'].bad_connection_flag if _instance['mqtt_client'] else None}"
+                    )
+                    
                     time.sleep(0.1)
 
-                if _mqtt_client.bad_connection_flag:
+                if _instance['mqtt_client'].bad_connection_flag:
                     Log.error('Bad connection to MQTT server')
                     self.disconnect(server_key)
                     return False
