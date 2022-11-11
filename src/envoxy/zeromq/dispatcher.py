@@ -246,12 +246,25 @@ class ZMQ(Singleton):
 
                                 try:
 
+                                    _status_code = int(_response.get('status', 0))
+
+                                    if _status_code >= 200 and _status_code < 300:
+
+                                        _ttl = int(_is_in_cached_routes.get('ttl', 3600))
+                                    
+                                    else:
+
+                                        _ttl = int(_is_in_cached_routes.get('error_ttl', 60))
+                                        
+                                        if Log.is_gte_log_level(Log.ERROR):
+                                            Log.error(f"ZMQ::cache::set::Error: (state_code: {_status_code}, this cached entry will expire in {_ttl} seconds) {message['resource']} :: {message['performative']} :: {message.get('params')}")
+
                                     self._cache.set(
                                         message['resource'], 
                                         message['performative'], 
                                         message.get('params'), 
                                         _response, 
-                                        int(_is_in_cached_routes.get('ttl', 3600))
+                                        _ttl
                                     )
 
                                     if Log.is_gte_log_level(Log.DEBUG):
