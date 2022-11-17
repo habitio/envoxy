@@ -89,48 +89,60 @@ class ZMQ(Singleton):
 
     def get_or_create_socket(self, server_key, worker_id):
 
-        _worker = self._workers[worker_id]
+        with self._lock:
 
-        _socket = _worker['socket']
+            _worker = self._workers[worker_id]
 
-        if _socket is None or _socket.closed:
+            _socket = _worker['socket']
 
-            _poller = _worker['poller']
-            
-            if _socket is not None:
+            if _socket is None or _socket.closed:
 
-                try:
-                    _poller.unregister(_socket)
-                except KeyError:
-                    pass
-                finally:
-                    _socket = None
+                _poller = _worker['poller']
                 
-            _socket = _worker['context'].socket(zmq.REQ)
-            _socket.connect(self._instances[server_key]['url'])
-            _socket.setsockopt(zmq.LINGER, 0)
-            _poller.register(_socket, zmq.POLLIN)    
+                if _socket is not None:
+
+                    try:
+                        _poller.unregister(_socket)
+                    except Exception:
+                        pass
+                        
+                    try:
+                        _socket.close(linger=0)
+                    except Exception:
+                        pass
+                    
+                _socket = _worker['context'].socket(zmq.REQ)
+                _socket.connect(self._instances[server_key]['url'])
+                _socket.setsockopt(zmq.LINGER, 0)
+                _poller.register(_socket, zmq.POLLIN)
+
+                _worker['socket'] = _socket
 
         return _socket
 
     def free_worker(self, worker_id, close_socket=False):
-        
-        if close_socket:
 
-            _worker = self._workers[worker_id]
-            _socket = _worker['socket']
-
-            if _socket is not None:
-                
-                try:
-                    _worker['poller'].unregister(_socket)
-                except KeyError:
-                    pass
-                finally:
-                    _socket.close()
-                    _socket = None
+        with self._lock:
         
-        with self._lock:    
+            if close_socket:
+
+                _worker = self._workers[worker_id]
+                _socket = _worker['socket']
+
+                if _socket is not None:
+                    
+                    try:
+                        _worker['poller'].unregister(_socket)
+                    except Exception:
+                        pass
+
+                    try:
+                        _socket.close(linger=0)
+                    except Exception:
+                        pass
+                    
+                    _worker['socket'] = None
+            
             self._available_workers.append(worker_id)
 
     def remove_header(self, response, header):

@@ -88,17 +88,21 @@ class MqttConnector(Singleton):
                 _instance['password'] = _instance['credentials']['access_token']
 
     def is_connected(self, server_key):
+
+        with self._instances[server_key]['lock']:
         
-        _mqtt_client = self._instances[server_key]['mqtt_client']
-        
-        _is_connected = (_mqtt_client is not None and _mqtt_client.connected_flag is True and _mqtt_client.bad_connection_flag is False)
-        
-        Log.debug(
-            f"Mqtt - is_connected - mqtt client: {_mqtt_client}, " \
-            f"connected flag: {_mqtt_client.connected_flag if _mqtt_client else None}, " \
-            f"bad connection flag: {_mqtt_client.bad_connection_flag if _mqtt_client else None}, " \
-            f"is connected: {_is_connected}"
-        )
+            _mqtt_client = self._instances[server_key]['mqtt_client']
+            
+            _is_connected = (_mqtt_client is not None and _mqtt_client.connected_flag is True and _mqtt_client.bad_connection_flag is False)
+
+            if Log.is_gte_log_level(Log.DEBUG):
+                
+                Log.debug(
+                    f"Mqtt - is_connected - mqtt client: {_mqtt_client}, " \
+                    f"connected flag: {_mqtt_client.connected_flag if _mqtt_client else None}, " \
+                    f"bad connection flag: {_mqtt_client.bad_connection_flag if _mqtt_client else None}, " \
+                    f"is connected: {_is_connected}"
+                )
         
         return _is_connected
 
@@ -129,21 +133,23 @@ class MqttConnector(Singleton):
             
             _instance = self._instances.get(server_key)
 
-            _mqtt_client = _instance['mqtt_client'] if _instance else None
+            with _instance['lock']:
+
+                _mqtt_client = _instance['mqtt_client'] if _instance else None
+                
+                if _mqtt_client is not None:
+                    
+                    _mqtt_client.reconnect()
+
+                    _mqtt_client.connected_flag = True
+                    _mqtt_client.bad_connection_flag = False
+                    
+                    return True
+
+                else:
+
+                    return self.connect(server_key)
             
-            if _mqtt_client is not None:
-                
-                _mqtt_client.reconnect()
-
-                _mqtt_client.connected_flag = True
-                _mqtt_client.bad_connection_flag = False
-                
-                return True
-
-            else:
-
-                return self.connect(server_key)
-        
         except Exception as e:
             
             Log.error('Error on reconnecting to MQTT server: {}'.format(e))
@@ -186,10 +192,12 @@ class MqttConnector(Singleton):
             Log.error(e)
 
     def _on_disconnect(self, client, userdata, rc):
-        
-        Log.verbose(f"Mqtt - Disconnected, result code {rc}, userdata {userdata}")
 
-        client.connected_flag=False
+        with self._instances[userdata['server_key']]['lock']:
+        
+            Log.verbose(f"Mqtt - Disconnected, result code {rc}, userdata {userdata}")
+
+            client.connected_flag = False
 
     def connect(self, server_key):
 
@@ -224,16 +232,25 @@ class MqttConnector(Singleton):
                     
                 ))
 
+                _left_tries = 10
+
                 while not _instance['mqtt_client'].connected_flag and not _instance['mqtt_client'].bad_connection_flag: #wait in loop:
                     
                     Log.notice(
                         f"Waiting for MQTT connection... server key: {server_key}, " \
                         f"mqtt client: {_instance['mqtt_client']}, " \
                         f"connected flag: {_instance['mqtt_client'].connected_flag if _instance['mqtt_client'] else None}, " \
-                        f"bad connection flag: {_instance['mqtt_client'].bad_connection_flag if _instance['mqtt_client'] else None}"
+                        f"bad connection flag: {_instance['mqtt_client'].bad_connection_flag if _instance['mqtt_client'] else None}, " \
+                        f"left tries: {_left_tries}"
                     )
                     
                     time.sleep(0.1)
+
+                    _left_tries -= 1
+
+                    if _left_tries <= 0:
+                        self.disconnect(server_key)
+                        return False
 
                 if _instance['mqtt_client'].bad_connection_flag:
                     Log.error('Bad connection to MQTT server')
@@ -262,15 +279,18 @@ class MqttConnector(Singleton):
                     return False
 
         try:
+
             _mqtt_client = _instance['mqtt_client']
 
-            _message = '{} [{}] {}'.format(
-                Log.style.apply('> PUBLISH', Log.style.BOLD),
-                Log.style.apply('MQTT', Log.style.GREEN_FG),
-                Log.style.apply('{}'.format(topic), Log.style.BLUE_FG)
-            )
-            
-            Log.trace(_message)
+            if Log.is_gte_log_level(Log.TRACE):
+
+                _message = '{} [{}] {}'.format(
+                    Log.style.apply('> PUBLISH', Log.style.BOLD),
+                    Log.style.apply('MQTT', Log.style.GREEN_FG),
+                    Log.style.apply('{}'.format(topic), Log.style.BLUE_FG)
+                )
+                
+                Log.trace(_message)
 
             if no_envelope:
                 _payload = json.dumps(message)
@@ -283,21 +303,25 @@ class MqttConnector(Singleton):
 
             _message = '{} | Message{}'
 
-            Log.verbose(_message, _payload)
+            if Log.is_gte_log_level(Log.VERBOSE):
+                
+                Log.verbose(_message, _payload)
 
             with _instance['lock']:
                 (_rc, _mid) = _mqtt_client.publish(topic, _payload)
 
             if _rc == 0:
+
+                if Log.is_gte_log_level(Log.VERBOSE):
                 
-                Log.verbose(
-                    "Mqtt - Published successfully, result code({}) and mid({}) to topic: {} with payload:{}".format(
-                        _rc, 
-                        _mid, 
-                        topic, 
-                        message
+                    Log.verbose(
+                        "Mqtt - Published successfully, result code({}) and mid({}) to topic: {} with payload:{}".format(
+                            _rc, 
+                            _mid, 
+                            topic, 
+                            message
+                        )
                     )
-                )
 
                 return True
 
