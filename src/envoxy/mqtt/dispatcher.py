@@ -355,7 +355,7 @@ class MqttConnector(Singleton):
             'qos': 0
         })
 
-        self.create_subscription(server_key, topic, callback=callback)
+        self.create_subscription(_instance, topic, callback=callback)
 
     def create_subscription(self, instance, topic, callback=None, qos=0):
         
