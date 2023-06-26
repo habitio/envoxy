@@ -1,10 +1,13 @@
 from functools import wraps
-from .auth.backends import AuthBackendMixin
-from .constants import CACHE_DEFAULT_TTL, GET
-from .cache import Cache
-from .utils.logs import Log
+
 import requests
-import json
+
+from .auth.backends import AuthBackendMixin
+from .cache import Cache
+from .constants import CACHE_DEFAULT_TTL, GET
+from .utils.encoders import envoxy_json_loads
+from .utils.logs import Log
+
 
 def on(**kwargs):
 
@@ -32,10 +35,12 @@ class auth_required(object):
 
         @wraps(func)
         def wrapped_func(view, request, *args, **kwargs):
-            if self.kwargs: kwargs.update(**self.kwargs)
+            if self.kwargs:
+                kwargs.update(**self.kwargs)
 
             headers = AuthBackendMixin().authenticate(request, *args, **kwargs)
-            if headers: kwargs.update(**headers)
+            if headers:
+                kwargs.update(**headers)
 
             return func(view, request, *args, **kwargs)
         return wrapped_func
@@ -65,12 +70,12 @@ class cache(object):
             response = func(view, request, *args, **kwargs)
 
             if response and not result and response.status_code == requests.codes.ok:
-                self.cache.set(_endpoint, _method, _params, response.get_json(), ttl=self.ttl)
+                self.cache.set(_endpoint, _method, _params,
+                               response.get_json(), ttl=self.ttl)
 
             return response
 
         return wrapped_func
-
 
 
 class log_event(object):
@@ -85,14 +90,18 @@ class log_event(object):
             Log.style.apply('MQTT', Log.style.GREEN_FG),
             Log.style.apply('{}'.format(msg.topic), Log.style.BLUE_FG)
         )
+
         Log.trace(_message)
 
-        data = json.loads(msg.payload.decode("utf-8"))
-        _message = '{} | Message{}'.format(_message, data)
+        _data = envoxy_json_loads(msg.payload)
 
-        Log.verbose(_message)
+        if Log.is_gte_log_level(Log.VERBOSE):
 
-        return self.func(self.func.__class__, data)
+            _message = '{} | Message{}'.format(_message, _data)
+
+            Log.verbose(_message)
+
+        return self.func(self.func.__class__, _data)
 
 
 class auth_anonymous_allowed(object):
@@ -104,10 +113,12 @@ class auth_anonymous_allowed(object):
 
         @wraps(func)
         def wrapped_func(view, request, *args, **kwargs):
-            if self.kwargs: kwargs.update(**self.kwargs)
+            if self.kwargs:
+                kwargs.update(**self.kwargs)
 
             headers = AuthBackendMixin().anonymous(request, *args, **kwargs)
-            if headers: kwargs.update(**headers)
+            if headers:
+                kwargs.update(**headers)
 
             return func(view, request, *args, **kwargs)
         return wrapped_func

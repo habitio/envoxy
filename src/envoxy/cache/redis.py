@@ -1,8 +1,10 @@
-import redis
 import base64
-import json
 
-from ..constants import REDIS_DEFAULT_PORT, REDIS_DEFAULT_HOST, REDIS_DEFAULT_DB, REDIS_DEFAULT_TTL
+import redis
+
+from ..constants import REDIS_DEFAULT_DB, REDIS_DEFAULT_HOST, REDIS_DEFAULT_PORT, REDIS_DEFAULT_TTL
+from ..utils.encoders import envoxy_json_dumps, envoxy_json_loads
+
 
 class RedisCache:
 
@@ -23,24 +25,24 @@ class RedisCache:
         self.r = redis.Redis(host=_host, port=_port, db=_db)
 
     def _encode_params(self, _json_params):
-        _string_params = json.dumps(_json_params)
-        return base64.urlsafe_b64encode(_string_params.encode()).decode()
+        _string_params = envoxy_json_dumps(_json_params)
+        return base64.urlsafe_b64encode(_string_params).decode()
 
     def _decode_params(self, _string_params):
-        return json.loads(base64.urlsafe_b64decode(_string_params.encode()).decode())
+        return envoxy_json_loads(base64.urlsafe_b64decode(_string_params.encode()).decode())
 
     def _get_key(self, _endpoint, _method, _params):
 
         b64params = self._encode_params(_params)
         key = f'{self.key_prefix}:{_endpoint}:{_method}:{b64params}'
         data = self.r.get(key)
-        return json.loads(data) if data else {}
+        return envoxy_json_loads(data) if data else {}
 
     def _set_key(self, _endpoint, _method, _params, _json_data, ttl=None):
 
         b64params = self._encode_params(_params)
         key = f'{self.key_prefix}:{_endpoint}:{_method}:{b64params}'
-        data = json.dumps(_json_data)
+        data = envoxy_json_dumps(_json_data).decode('utf-8')
         self.r.set(key, data)
 
         ttl = ttl if ttl else self.ttl

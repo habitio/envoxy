@@ -1,15 +1,19 @@
-import json
+import orjson
 import decimal
 import datetime
 
-class EnvoxyJsonEncoder(json.JSONEncoder):
+def envoxy_json_encode_default(obj):
     
-    def default(self, o):
-        
-        if isinstance(o, decimal.Decimal):
-            return float(o)
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    
+    raise TypeError
 
-        if isinstance(o, (datetime.date, datetime.datetime)):
-            return o.isoformat()
-        
-        return super(EnvoxyJsonEncoder, self).default(o)
+def envoxy_json_dumps(obj):
+    return orjson.dumps(obj, default=envoxy_json_encode_default)
+
+def envoxy_json_loads(obj):
+    return orjson.loads(obj)
