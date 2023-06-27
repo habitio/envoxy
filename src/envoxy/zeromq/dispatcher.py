@@ -1,5 +1,4 @@
 import asyncio
-import orjson
 import queue
 import threading
 import time
@@ -16,6 +15,7 @@ from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
+from ..utils.encoders import envoxy_json_loads, envoxy_json_dumps
 
 
 class NoSocketException(Exception):
@@ -83,7 +83,7 @@ class ZMQ(Singleton):
 
         self._executor = ThreadPoolExecutor(
             max_workers=self._thread_poll_executor_max_workers, thread_name_prefix='zmqc-worker')
-        
+
     def get_available_worker(self):
         return self._available_workers.get()
 
@@ -130,29 +130,32 @@ class ZMQ(Singleton):
                 _worker['socket'] = _socket
 
         return _socket
+    
+    def close_and_unregister_socket(self, worker_id):
+        
+        with self._lock:
+        
+            _worker = self._workers[worker_id]
+            _socket = _worker['socket']
+
+            if _socket is not None:
+
+                try:
+                    _worker['poller'].unregister(_socket)
+                except Exception:
+                    pass
+                
+                try:
+                    _socket.close(linger=0)
+                except Exception:
+                    pass
+                
+                _worker['socket'] = None
 
     def free_worker(self, worker_id, close_socket=False):
 
         if close_socket:
-
-            with self._lock:
-
-                _worker = self._workers[worker_id]
-                _socket = _worker['socket']
-
-                if _socket is not None:
-
-                    try:
-                        _worker['poller'].unregister(_socket)
-                    except Exception:
-                        pass
-
-                    try:
-                        _socket.close(linger=0)
-                    except Exception:
-                        pass
-
-                    _worker['socket'] = None
+            self.close_and_unregister_socket(worker_id)
 
         self._available_workers.put(worker_id)
 
@@ -164,9 +167,7 @@ class ZMQ(Singleton):
     def remove_keys(self, response, keys):
 
         for _key in keys:
-
-            if _key in response:
-                response.pop(_key, None)
+            response.pop(_key, None)
 
     def send_and_recv_future(self, server_key, message):
         return self._executor.submit(self.send_and_recv, server_key, message)
@@ -183,36 +184,43 @@ class ZMQ(Singleton):
 
         if self._cache:
 
-            if _instance['conf'].get('cached_routes') and (
-                    'X-No-Cache' not in message.get('headers', {}).keys() or message.get('headers', {}).get('X-No-Cache') is False):
+            _cached_routes = _instance['conf'].get('cached_routes') 
 
-                _cached_routes = _instance['conf']['cached_routes']
+            if _cached_routes:
+                
+                _message_headers = message.get('headers', {})
 
-                _cached_key = f"{message['performative']}:{'/'.join(message['resource'].split('/')[:4])}"
+                if 'X-No-Cache' not in _message_headers.keys() or _message_headers.get('X-No-Cache') is False:
 
-                _is_in_cached_routes = _cached_routes.get(_cached_key)
+                    _performative = message['performative']
+                    _resource = message['resource']
+                    _params = message.get('params')
 
-                if _is_in_cached_routes:
+                    _cached_key = f"{_performative}:{'/'.join(_resource.split('/')[:4])}"
 
-                    _cached_response = self._cache.get(
-                        message['resource'],
-                        message['performative'],
-                        message.get('params')
-                    )
+                    _is_in_cached_routes = _cached_routes.get(_cached_key)
 
-                    if _cached_response:
+                    if _is_in_cached_routes:
 
-                        if Log.is_gte_log_level(Log.DEBUG):
+                        _cached_response = self._cache.get(
+                            _resource,
+                            _performative,
+                            _params
+                        )
 
-                            Log.debug(
-                                f">>> ZMQ::cache::get::cached: {message['resource']} :: {message['performative']} :: {message.get('params')}")
+                        if _cached_response:
 
-                            _duration = time.time() - _start
+                            if Log.is_gte_log_level(Log.DEBUG):
 
-                            Log.debug(
-                                f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
+                                Log.debug(
+                                    f">>> ZMQ::cache::get::cached: {_resource} :: {_performative} :: {_params}")
 
-                        return _cached_response
+                                _duration = time.time() - _start
+
+                                Log.debug(
+                                    f">>> ZMQ::send_and_recv::time:: {_instance['url']} :: {_duration} :: {message} ")
+
+                            return _cached_response
 
         try:
 
@@ -226,7 +234,7 @@ class ZMQ(Singleton):
                 _socket = self.get_or_create_socket(server_key, _worker_id)
 
                 _socket.send_multipart(
-                    [b'', orjson.dumps(message)])
+                    [b'', envoxy_json_dumps(message)])
 
                 try:
 
@@ -254,14 +262,17 @@ class ZMQ(Singleton):
                             self.free_worker(_worker_id)
 
                             _recv.pop(0)  # discard delimiter
-                            _response = orjson.loads(_recv.pop(0))  # actual message
+                            _response = envoxy_json_loads(_recv.pop(0))  # actual message
 
                             self.remove_header(_response, 'X-Cid')
 
-                            self.remove_keys(
-                                _response, ['protocol', 'performative'])
+                            self.remove_keys(_response, ['protocol', 'performative'])
 
                             if self._cache and _is_in_cached_routes:
+
+                                _performative = message['performative']
+                                _resource = message['resource']
+                                _params = message.get('params')
 
                                 try:
 
@@ -281,20 +292,20 @@ class ZMQ(Singleton):
                                         if Log.is_gte_log_level(Log.ERROR):
                                             Log.error(f"ZMQ::cache::set::Error: "
                                                       f"(state_code: {_status_code}, this cached entry will expire in {_ttl} seconds) "
-                                                      f"{message['resource']} :: {message['performative']} :: {message.get('params')}"
+                                                      f"{_resource} :: {_performative} :: {_params}"
                                                       )
 
                                     self._cache.set(
-                                        message['resource'],
-                                        message['performative'],
-                                        message.get('params'),
+                                        _resource,
+                                        _performative,
+                                        _params,
                                         _response,
                                         _ttl
                                     )
 
                                     if Log.is_gte_log_level(Log.DEBUG):
                                         Log.debug(
-                                            f">>> ZMQ::cache::set: {message['resource']} :: {message['performative']} :: {message.get('params')}")
+                                            f">>> ZMQ::cache::set: {_resource} :: {_performative} :: {_params}")
 
                                 except Exception as e:
 
@@ -377,19 +388,20 @@ class Dispatcher():
     def _get_or_create_eventloop():
 
         try:
-
             return asyncio.get_event_loop()
+        except RuntimeError as _ex:
 
-        except RuntimeError as ex:
+            if "There is no current event loop in thread" in str(_ex):
 
-            if "There is no current event loop in thread" in str(ex):
-
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                _loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(_loop)
 
                 return asyncio.get_event_loop()
 
-            raise ex
+            raise _ex
+        except Exception as _ex:
+            Log.error(f"Unexpected error in creating event loop: {_ex}")
+            raise
 
     @staticmethod
     def bulk_requests(request_list):
@@ -554,14 +566,17 @@ class Dispatcher():
     def validate_response(response):
 
         if response is None:
-            raise ValidationException(
-                "Service Unavailable", code=0, status=503)
+            raise ValidationException("Service Unavailable", code=0, status=503)
+        
+        _status = response.get('status', 0)
+        _payload = response.get('payload', {})
 
-        if response.get('status') not in [200, 201] and ('elements' not in response.get('payload') or '_id' not in response.get('payload')):
-            msg = response.get('payload', {}).get(
-                'text', f"Resource error, code: {response['status']}, {response['resource']}")
-            code = response.get('payload', {}).get('code', 0)
-            raise ValidationException(
-                msg, code=code, status=str(response.get('status')))
+        if _status not in [200, 201] \
+                and ('elements' not in _payload or '_id' not in _payload):
+            
+            _msg = _payload.get('text', f"Resource error, code: {_status}, {response['resource']}")
+            _code = _payload.get('code', 0)
+            
+            raise ValidationException(_msg, code=_code, status=str(_status))
 
         return response

@@ -35,11 +35,10 @@ class Response(FlaskResponse):
                 args = [envoxy_json_dumps({
                     'elements': _payload,
                     'size': len(_payload)
-                }).decode('utf-8')] + list(args[1:])
+                })] + list(args[1:])
 
             elif isinstance(args[0], dict):
-                args = [envoxy_json_dumps(_payload).decode(
-                    'utf-8')] + list(args[1:])
+                args = [envoxy_json_dumps(_payload)] + list(args[1:])
 
         super(Response, self).__init__(*args, **kwargs)
 
@@ -48,16 +47,16 @@ class Response(FlaskResponse):
             'Date': datetime.now().isoformat()
         })
 
-        for header in _response_headers.items():
-            self.headers.add_header(*header)
+        for _header in _response_headers.items():
+            self.headers.add_header(*_header)
 
-        for cookie in _response_cookies:
-            self.set_cookie(**cookie)
+        for _cookie in _response_cookies:
+            self.set_cookie(**_cookie)
 
     @classmethod
     def force_type(cls, rv, environ=None):
 
         if isinstance(rv, dict):
-            rv = envoxy_json_dumps(rv).decode('utf-8')
+            rv = envoxy_json_dumps(rv)
 
         return super(Response, cls).force_type(rv, environ)

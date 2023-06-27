@@ -174,9 +174,7 @@ def assertz_json(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _statu
 
     try:
         return assertz_call(envoxy_json_loads(value), f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
-
     except TypeError:
-
         return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 
