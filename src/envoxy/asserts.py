@@ -3,6 +3,8 @@ import re
 from inspect import getframeinfo, stack
 from uuid import UUID
 
+from orjson import JSONDecodeError
+
 from requests import codes as status_codes
 
 from .constants import (EMAIL_REGEX, HASH_REGEX, PHONE_REGEX, TOKEN_REGEX,
@@ -174,7 +176,7 @@ def assertz_json(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _statu
 
     try:
         return assertz_call(envoxy_json_loads(value), f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
-    except TypeError:
+    except (TypeError, JSONDecodeError):
         return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 

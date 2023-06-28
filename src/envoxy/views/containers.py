@@ -18,8 +18,9 @@ class Response(FlaskResponse):
         if args:
 
             _arg_zero = args[0]
+
             # payload is defined in original body
-            _payload = _arg_zero.get('payload', _arg_zero)
+            _payload = _arg_zero.get('payload', _arg_zero) if isinstance(_arg_zero, dict) else _arg_zero
 
             if isinstance(_arg_zero, dict):
                 if 'status' in _arg_zero:
@@ -37,7 +38,7 @@ class Response(FlaskResponse):
                     'size': len(_payload)
                 })] + list(args[1:])
 
-            elif isinstance(args[0], dict):
+            elif isinstance(_payload, dict):
                 args = [envoxy_json_dumps(_payload)] + list(args[1:])
 
         super(Response, self).__init__(*args, **kwargs)
