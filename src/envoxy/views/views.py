@@ -98,6 +98,7 @@ class View(object):
             
             _code = 0
             _status = 500
+            _error_log_ref = str(uuid.uuid4())
 
             if isinstance(e, ValidationException):
                 
@@ -109,8 +110,7 @@ class View(object):
 
             if request.is_json:
 
-                if _status not in [ 204, '204']:
-                    _error_log_ref = str(uuid.uuid4()) 
+                if _status not in [ 204, '204']: 
                     Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
                 
                 _resp =  make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
