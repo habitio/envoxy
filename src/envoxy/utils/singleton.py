@@ -41,14 +41,16 @@ class SingletonPerThread(object):
 
     # private class instances may not necessarily need name-mangling
     __instances = {}
+    # add a lock
+    __lock = threading.Lock()
 
     @classmethod
     def instance(cls):
-        
         _thread_id = threading.get_ident()
         
-        if _thread_id not in cls.__instances:
-            cls.__instances[_thread_id] = cls()
+        with cls.__lock:
+            if _thread_id not in cls.__instances:
+                cls.__instances[_thread_id] = cls()
         
         return cls.__instances[_thread_id]
 
@@ -57,7 +59,8 @@ class SingletonPerThread(object):
         
         _thread_id = threading.get_ident()
         
-        if _thread_id not in cls.__instances:
-            cls.__instances[_thread_id] = cls(queue_=queue_)
+        with cls.__lock:
+            if _thread_id not in cls.__instances:
+                cls.__instances[_thread_id] = cls(queue_=queue_)
         
         return cls.__instances[_thread_id]

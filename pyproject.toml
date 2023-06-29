@@ -1,0 +1,3 @@
+[tool.ruff]
+# But use a different line length.
+line-length = 180

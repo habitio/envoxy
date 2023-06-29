@@ -4,7 +4,9 @@ from functools import wraps
 
 get_time = time.time
 
-__nop = lambda: None
+def __nop():
+    return None
+
 __throttle_last_time = defaultdict(__nop)
 
 def throttle(duration=1, **kw):

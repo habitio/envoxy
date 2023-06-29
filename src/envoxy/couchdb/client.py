@@ -75,8 +75,11 @@ class Client:
         host = self._instances[server_key]['conf']['bind']
         url = '{}/{}'.format(host, database)
 
-        if find: url = f'{url}/_find'
-        if uri: url = f'{url}/{uri}'
+        if find: 
+            url = f'{url}/_find'
+
+        if uri: 
+            url = f'{url}/{uri}'
 
         session = self._get_conn(server_key)
 
