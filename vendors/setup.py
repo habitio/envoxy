@@ -28,7 +28,7 @@ setup(
     url='https://github.com/muzzley/envoxy',
     packages=find_packages(exclude=["uwsgi", "templates", "tests"]),
     install_requires=[
-        "envoxy>=0.2.6",
+        "envoxy>=0.2.7",
         "flask_cors==3.0.9",
         "isort>=4.2.5,<5"
     ],
