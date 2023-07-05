@@ -32,7 +32,7 @@ class ZMQ(Singleton):
     _instances = {}
     _contexts = {}
     _workers = {}
-    _available_workers = queue.Queue()
+    _available_workers = {}
     _executor = None
     _lock = threading.Lock()
 
@@ -73,21 +73,23 @@ class ZMQ(Singleton):
                 'url': f"tcp://{_conf.get('host')}:{_conf.get('port')}"
             }
 
+            self._available_workers[_server_key] = queue.Queue()
+
+            for _i in range(self._max_workers):
+                self.add_worker(_server_key, f'zmqc-poller-{_server_key}-{_i}')
+
         # Cached Routes
         if Config.get('cache'):
             _cache_instance = Cache()
             self._cache = _cache_instance.get_backend()
 
-        for _i in range(self._max_workers):
-            self.add_worker(f'zmqc-poller-{_i}')
-
         self._executor = ThreadPoolExecutor(
             max_workers=self._thread_poll_executor_max_workers, thread_name_prefix='zmqc-worker')
 
-    def get_available_worker(self):
-        return self._available_workers.get()
+    def get_available_worker(self, server_key):
+        return self._available_workers[server_key].get()
 
-    def add_worker(self, worker_id):
+    def add_worker(self, server_key, worker_id):
 
         with self._lock:
 
@@ -96,7 +98,7 @@ class ZMQ(Singleton):
                 'socket': None
             }
 
-        self.free_worker(worker_id)
+        self.free_worker(server_key, worker_id)
 
     def get_or_create_socket(self, server_key, worker_id):
 
@@ -152,12 +154,12 @@ class ZMQ(Singleton):
                 
                 _worker['socket'] = None
 
-    def free_worker(self, worker_id, close_socket=False):
+    def free_worker(self, server_key, worker_id, close_socket=False):
 
         if close_socket:
             self.close_and_unregister_socket(worker_id)
 
-        self._available_workers.put(worker_id)
+        self._available_workers[server_key].put(worker_id)
 
     def remove_header(self, response, header):
 
@@ -226,7 +228,7 @@ class ZMQ(Singleton):
 
             while True:
 
-                _worker_id = self.get_available_worker()
+                _worker_id = self.get_available_worker(server_key)
 
                 with self._lock:
                     _worker = self._workers[_worker_id]
@@ -259,7 +261,7 @@ class ZMQ(Singleton):
 
                             _recv = _socket.recv_multipart()
 
-                            self.free_worker(_worker_id)
+                            self.free_worker(server_key, _worker_id)
 
                             _recv.pop(0)  # discard delimiter
                             _response = envoxy_json_loads(_recv.pop(0))  # actual message
@@ -325,7 +327,7 @@ class ZMQ(Singleton):
                     Log.error(
                         f"ZMQ::send_and_recv : Could not connect to ZeroMQ machine: {_instance['url']}")
 
-                    self.free_worker(_worker_id, close_socket=True)
+                    self.free_worker(server_key, _worker_id, close_socket=True)
 
                     time.sleep(ZEROMQ_RETRY_TIMEOUT)
 
@@ -336,7 +338,7 @@ class ZMQ(Singleton):
             Log.warning(
                 f"ZMQ::send_and_recv : It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
 
-            self.free_worker(_worker_id, close_socket=True)
+            self.free_worker(server_key, _worker_id, close_socket=True)
 
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
 
@@ -347,7 +349,7 @@ class ZMQ(Singleton):
             Log.warning(
                 f"ZMQ::send_and_recv : Unexpected error. It is not possible to send message using the ZMQ server \"{_instance['url']}\". Error: {e}")
 
-            self.free_worker(_worker_id, close_socket=True)
+            self.free_worker(server_key, _worker_id, close_socket=True)
 
             time.sleep(ZEROMQ_RETRY_TIMEOUT)
 
