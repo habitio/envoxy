@@ -93,7 +93,8 @@ class Client:
         :return: Database connection.
         """
   
-        _instance = self._instances.get(server_key)
+        with self._lock:
+            _instance = self._instances.get(server_key)
             
         if not _instance:
             raise DatabaseException(f"No configuration found for server key: {server_key}")
@@ -101,7 +102,7 @@ class Client:
         if 'conn_pool' not in _instance:
             self.connect(_instance)
 
-        for _ in range(max_retries):
+        for _attempt in range(max_retries):
             
             _conn = _instance['conn_pool'].getconn()
             
@@ -112,7 +113,7 @@ class Client:
 
             Log.error(f"[PSQL:{server_key}] Connection is not healthy. Retrying...")
 
-            sleep(delay * (math.pow(2, max_retries)))  # exponential backoff
+            sleep(delay * (math.pow(2, _attempt)))  # exponential backoff
             
         # If we reach here, it means we failed to get a healthy connection after max_retries
         raise DatabaseException("Failed to get a healthy connection")
@@ -135,7 +136,8 @@ class Client:
         :return: Configuration value.
         """
         
-        return self._instances[server_key]['conf'].get(key, None)
+        with self._lock:
+            return self._instances[server_key]['conf'].get(key, None)
         
     def connect(self, instance, reconnect_attempts=3, reconnect_delay=1):
         """
@@ -148,7 +150,8 @@ class Client:
         """
 
         if 'conn_pool' in instance and instance['conn_pool'] is not None:
-            instance['conn_pool'].closeall()
+            with self._lock:
+                instance['conn_pool'].closeall()
             
         instance['conn_pool'] = None
         _conf = instance['conf']
@@ -171,7 +174,8 @@ class Client:
             delay=reconnect_delay
         )
 
-        instance['conn_pool'] = _conn_pool
+        with self._lock:
+            instance['conn_pool'] = _conn_pool
 
         Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(
             instance['server'],
@@ -190,10 +194,18 @@ class Client:
 
         # Check and handle broken connections upon release
         if not self._is_connection_healthy(conn):    
+            
             conn.close()
-            self.connect(self._instances[server_key])
+            
+            with self._lock:
+                _instance = self._instances[server_key]
+            
+            self.connect(_instance)
+
         else:
-            self._instances[server_key]['conn_pool'].putconn(conn)
+            
+            with self._lock:
+                self._instances[server_key]['conn_pool'].putconn(conn)
 
     @contextmanager
     def transaction(self, server_key):
