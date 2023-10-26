@@ -1,16 +1,19 @@
 from psycopg2.pool import ThreadedConnectionPool
+from psycopg2 import OperationalError, DatabaseError, InterfaceError
 import psycopg2.extras
 import psycopg2.sql as sql
 from contextlib import contextmanager
-from threading import Semaphore
+from threading import Semaphore, Lock, local
+from time import sleep
+import math
 
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
 from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
-from ..asserts import assertz
 
 
 class SemaphoreThreadedConnectionPool(ThreadedConnectionPool):
+    
     def __init__(self, minconn, maxconn, *args, **kwargs):
         self._semaphore = Semaphore(maxconn)
         super().__init__(minconn, maxconn, *args, **kwargs)
@@ -25,154 +28,290 @@ class SemaphoreThreadedConnectionPool(ThreadedConnectionPool):
 
 
 class Client:
+    """
+    Client for PostgreSQL database.
+    """
 
-    _instances = {}
+    _instance = None
+    _lock = Lock()
+    _thread_local_data = local()  # Used for thread-local storage
 
-    __conn = None
+    def __new__(cls, *args, **kwargs):
+        
+        with cls._lock:
+                
+            if not cls._instance:
+                cls._instance = super(Client, cls).__new__(cls)
+        
+        return cls._instance
 
     def __init__(self, server_conf):
 
-        for _server_key in server_conf.keys():
+        self._instances = {}
 
-            _conf = server_conf[_server_key]
-            self._instances[_server_key] = {
-                'server': _server_key,
-                'conf': _conf
-            }
+        for _server_key, _conf in server_conf.items():
+
+            with self._lock:
+                self._instances[_server_key] = {
+                    'server': _server_key,
+                    'conf': _conf,
+                }
 
             self.connect(self._instances[_server_key])
+    
+    def _retry_on_failure(self, func, retries=3, delay=1):
+        
+        """
+        Retry a function in case of exceptions.
+        
+        :param func: Function to be executed.
+        :param retries: Number of retries.
+        :param delay: Delay between retries.
+        """
+        
+        for _attempt in range(retries):
+        
+            try:
+            
+                return func()
+            
+            except OperationalError as e:  # Narrowing down the exception
+                
+                Log.error(f"Error: {repr(e)}. Retrying...")
+                
+                sleep(delay * (math.pow(2, _attempt)))  # exponential backoff
 
-    def connect(self, instance):
+        raise DatabaseException(f"Failed after {retries} attempts")
+                
+    def _get_conn(self, server_key, max_retries=3, delay=1):
+        """
+        Returns a connection from the pool.
 
-        conf = instance['conf']
-        _max_conn = int(conf.get('max_conn', MAX_CONN))
-        _timeout = int(conf.get('timeout', TIMEOUT_CONN))
+        :param server_key: Identifier for the server configuration.
+        :param max_retries: Number of retries to get a healthy connection.
+        :param delay: Delay between retries.
+        :return: Database connection.
+        """
+  
+        with self._lock:
+            _instance = self._instances.get(server_key)
+            
+        if not _instance:
+            raise DatabaseException(f"No configuration found for server key: {server_key}")
 
+        if 'conn_pool' not in _instance:
+            self.connect(_instance)
+
+        for _attempt in range(max_retries):
+            
+            _conn = _instance['conn_pool'].getconn()
+            
+            if self._is_connection_healthy(_conn):
+                return _conn
+            
+            _conn.close()
+
+            Log.error(f"[PSQL:{server_key}] Connection is not healthy. Retrying...")
+
+            sleep(delay * (math.pow(2, _attempt)))  # exponential backoff
+            
+        # If we reach here, it means we failed to get a healthy connection after max_retries
+        raise DatabaseException("Failed to get a healthy connection")
+    
+    def _is_connection_healthy(self, conn):
+        
         try:
-            _conn_pool = SemaphoreThreadedConnectionPool(MIN_CONN, _max_conn, host=conf['host'], port=conf['port'],
-                                                         dbname=conf['db'], user=conf['user'], password=conf['passwd'],
-                                                         connect_timeout=_timeout)
+            with conn.cursor() as _cursor:
+                _cursor.execute("SELECT 1")
+            return True
+        except (InterfaceError, DatabaseError): 
+            return False
+        
+    def _get_conf(self, server_key, key):
+        """
+        Returns a configuration value for the server.
+
+        :param server_key: Identifier for the server configuration.
+        :param key: Configuration key.
+        :return: Configuration value.
+        """
+        
+        with self._lock:
+            return self._instances[server_key]['conf'].get(key, None)
+        
+    def connect(self, instance, reconnect_attempts=3, reconnect_delay=1):
+        """
+        Connects to the database server.
+
+        :param instance: Instance configuration.
+        :param reconnect_attempts: Number of attempts to reconnect.
+        :param reconnect_delay: Delay between reconnection attempts.
+        :return: None
+        """
+
+        if 'conn_pool' in instance and instance['conn_pool'] is not None:
+            with self._lock:
+                instance['conn_pool'].closeall()
+            
+        instance['conn_pool'] = None
+        _conf = instance['conf']
+
+        _max_conn = int(_conf.get('max_conn', MAX_CONN))
+        _timeout = int(_conf.get('timeout', TIMEOUT_CONN))
+                
+        _conn_pool = self._retry_on_failure(
+            lambda: SemaphoreThreadedConnectionPool(
+                MIN_CONN, 
+                _max_conn, 
+                host=_conf['host'], 
+                port=_conf['port'],
+                dbname=_conf['db'], 
+                user=_conf['user'], 
+                password=_conf['passwd'],
+                connect_timeout=_timeout
+            ),
+            retries=reconnect_attempts,
+            delay=reconnect_delay
+        )
+
+        with self._lock:
             instance['conn_pool'] = _conn_pool
 
-            Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(instance['server'],
-                                                                                 conf['host'], conf['port']))
-        except psycopg2.OperationalError as e:
-            Log.error('>>PGSQL ERROR {} {}'.format(conf.get('server'), e))
-
-    def query(self, server_key=None, sql=None, params=None):
-        """
-        Executes any given sql query
-        :param sql_query:
-        :return:
-        """
-
-        conn = None
-
-        try:
-
-            if not sql:
-                raise DatabaseException("Sql cannot be empty")
-
-            conn = self.__conn if self.__conn is not None else self._get_conn(
-                server_key)
-
-            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-            schema = self._get_conf(server_key, 'schema')
-            if schema:
-                cursor.execute(f"SET search_path TO {schema}")
-
-            data = []
-            chunk_size = params.get('chunk_size') or DEFAULT_CHUNK_SIZE
-            offset_limit = params.get('offset_limit') or DEFAULT_OFFSET_LIMIT
-            params.update({
-                'chunk_size': chunk_size,
-                'offset_limit': offset_limit
-            })
-
-            try:
-                while True:
-                    cursor.execute(sql, params)
-                    rowcount = cursor.rowcount
-                    rows = cursor.fetchall()
-
-                    data.extend(list(map(dict, rows)))
-
-                    offset_limit += chunk_size
-                    params.update({'offset_limit': offset_limit})
-
-                    if rowcount != chunk_size or 'limit' not in sql.lower():
-                        break
-
-                if self.__conn is None:
-                    # query is not using transaction
-                    self.release_conn(server_key, conn)
-
-                return data
-
-            except KeyError as e:
-                Log.error(e)
-                if conn is not None:
-                    self.release_conn(server_key, conn)
-
-        except psycopg2.DatabaseError as e:
-            Log.error(e)
-            if conn is not None:
-                self.release_conn(server_key, conn)
-
-        return None
-
-    def insert(self, db_table: str, data: dict):
-
-        if not self.__conn:
-            raise DatabaseException(
-                "Insert must be inside a transaction block")
-
-        columns = data.keys()
-
-        query = sql.SQL("""insert into {} ({}) values ({})""").format(
-            sql.Identifier(db_table),
-            sql.SQL(', ').join(map(sql.Identifier, columns)),
-            sql.SQL(', ').join(sql.Placeholder() * len(columns)))
-
-        conn = self.__conn
-        cursor = conn.cursor()
-
-        cursor.execute(query, list(data.values()))
-
-    def _get_conn(self, server_key):
-        """
-        :param server_key: database identifier
-        :return: raw psycopg2 connector instance
-        """
-        _instance = self._instances[server_key]
-
-        assertz('conn_pool' in _instance,
-                f"getconn failed on {server_key} db", _error_code=0, _status_code=412)
-
-        return _instance.get('conn_pool').getconn()
-
-    def _get_conf(self, server_key, key):
-        return self._instances[server_key]['conf'].get(key, None)
+        Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(
+            instance['server'],
+            _conf['host'], 
+            _conf['port']
+        ))
 
     def release_conn(self, server_key, conn):
-        _instance = self._instances[server_key]
-        _instance['conn_pool'].putconn(conn)
+        """
+        Releases a connection back to the pool.
+
+        :param server_key: Identifier for the server configuration.
+        :param conn: Database connection.
+        :return: None
+        """
+
+        # Check and handle broken connections upon release
+        if not self._is_connection_healthy(conn):    
+            
+            conn.close()
+            
+            with self._lock:
+                _instance = self._instances[server_key]
+            
+            self.connect(_instance)
+
+        else:
+            
+            with self._lock:
+                self._instances[server_key]['conn_pool'].putconn(conn)
 
     @contextmanager
     def transaction(self, server_key):
+        """
+        Context manager for database transactions.
 
-        self.__conn = self._get_conn(server_key)
-        self.__conn.autocommit = False
+        :param server_key: Identifier for the server configuration.
+        :return: None
+        """
+
+        if hasattr(self._thread_local_data, 'conn'):
+            raise DatabaseException("Nested transactions are not supported")
+
+        self._thread_local_data.conn = self._get_conn(server_key)
+        self._thread_local_data.conn.autocommit = False
 
         try:
             yield self
-
-        except (psycopg2.DatabaseError, DatabaseException) as e:
-            Log.error("rollback transaction, {}".format(e))
-            self.__conn.rollback()
-
+            self._thread_local_data.conn.commit()
+        except (DatabaseError, DatabaseException) as e:
+            Log.error("Rolling back transaction due to error: {}".format(e))
+            self._thread_local_data.conn.rollback()
         finally:
-            self.__conn.commit()
-            self.release_conn(server_key, self.__conn)
-            self.__conn = None
+            self.release_conn(server_key, self._thread_local_data.conn)
+            del self._thread_local_data.conn
+
+
+    def query(self, server_key=None, sql=None, params=None):
+        """
+        Executes the provided SQL query and returns the results.
+        
+        :param server_key: Identifier for the server configuration.
+        :param sql_query: SQL query string to be executed.
+        :param params: Parameters for the SQL query.
+        :return: Query results as a list of dictionaries.
+        """
+
+        if params is None:
+            params = {}
+
+        if not sql:
+            raise DatabaseException("Sql cannot be empty")
+
+        _conn = getattr(self._thread_local_data, 'conn', None) or self._get_conn(server_key)
+
+        try:
+
+            with _conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as _cursor:
+
+                _schema = self._get_conf(server_key, 'schema')
+                
+                if _schema:
+                    _cursor.execute(f"SET search_path TO {_schema}")
+
+                _data = []
+
+                _chunk_size = params.get('chunk_size', DEFAULT_CHUNK_SIZE)
+                _offset_limit = params.get('offset_limit', DEFAULT_OFFSET_LIMIT)
+                
+                params.update({
+                    'chunk_size': _chunk_size,
+                    'offset_limit': _offset_limit
+                })
+
+                while True:
+                    
+                    _cursor.execute(sql, params)
+                    
+                    _rowcount = _cursor.rowcount
+                    _rows = _cursor.fetchall()
+
+                    _data.extend(list(map(dict, _rows)))
+
+                    _offset_limit += _chunk_size
+                    
+                    params.update({'offset_limit': _offset_limit})
+
+                    if _rowcount != _chunk_size or 'limit' not in sql.lower():
+                        break
+
+                return _data
+        
+        finally:
+            
+            if not getattr(self._thread_local_data, 'conn', None):
+                # query is not using transaction, release connection
+                self.release_conn(server_key, _conn)
+
+    def insert(self, db_table: str, data: dict):
+        """
+        Inserts a row into the database table.
+
+        :param db_table: Database table name.
+        :param data: Dictionary with column names and values.
+        :return: None
+        """
+
+        if not hasattr(self._thread_local_data, 'conn'):
+            raise DatabaseException("Insert must be inside a transaction block")
+
+        _columns = data.keys()
+
+        _query = sql.SQL("""insert into {} ({}) values ({})""").format(
+            sql.Identifier(db_table),
+            sql.SQL(', ').join(map(sql.Identifier, _columns)),
+            sql.SQL(', ').join(sql.Placeholder() * len(_columns)))
+
+        with self._thread_local_data.conn.cursor() as _cursor:
+            _cursor.execute(_query, list(data.values()))
