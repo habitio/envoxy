@@ -93,8 +93,7 @@ class Client:
         :return: Database connection.
         """
   
-        with self._lock:
-            _instance = self._instances.get(server_key)
+        _instance = self._instances.get(server_key)
             
         if not _instance:
             raise DatabaseException(f"No configuration found for server key: {server_key}")
@@ -136,8 +135,7 @@ class Client:
         :return: Configuration value.
         """
         
-        with self._lock:
-            return self._instances[server_key]['conf'].get(key, None)
+        return self._instances[server_key]['conf'].get(key, None)
         
     def connect(self, instance, reconnect_attempts=3, reconnect_delay=1):
         """
@@ -148,12 +146,7 @@ class Client:
         :param reconnect_delay: Delay between reconnection attempts.
         :return: None
         """
-
-        if 'conn_pool' in instance and instance['conn_pool'] is not None:
-            with self._lock:
-                instance['conn_pool'].closeall()
-            
-        instance['conn_pool'] = None
+    
         _conf = instance['conf']
 
         _max_conn = int(_conf.get('max_conn', MAX_CONN))
@@ -197,15 +190,13 @@ class Client:
             
             conn.close()
             
-            with self._lock:
-                _instance = self._instances[server_key]
+            _instance = self._instances[server_key]
             
             self.connect(_instance)
 
         else:
             
-            with self._lock:
-                self._instances[server_key]['conn_pool'].putconn(conn)
+            self._instances[server_key]['conn_pool'].putconn(conn)
 
     @contextmanager
     def transaction(self, server_key):
