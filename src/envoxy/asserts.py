@@ -148,6 +148,21 @@ def assertz_array(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _stat
         return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
 
 
+def assertz_array_even_empty(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
+    if _element is None:
+        return None
+
+    try:
+        value = _element if key is None else _element[key]
+    except KeyError:
+        return assertz_call(False, f"Invalid value type: {key}", _error_code, _status_code, reply=reply)
+
+    try:
+        return assertz_call(isinstance(value, list), f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
+    except TypeError:
+        return assertz_call(False, f"Invalid value type: {value}", _error_code, _status_code, reply=reply)
+
+
 def assertz_dict(_element, key=None, _error_code=INVALID_TYPE_ERROR_CODE, _status_code=DEFAULT_STATUS_CODE, reply=False):
     if _element is None:
         return None
