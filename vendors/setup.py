@@ -24,13 +24,13 @@ class InstallCommand(install):
 
 setup(
     name="envoxyd",
-    version="0.1.11",
+    version="0.1.12",
     description="Envoxyd",
     author="Matheus Santos",
     author_email="vorj.dux@gmail.com",
     url="https://github.com/muzzley/envoxy",
     packages=find_packages(exclude=["uwsgi", "templates", "tests"]),
-    install_requires=["envoxy>=0.2.11", "flask_cors==3.0.9", "isort>=4.2.5,<5"],
+    install_requires=["envoxy>=0.2.12", "flask_cors==3.0.9", "isort>=4.2.5,<5"],
     package_dir={
         "envoxyd": "envoxyd/",
     },
@@ -44,6 +44,6 @@ setup(
         ("envoxyd/etc/templates/views", ["envoxyd/templates/view.py"]),
     ],
     cmdclass={"install": InstallCommand},
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     include_package_data=True,
 )

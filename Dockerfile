@@ -1,4 +1,4 @@
-FROM envoxy-ubuntu:18.04
+FROM envoxy-ubuntu:20.04
 
 RUN useradd -ms /bin/bash envoxy
 
@@ -13,4 +13,4 @@ RUN make install
 
 EXPOSE 8080 8080
 
-workdir /home/envoxy
+WORKDIR /home/envoxy
