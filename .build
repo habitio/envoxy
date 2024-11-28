@@ -60,12 +60,12 @@ envoxyd() {
 }
 
 envoxyd_install() {
-    python setup.py install
+    python3.11 setup.py install
 }
 
 envoxy_install() {
     source /opt/envoxy/bin/activate
-    python setup.py install
+    python3.11 setup.py install
 }
 
 install() {
@@ -76,17 +76,17 @@ install() {
     export LC_ALL="en_US.UTF-8"
     export LC_CTYPE="en_US.UTF-8"
 
-    try_install python3.8-dev
+    try_install python3.11-dev
     try_install python-setuptools
     try_install python3-setuptools
-    try_install python3-virtualenv
+    try_install python3.11-venv
     try_install libpq-dev
     try_install pkg-config
     try_install libsystemd-dev
 
     echo "-> Installing the envoxy to /opt/envoxy/.."
     sudo rm -rf /opt/envoxy
-    sudo python3 -m virtualenv /opt/envoxy -p $(which python3.8)
+    sudo python3.11 -m venv /opt/envoxy
     sudo chown -R $(whoami):$(whoami) /opt/envoxy
 
     envoxy_install
@@ -103,12 +103,14 @@ packages() {
     sudo rm -rf dist
     sudo rm -rf vendors/dist
 
+    pip3 install wheel
+
     # Packing envoxy for pypi
-    python3 setup.py sdist bdist_wheel
+    python3.11 setup.py sdist bdist_wheel
 
     # Packaging envoxyd for pypi
     cd vendors
-    python3 setup.py sdist bdist_wheel
+    python3.11 setup.py sdist bdist_wheel
 }
 
 $1

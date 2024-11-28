@@ -23,7 +23,7 @@ if 'conf' in uwsgi.opt:
 
         # try:
         _conf_file = open(_conf_path, encoding='utf-8')
-        _conf_content = json.loads(_conf_file.read(), encoding='utf-8')
+        _conf_content = json.loads(_conf_file.read())
         envoxy.log.system('[{}] The configuration file was parsed successfully!\n\n'.format(
             envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)
         ))
