@@ -1,4 +1,4 @@
-FROM envoxy-ubuntu:20.04
+FROM envoxy-ubuntu:20.04-311
 
 RUN useradd -ms /bin/bash envoxy
 
