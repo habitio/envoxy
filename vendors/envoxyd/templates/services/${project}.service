@@ -11,7 +11,7 @@ Restart=on-failure
 RemainAfterExit=no
 WatchdogSec=30
 WorkingDirectory=/usr/lib/python3/dist-packages/envoxy/
-ExecStart=/usr/bin/python3.6 /usr/lib/python3/dist-packages/envoxy/monitoring.py
+ExecStart=/usr/bin/python3.8 /usr/lib/python3/dist-packages/envoxy/monitoring.py
 StandardOutput=syslog
 StandardError=syslog
 
