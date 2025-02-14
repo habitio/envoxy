@@ -113,17 +113,20 @@ class View(object):
                 if _status not in [ 204, '204']: 
                     Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
                 
-                _resp =  make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
+                _resp = make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
                 _resp.headers['X-Error'] = _code
                 
                 return _resp
 
+            _headers = {
+                "X-Error": _code
+            }
+
             if _status not in [ 204, '204']: 
                 Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-            
-            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers={
-                "X-Error": _code
-            })
+                _headers['X-Error-Msg'] = str(e)  # For 204 there is no payload
+
+            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers=_headers)
 
     def cached_response(self, result):
         return Response(result)
