@@ -65,6 +65,8 @@ envoxyd_install() {
 
 envoxy_install() {
     source /opt/envoxy/bin/activate
+    pip install --upgrade pip
+    pip install --upgrade setuptools
     python3.11 setup.py install
 }
 
