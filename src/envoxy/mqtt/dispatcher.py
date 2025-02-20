@@ -1,4 +1,3 @@
-import json
 import threading
 import time
 import uuid
@@ -11,6 +10,7 @@ from ..utils.config import Config
 from ..utils.datetime import Now
 from ..utils.logs import Log
 from ..utils.singleton import Singleton
+from ..utils.encoders import envoxy_json_dumps
 
 RC_LIST = {
     0: "Connection successful",
@@ -293,13 +293,13 @@ class MqttConnector(Singleton):
                 Log.trace(_message)
 
             if no_envelope:
-                _payload = json.dumps(message)
+                _payload = envoxy_json_dumps(message).decode('utf-8')
 
             else:
-                _payload = json.dumps(message.update({
+                _payload = envoxy_json_dumps(message.update({
                     "headers": headers,
                     "resource": topic
-                }))
+                })).decode('utf-8')
 
             _message = '{} | Message{}'
 

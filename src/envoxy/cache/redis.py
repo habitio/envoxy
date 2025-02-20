@@ -1,8 +1,10 @@
-import redis
 import base64
-import json
 
-from ..constants import REDIS_DEFAULT_PORT, REDIS_DEFAULT_HOST, REDIS_DEFAULT_DB, REDIS_DEFAULT_TTL
+import redis
+
+from ..constants import REDIS_DEFAULT_DB, REDIS_DEFAULT_HOST, REDIS_DEFAULT_PORT, REDIS_DEFAULT_TTL
+from ..utils.encoders import envoxy_json_dumps, envoxy_json_loads
+
 
 class RedisCache:
 
@@ -23,31 +25,32 @@ class RedisCache:
         self.r = redis.Redis(host=_host, port=_port, db=_db)
 
     def _encode_params(self, _json_params):
-        _string_params = json.dumps(_json_params)
-        return base64.urlsafe_b64encode(_string_params.encode()).decode()
+        _bytes_params = envoxy_json_dumps(_json_params)
+        return base64.urlsafe_b64encode(_bytes_params).decode()
 
-    def _decode_params(self, _string_params):
-        return json.loads(base64.urlsafe_b64decode(_string_params.encode()).decode())
+    def _decode_params(self, params):
+        return envoxy_json_loads(base64.urlsafe_b64decode(params).decode())
 
-    def _get_key(self, _endpoint, _method, _params):
+    def _get_key(self, endpoint, method, params):
 
-        b64params = self._encode_params(_params)
-        key = f'{self.key_prefix}:{_endpoint}:{_method}:{b64params}'
-        data = self.r.get(key)
-        return json.loads(data) if data else {}
+        _b64params = self._encode_params(params)
+        _key = f'{self.key_prefix}:{endpoint}:{method}:{_b64params}'
+        _data = self.r.get(_key)
+        return envoxy_json_loads(_data) if _data else {}
 
-    def _set_key(self, _endpoint, _method, _params, _json_data, ttl=None):
+    def _set_key(self, endpoint, method, params, json_data, ttl=None):
 
-        b64params = self._encode_params(_params)
-        key = f'{self.key_prefix}:{_endpoint}:{_method}:{b64params}'
-        data = json.dumps(_json_data)
-        self.r.set(key, data)
+        _b64params = self._encode_params(params)
+        _key = f'{self.key_prefix}:{endpoint}:{method}:{_b64params}'
+        _data = envoxy_json_dumps(json_data)
+        self.r.set(_key, _data)
 
         ttl = ttl if ttl else self.ttl
-        return self.r.expire(key, ttl)
+        
+        return self.r.expire(_key, ttl)
 
-    def get(self, _endpoint, _method, _params):
-        return self._get_key(_endpoint, _method, _params)
+    def get(self, endpoint, method, params):
+        return self._get_key(endpoint, method, params)
 
-    def set(self, _endpoint, _method, _params, _json_data, ttl=None):
-        return self._set_key(_endpoint, _method, _params, _json_data, ttl=ttl)
+    def set(self, endpoint, method, params, json_data, ttl=None):
+        return self._set_key(endpoint, method, params, json_data, ttl=ttl)

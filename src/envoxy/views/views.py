@@ -13,6 +13,7 @@ from ..utils.logs import Log
 from ..mqtt.dispatcher import Dispatcher as mqttc
 
 REGEX_VAR_PATTERN: str = r'(?P<all>{(?P<var>[^:]+):(?P<type>[^}]+)})'
+COMPILED_REGEX = re.compile(REGEX_VAR_PATTERN)
 
 
 class View(object):
@@ -33,18 +34,19 @@ class View(object):
         _endpoint = getattr(self.__metaclass__, 'endpoint', '')
         _protocols = getattr(self.__metaclass__, 'protocols', [])
         _server = getattr(self.__metaclass__, 'server', '')
-
-        _regex = re.compile(REGEX_VAR_PATTERN)
         
         for _method in self.get_methods():
 
+            _method_attr = getattr(self, _method, 'Not Found')
+
             if 'http' in _protocols:
 
-                if 'http' not in self.protocols: self.protocols.append('http')
+                if 'http' not in self.protocols: 
+                    self.protocols.append('http')
 
                 _flask_endpoint = _endpoint
 
-                for _match in _regex.finditer(_endpoint):
+                for _match in COMPILED_REGEX.finditer(_endpoint):
                     _groups = _match.groupdict()
                     _flask_endpoint = _flask_endpoint.replace(_groups['all'], '<{}:{}>'.format(_groups['type'], _groups['var']))
 
@@ -59,12 +61,13 @@ class View(object):
                     Log.style.apply('HTTP', Log.style.GREEN_FG),
                     _endpoint,
                     _method,
-                    getattr(self, _method, 'Not Found')
+                    _method_attr
                 ))
 
             if 'mqtt' in _protocols and _method == "on_event":
 
-                if 'mqtt' not in self.protocols: self.protocols.append('mqtt')
+                if 'mqtt' not in self.protocols: 
+                    self.protocols.append('mqtt')
 
                 Log.system('{} [{}] Subscribing to topic "{}" calling the function "{}"'.format(
                     Log.style.apply('>>>', Log.style.BOLD),
@@ -73,7 +76,7 @@ class View(object):
                     _method
                 ))
 
-                mqttc.subscribe(_server, _endpoint, getattr(self, _method, 'Not Found'))
+                mqttc.subscribe(_server, _endpoint, _method_attr)
 
     def _dispatch(self, _method, _endpoint, _protocol):
 
@@ -86,28 +89,38 @@ class View(object):
         return _wrapper
 
     def dispatch(self, request, _method, _endpoint, *args, **kwargs):
+        
         kwargs.update({ 'endpoint': _endpoint })
+        
         try:
             return getattr(self, _method)(request, *args, **kwargs)
-
         except Exception as e:
             
-            _error_log_ref = str(uuid.uuid4())
             _code = 0
             _status = 500
+            _error_log_ref = str(uuid.uuid4())
 
             if isinstance(e, ValidationException):
-                if 'code' in e.kwargs : _code = e.kwargs['code']
-                if 'status' in e.kwargs: _status = e.kwargs['status']
+                
+                if 'code' in e.kwargs : 
+                    _code = e.kwargs['code']
+                
+                if 'status' in e.kwargs: 
+                    _status = e.kwargs['status']
 
             if request.is_json:
 
-                if _status not in [ 204, '204'] : Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+                if _status not in [ 204, '204']: 
+                    Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+                
                 _resp =  make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
                 _resp.headers['X-Error'] = _code
+                
                 return _resp
 
-            if _status not in [ 204, '204'] : Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+            if _status not in [ 204, '204']: 
+                Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+            
             return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers={
                 "X-Error": _code
             })

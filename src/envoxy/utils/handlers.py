@@ -1,7 +1,6 @@
-import json
-
-from requests import Response as RequestsResponse
+from encoders import envoxy_json_dumps
 from flask import Response as FlaskResponse
+from requests import Response as RequestsResponse
 
 
 class Handler:
@@ -15,17 +14,17 @@ class Handler:
 
     @staticmethod
     def make_response(object_, status) -> FlaskResponse:
-        
+
         if type(object_) in [dict, list]:
-            return FlaskResponse(json.dumps(object_), status, {'Content-Type': 'application/json'})
+            return FlaskResponse(envoxy_json_dumps(object_), status, {'Content-Type': 'application/json'})
         elif type(object_) in [str]:
             return FlaskResponse(object_, status, {'Content-Type': 'text/html'})
         else:
-            return FlaskResponse(json.dumps({'text':'Error in parsing the response object.'}), 500, {'Content-Type': 'text/html'})
+            return FlaskResponse(envoxy_json_dumps({'text': 'Error in parsing the response object.'}), 500, {'Content-Type': 'text/html'})
 
     @staticmethod
     def freeze(object_):
-        
+
         if isinstance(object_, dict):
             return frozenset((key, Handler.freeze(value)) for key, value in object_.items())
         elif isinstance(object_, list):

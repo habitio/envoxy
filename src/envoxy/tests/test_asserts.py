@@ -247,6 +247,26 @@ def test_assertz_array_nok(test_payload):
         assertz_array([])
     assert str(e.value) == f"Invalid value type: []"
 
+##### assertz_array_even_empty #####
+
+def test_assertz_array_even_empty_ok(test_payload):
+
+    assert assertz_array_even_empty(test_payload, "application_ids") == None
+    assert assertz_array_even_empty(["a", "b", "c"]) == None
+    assert assertz_array_even_empty(None) == None
+    assert assertz_array_even_empty([]) == None
+
+
+def test_assertz_array_even_empty_nok(test_payload):
+
+    with pytest.raises(ValidationException) as e:
+        assertz_array_even_empty(test_payload["user"], "name", 2000, 400)
+    assert str(e.value) == f"Invalid value type: {test_payload['user']['name']}"
+
+    with pytest.raises(ValidationException) as e:
+        assertz_array_even_empty(test_payload, "user", 2001)
+    assert str(e.value) == f"Invalid value type: {test_payload['user']}"
+
 ##### assertz_uuid #####
 
 def test_assertz_uuid_ok(test_payload):

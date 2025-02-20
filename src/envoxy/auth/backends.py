@@ -1,17 +1,21 @@
+import importlib
 import re
 import sys
-import importlib
 
 import requests
-import datetime
+
 from ..utils.config import Config
 from ..utils.logs import Log
+
+REGEX_VAR_PATTERN = '{(?P<all>(?P<var>[^:]+):(?P<type>[^}]+))}'
+COMPILED_REGEX_VAR_PATTERN = re.compile(REGEX_VAR_PATTERN)
 
 
 def authenticate_container(credentials):
 
-    auth_url = credentials.get("server")
-    data = {
+    _auth_url = credentials.get("server")
+
+    _data = {
         "client_id": credentials.get("client_id"),
         "client_secret": credentials.get("client_secret"),
         "response_type": credentials.get("response_type"),
@@ -19,19 +23,21 @@ def authenticate_container(credentials):
         "state": "active"
     }
 
-    if not "" in data.values() and auth_url:
+    if "" not in _data.values() and _auth_url:
+
         try:
-            resp = requests.get(auth_url, params=data)
-            Log.info("Response >> {}".format(resp.status_code))
+            _resp = requests.get(_auth_url, params=_data)
+            Log.info("Response >> {}".format(_resp.status_code))
         except requests.RequestException as e:
             Log.emergency("Error while performing authorization {}".format(e))
             exit(-10)
 
-        if resp.status_code == requests.codes.ok:
-            return resp.json()
+        if _resp.status_code == requests.codes.ok:
+            return _resp.json()
 
     Log.emergency("Authorization data incomplete")
     exit(-10)
+
 
 def get_auth_module(module_name=None):
     _plugins = Config.plugins()
@@ -53,18 +59,15 @@ def get_auth_module(module_name=None):
 
     return None
 
+
 def get_topic(_topic):
 
-    REGEX_VAR_PATTERN = '{(?P<all>(?P<var>[^:]+):(?P<type>[^}]+))}'
-    _regex = re.compile(REGEX_VAR_PATTERN)
-
-    for _match in _regex.finditer(_topic):
+    for _match in COMPILED_REGEX_VAR_PATTERN.finditer(_topic):
         _groups = _match.groupdict()
-        var = _groups['var']
-        _topic = _topic.replace(_groups['all'], f"{var}")
+        _var = _groups['var']
+        _topic = _topic.replace(_groups['all'], f"{_var}")
 
     return _topic
-
 
 
 class AuthBackendMixin:
