@@ -5,11 +5,12 @@ import time
 
 import envoxy
 
-from envoxy import zmqc, mqttc, Response
+from envoxy import zmqc, mqttc, celeryc, Response
 
 import uwsgi
 from flask import Flask, request, g
 from flask_cors import CORS
+
 
 def load_modules(_modules_list):
     _view_classes = []
@@ -21,7 +22,8 @@ def load_modules(_modules_list):
             _module_path
         ))
 
-        _spec = importlib.util.spec_from_file_location('__init__', _module_path)
+        _spec = importlib.util.spec_from_file_location(
+            '__init__', _module_path)
         _module = importlib.util.module_from_spec(_spec)
         _spec.loader.exec_module(_module)
 
@@ -60,8 +62,9 @@ def load_packages(_package_list):
 
     return _view_classes
 
+
 class AppContext(object):
-    
+
     _app = None
 
     def __init__(self):
@@ -100,7 +103,8 @@ class AppContext(object):
                 _package_list = _conf_content.get('packages', [])
 
                 if _modules_list and _package_list:
-                    envoxy.log.emergency('Defining modules and packages at the same time is not allowed.\n\n')
+                    envoxy.log.emergency(
+                        'Defining modules and packages at the same time is not allowed.\n\n')
                     exit(-10)
 
                 _view_classes = []
@@ -121,20 +125,26 @@ class AppContext(object):
 
                     uwsgi.log('\n')
                     envoxy.log.system('[{}] Loaded "{}".\n'.format(
-                        envoxy.log.style.apply('###', envoxy.log.style.BLUE_FG),
+                        envoxy.log.style.apply(
+                            '###', envoxy.log.style.BLUE_FG),
                         str(_view_class)
                     ))
 
                 if _conf_content.get('zmq_servers'):
-                    
+
                     # Start the ZMQ dispatcher in the main thread
                     zmqc.initialize()
 
                 if _conf_content.get('mqtt_servers'):
-                    
+
                     # Start the MQTT dispatcher in the main thread
                     mqttc.initialize()
-                
+
+                if _conf_content.get('amqp_servers'):
+
+                    # Start the AMQP app in the main thread
+                    celeryc.initialize()
+
                 _default_zmq_backend = _conf_content.get('default_zmq_backend')
 
                 if _default_zmq_backend and _default_zmq_backend.get('enabled'):
@@ -142,12 +152,13 @@ class AppContext(object):
                     _path_prefix = _default_zmq_backend.get('path_prefix', '/')
 
                     try:
-                        
-                        _server_key = _default_zmq_backend.get('server_key', next(iter(zmqc.instance()._instances.keys())))
-                        
+
+                        _server_key = _default_zmq_backend.get(
+                            'server_key', next(iter(zmqc.instance()._instances.keys())))
+
                         @cls._app.route(f'{_path_prefix}<path:path>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'])
                         def default_zmq_backend(path):
-                            
+
                             _method = request.method.lower()
 
                             _fn = getattr(zmqc, _method, None)
@@ -156,28 +167,30 @@ class AppContext(object):
 
                                 return Response(
                                     _fn.__call__(
-                                        _server_key, 
-                                        f'{_path_prefix}{path}', 
+                                        _server_key,
+                                        f'{_path_prefix}{path}',
                                         params=request.args if request.args else None,
                                         headers=request.headers.items() if request.headers else None,
                                         payload=request.get_json() if request.is_json else None
                                     )
                                 )
-                                            
+
                             else:
 
-                                envoxy.log.error(f'Method "{request.method}" not found in "{_path_prefix}{path}" URI handler')
+                                envoxy.log.error(
+                                    f'Method "{request.method}" not found in "{_path_prefix}{path}" URI handler')
 
                         envoxy.log.system('[{}] Default ZMQ Backend enabled pointing to the: "{}"\n    - Listening all endpoints on: {}*\n'.format(
-                            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG),
+                            envoxy.log.style.apply(
+                                '---', envoxy.log.style.BLUE_FG),
                             _server_key,
                             _path_prefix
                         ))
 
                     except StopIteration:
 
-                        envoxy.log.error(f'There is no default ZMQ Server Backend enabled for V3 endpoints')
-
+                        envoxy.log.error(
+                            f'There is no default ZMQ Server Backend enabled for V3 endpoints')
 
                 debug_mode = _conf_content.get('debug', False)
                 envoxy.log.system('[{}] App in debug mode {}!\n'.format(
@@ -187,20 +200,23 @@ class AppContext(object):
                 cls._app.debug_mode = debug_mode
 
                 enable_cors = _conf_content.get('enable_cors', False)
-                if enable_cors: CORS(cls._app, supports_credentials=True)
+                if enable_cors:
+                    CORS(cls._app, supports_credentials=True)
 
             uwsgi.log('\n\n')
-        
+
         return cls._app
 
+
 app = AppContext.app()
+
 
 @app.before_request
 def before_request():
 
     if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
         g.start = time.time()
-    
+
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         _request = '{} [{}] {}'.format(
@@ -216,20 +232,21 @@ def before_request():
         _outputs = [_request]
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
-            
+
             _outputs.append(f'Headers:{dict(request.headers)}')
 
             if request.data:
-                _outputs.append(f'Payload{json.dumps(request.get_json(), indent=None)}')
+                _outputs.append(
+                    f'Payload{json.dumps(request.get_json(), indent=None)}')
 
         envoxy.log.verbose(' | '.join(_outputs))
-        
+
         del _outputs
 
 
 @app.after_request
 def after_request(response):
-    
+
     if envoxy.log.is_gte_log_level(envoxy.log.INFO):
 
         if response.status_code >= 100 and response.status_code <= 299:
@@ -245,7 +262,8 @@ def after_request(response):
             envoxy.log.style.apply('{} {}'.format(request.method.upper(),
                                                   request.full_path if request.full_path[-1] != '?' else request.path),
                                    envoxy.log.style.BLUE_FG),
-            envoxy.log.style.apply(str(response.status_code), _status_code_style)
+            envoxy.log.style.apply(
+                str(response.status_code), _status_code_style)
         )
         envoxy.log.trace(_response)
 
@@ -256,7 +274,8 @@ def after_request(response):
             _outputs.append(f'Headers{dict(response.headers)}')
 
             if response.data:
-                _outputs.append(f'Payload{json.dumps(response.get_json(), indent=None)}')
+                _outputs.append(
+                    f'Payload{json.dumps(response.get_json(), indent=None)}')
 
         envoxy.log.verbose(' | '.join(_outputs))
 
@@ -269,9 +288,10 @@ def after_request(response):
     if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
         envoxy.log.verbose('updating last_event_ms {}'.format(_ts))
-    
+
         _duration = round(_ts - g.start, 2)
 
-        envoxy.log.verbose(f"Request {request.full_path if request.full_path[-1] != '?' else request.path} took {_duration} sec")
+        envoxy.log.verbose(
+            f"Request {request.full_path if request.full_path[-1] != '?' else request.path} took {_duration} sec")
 
     return response

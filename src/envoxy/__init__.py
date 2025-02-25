@@ -11,5 +11,6 @@ from .db.dispatcher import PgDispatcher as pgsqlc, CouchDBDispatcher as couchdbc
 from .auth.backends import authenticate_container as authenticate
 from .mqtt.dispatcher import Dispatcher as mqttc
 from .views.containers import Response
+from .celery.client import Client as celeryc
 
 envoxy = locals()
