@@ -98,6 +98,11 @@ class AppContext(object):
                 _plugins = _conf_content.get('plugins')
                 uwsgi.opt['plugins'] = _plugins
 
+                if _conf_content.get('amqp_servers'):
+
+                    # Start the AMQP app in the main thread
+                    celeryc.initialize()
+
                 # Load project modules and packages
                 _modules_list = _conf_content.get('modules', [])
                 _package_list = _conf_content.get('packages', [])
@@ -139,11 +144,6 @@ class AppContext(object):
 
                     # Start the MQTT dispatcher in the main thread
                     mqttc.initialize()
-
-                if _conf_content.get('amqp_servers'):
-
-                    # Start the AMQP app in the main thread
-                    celeryc.initialize()
 
                 _default_zmq_backend = _conf_content.get('default_zmq_backend')
 
