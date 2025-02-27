@@ -13,4 +13,4 @@ RUN make install
 
 EXPOSE 8080 8080
 
-WORKDIR /home/envoxy
+WORKDIR /usr/envoxy
