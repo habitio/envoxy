@@ -24,7 +24,7 @@ class InstallCommand(install):
 
 setup(
     name="envoxyd",
-    version="0.2.0",
+    version="0.2.1",
     description="Envoxyd",
     author="Matheus Santos",
     author_email="vorj.dux@gmail.com",
