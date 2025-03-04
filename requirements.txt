@@ -15,3 +15,4 @@ isort>=4.2.5,<5
 orjson~=3.9.15
 celery==5.4.0
 amqp==5.3.1
+celerybeat-mongo==0.2.0
