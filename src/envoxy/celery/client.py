@@ -30,7 +30,7 @@ class Client:
 
             _mongodb_celery = Config.get("mongodb_servers").get("celery", {})
 
-            _mongodb_url = f"mongodb://{_mongodb_celery['user']}:{_mongodb_celery['passwd']}@{_mongodb_celery['host']}:{_mongodb_celery['port']}"
+            _mongodb_url = f"mongodb://{_mongodb_celery['user']}:{_mongodb_celery['passwd']}@{_mongodb_celery['host']}:{_mongodb_celery['port']}/{_mongodb_celery['db']}"
 
             config = {
                 "mongodb_scheduler_db": _mongodb_celery.get("db"),
