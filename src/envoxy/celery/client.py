@@ -1,3 +1,5 @@
+import importlib.util
+
 from celery import Celery
 
 from ..utils.config import Config
@@ -51,6 +53,31 @@ class Client:
 
             app.conf.update(**config)
 
-        app.autodiscover_tasks()
+        task_modules = Config.get('task_modules') or []
+        package_list = Config.get('packages') or []
+
+        include = []
+        task_routes = {}
+        DEFAULT_QUEUE = Config.get("default_task_queue")
+
+        if package_list:
+            include.extend(package_list)
+            for package in package_list:
+                module_name = f"{package}.tasks"
+                if importlib.util.find_spec(module_name):
+                    include.append(module_name)
+
+        elif task_modules:
+            include.extend(task_modules)
+
+        if DEFAULT_QUEUE:
+            for module in include:
+                task_routes[f"{module}.*"] = {"queue": DEFAULT_QUEUE}
+
+        if include:
+            app.autodiscover_tasks(include)
+
+        if task_routes:
+            app.conf.task_routes = task_routes
 
         Client.app = app
