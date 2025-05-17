@@ -10,7 +10,7 @@ uPnPClient==1.0.3
 pylint==2.1.1
 psycopg2==2.9.10
 redis~=5.0.8
-flask_cors==4.0.2
+flask_cors==6.0.0
 isort>=4.2.5,<5
 orjson~=3.9.15
 celery==5.4.0
