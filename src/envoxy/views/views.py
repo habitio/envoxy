@@ -34,24 +34,25 @@ class View(object):
         _endpoint = getattr(self.__metaclass__, 'endpoint', '')
         _protocols = getattr(self.__metaclass__, 'protocols', [])
         _server = getattr(self.__metaclass__, 'server', '')
-        
+
         for _method in self.get_methods():
 
             _method_attr = getattr(self, _method, 'Not Found')
 
             if 'http' in _protocols:
 
-                if 'http' not in self.protocols: 
+                if 'http' not in self.protocols:
                     self.protocols.append('http')
 
                 _flask_endpoint = _endpoint
 
                 for _match in COMPILED_REGEX.finditer(_endpoint):
                     _groups = _match.groupdict()
-                    _flask_endpoint = _flask_endpoint.replace(_groups['all'], '<{}:{}>'.format(_groups['type'], _groups['var']))
+                    _flask_endpoint = _flask_endpoint.replace(
+                        _groups['all'], '<{}:{}>'.format(_groups['type'], _groups['var']))
 
                 self.__flask_app.add_url_rule(
-                    _flask_endpoint, 
+                    _flask_endpoint,
                     view_func=self._dispatch(_method, _endpoint, 'http'),
                     methods=[_method]
                 )
@@ -66,7 +67,7 @@ class View(object):
 
             if 'mqtt' in _protocols and _method == "on_event":
 
-                if 'mqtt' not in self.protocols: 
+                if 'mqtt' not in self.protocols:
                     self.protocols.append('mqtt')
 
                 Log.system('{} [{}] Subscribing to topic "{}" calling the function "{}"'.format(
@@ -83,47 +84,57 @@ class View(object):
         def _wrapper(*args, **kwargs):
             if _protocol == 'http':
                 return self.dispatch(request, _method, _endpoint, *args, **kwargs)
-        
-        _wrapper.__name__ = '__wrapper__{}__{}__{}'.format(self.__class__.__name__, _method, _protocol)
-        
+
+        _wrapper.__name__ = '__wrapper__{}__{}__{}'.format(
+            self.__class__.__name__, _method, _protocol)
+
         return _wrapper
 
     def dispatch(self, request, _method, _endpoint, *args, **kwargs):
-        
-        kwargs.update({ 'endpoint': _endpoint })
-        
+
+        kwargs.update({'endpoint': _endpoint})
+
         try:
             return getattr(self, _method)(request, *args, **kwargs)
         except Exception as e:
-            
+
             _code = 0
             _status = 500
             _error_log_ref = str(uuid.uuid4())
 
             if isinstance(e, ValidationException):
-                
-                if 'code' in e.kwargs : 
+
+                if 'code' in e.kwargs:
                     _code = e.kwargs['code']
-                
-                if 'status' in e.kwargs: 
+
+                if 'status' in e.kwargs:
                     _status = e.kwargs['status']
 
             if request.is_json:
 
-                if _status not in [ 204, '204']: 
-                    Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-                
-                _resp =  make_response(jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
+                _resp = make_response(
+                    jsonify({"error": f"{e} :: ELRC({_error_log_ref})", "code": _code}), _status)
                 _resp.headers['X-Error'] = _code
-                
+
+                if _status not in [204, '204']:
+                    Log.error(
+                        f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+                else:
+                    _resp.headers['X-Error-Msg'] = str(e)
+
                 return _resp
 
-            if _status not in [ 204, '204']: 
-                Log.error(f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
-            
-            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers={
+            _headers = {
                 "X-Error": _code
-            })
+            }
+
+            if _status not in [204, '204']:
+                Log.error(
+                    f"ELRC({_error_log_ref}) - Traceback: {traceback.format_exc()}")
+            else:
+                _headers['X-Error-Msg'] = str(e)  # For 204 there is no payload
+
+            return FlaskResponse(str(f"error: {e} :: ELRC({_error_log_ref})"), _status, headers=_headers)
 
     def cached_response(self, result):
         return Response(result)

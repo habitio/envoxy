@@ -4,6 +4,7 @@ from flask import Response as FlaskResponse
 
 from ..constants import SERVER_NAME
 from ..utils.encoders import envoxy_json_dumps
+from ..utils.logs import Log
 
 
 class Response(FlaskResponse):
@@ -20,10 +21,11 @@ class Response(FlaskResponse):
             _arg_zero = args[0]
 
             # payload is defined in original body
-            _payload = _arg_zero.get('payload', _arg_zero) if isinstance(_arg_zero, dict) else _arg_zero
+            _payload = _arg_zero.get('payload', _arg_zero) if isinstance(
+                _arg_zero, dict) else _arg_zero
 
             if isinstance(_arg_zero, dict):
-                if 'status' in _arg_zero:
+                if 'status' in _arg_zero and isinstance(_arg_zero.get('status'), int):
                     # get response status
                     kwargs['status'] = _arg_zero['status']
                 if 'headers' in _arg_zero:

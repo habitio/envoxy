@@ -132,11 +132,11 @@ class ZMQ(Singleton):
                 _worker['socket'] = _socket
 
         return _socket
-    
+
     def close_and_unregister_socket(self, worker_id):
-        
+
         with self._lock:
-        
+
             _worker = self._workers[worker_id]
             _socket = _worker['socket']
 
@@ -146,12 +146,12 @@ class ZMQ(Singleton):
                     _worker['poller'].unregister(_socket)
                 except Exception:
                     pass
-                
+
                 try:
                     _socket.close(linger=0)
                 except Exception:
                     pass
-                
+
                 _worker['socket'] = None
 
     def free_worker(self, server_key, worker_id, close_socket=False):
@@ -186,10 +186,10 @@ class ZMQ(Singleton):
 
         if self._cache:
 
-            _cached_routes = _instance['conf'].get('cached_routes') 
+            _cached_routes = _instance['conf'].get('cached_routes')
 
             if _cached_routes:
-                
+
                 _message_headers = message.get('headers', {})
 
                 if 'X-No-Cache' not in _message_headers.keys() or _message_headers.get('X-No-Cache') is False:
@@ -264,11 +264,13 @@ class ZMQ(Singleton):
                             self.free_worker(server_key, _worker_id)
 
                             _recv.pop(0)  # discard delimiter
-                            _response = envoxy_json_loads(_recv.pop(0))  # actual message
+                            _response = envoxy_json_loads(
+                                _recv.pop(0))  # actual message
 
                             self.remove_header(_response, 'X-Cid')
 
-                            self.remove_keys(_response, ['protocol', 'performative'])
+                            self.remove_keys(
+                                _response, ['protocol', 'performative'])
 
                             if self._cache and _is_in_cached_routes:
 
@@ -568,17 +570,19 @@ class Dispatcher():
     def validate_response(response):
 
         if response is None:
-            raise ValidationException("Service Unavailable", code=0, status=503)
-        
+            raise ValidationException(
+                "Service Unavailable", code=0, status=503)
+
         _status = response.get('status', 0)
         _payload = response.get('payload', {})
 
         if _status not in [200, 201] \
                 and ('elements' not in _payload or '_id' not in _payload):
-            
-            _msg = _payload.get('text', f"Resource error, code: {_status}, {response['resource']}")
+
+            _msg = _payload.get(
+                'text', f"Resource error, code: {_status}, {response['resource']}")
             _code = _payload.get('code', 0)
-            
+
             raise ValidationException(_msg, code=_code, status=str(_status))
 
         return response

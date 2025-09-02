@@ -34,7 +34,7 @@ except:
 
             if Config.file_path:
                 _conf_file = open( Config.file_path, encoding='utf-8')
-                _conf_content = json.loads(_conf_file.read(), encoding='utf-8')
+                _conf_content = json.loads(_conf_file.read())
 
             return _conf_content.get(node, {})
 

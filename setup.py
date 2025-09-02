@@ -11,7 +11,7 @@ try:
 except Exception as e:
     requirements = []
 
-requirements.append('systemd-python==234;platform_system=="Linux"')
+requirements.append('systemd-python==235;platform_system=="Linux"')
 
 data_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -25,7 +25,7 @@ with open(find_file("README.md"), encoding="utf-8") as f:
 
 setup(
     name="envoxy",
-    version="0.2.11",
+    version="0.3.7",
     description="Envoxy Platform Framework",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -43,6 +43,6 @@ setup(
             find_file("requirements.txt"),
         ]
     },
-    python_requires=">=3.6",
+    python_requires=">=3.11",
     data_files=[("envoxy", ["LICENSE", "requirements.txt"])],
 )
