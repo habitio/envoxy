@@ -1,3 +1,5 @@
 pytest==5.0.1
 twine==1.13.0
 urllib3==1.25.11
+
+alembic>=1.7

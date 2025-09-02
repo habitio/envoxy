@@ -4,6 +4,7 @@ from ..utils.config import Config
 from ..postgresql.client import Client as PgClient
 from ..couchdb.client import Client as CouchDBClient
 from ..redis.client import Client as RedisDBClient
+from ..db.sqlalchemy import get_manager, session_scope, transactional, get_default_server_key
 
 class Connector(Singleton):
 
@@ -72,22 +73,62 @@ class RedisConnector(Connector):
         self.start_redis_conn()
 
 
-class PgDispatcher():
+class PgDispatcher:
 
     @staticmethod
     def query(server_key=None, sql=None, params=None):
-
         return PgConnector.instance().postgres.query(server_key, sql, params)
 
     @staticmethod
     def insert(db_table: str, data: dict):
-
         return PgConnector.instance().postgres.insert(db_table, data)
 
     @staticmethod
     def transaction(server_key):
-
         return PgConnector.instance().postgres.transaction(server_key)
+
+    @staticmethod
+    def client():
+        """Return the underlying Postgres client instance (psycopg2 wrapper)."""
+        return PgConnector.instance().postgres
+
+    @staticmethod
+    def sa_manager(server_key=None):
+        """Return the SQLAlchemy manager for a server_key. If server_key is None,
+        the SQLAlchemy helper will select the default configured server.
+        """
+        key = server_key or get_default_server_key()
+        return get_manager(key)
+
+    @staticmethod
+    def manager(server_key=None):
+        """Alias for sa_manager to match existing client-style API: pgsqlc.manager(...)"""
+        return PgDispatcher.sa_manager(server_key)
+
+    @staticmethod
+    def session(server_key=None):
+        """Return a contextmanager yielding a SQLAlchemy Session bound to server_key.
+
+        Usage: with pgsqlc.session('muzzley') as session: session.query(...)
+        """
+        return PgDispatcher.sa_session_scope(server_key)
+
+    @staticmethod
+    def sa_session_scope(server_key=None):
+        """Return a contextmanager for a session bound to server_key."""
+        key = server_key or get_default_server_key()
+        return session_scope(key)
+
+    @staticmethod
+    def sa_transactional(server_key=None):
+        """Return a transactional decorator bound to server_key."""
+        key = server_key or get_default_server_key()
+        return transactional(key)
+
+    @staticmethod
+    def transactional(server_key=None):
+        """Alias for sa_transactional so callers can use pgsqlc.transactional(server_key)"""
+        return PgDispatcher.sa_transactional(server_key)
 
 
 class CouchDBDispatcher():
