@@ -7,7 +7,7 @@ SQLAlchemy Core/text while using Envoxy's dispatcher helpers exported as
 Key points:
 - Use ``pgsqlc.session(server_key)`` to obtain a context-managed SQLAlchemy
     Session; it commits on success and rolls back on exception.
-- Use ``pgsqlc.manager(server_key)`` to access the underlying manager/Engine
+- Use ``pgsqlc.sa_manager(server_key)`` to access the underlying manager/Engine
     when you need raw connections or high-performance Core operations.
 - Existing SQL written with psycopg2-style named placeholders ``%(name)s`` can
     be converted with ``envoxy.db.helpers.to_sa_text`` (converts to ``:name``)
@@ -18,8 +18,7 @@ assume your app has bootstrapped configuration (``Config.set_file_path``) and
 configured ``psql_servers`` so ``pgsqlc.manager``/``pgsqlc.session`` can
 resolve a server_key.
 """
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+
 from examples.consumer_module.models import Product
 
 # Import the dispatcher exported at package root so consumer modules can keep
@@ -50,8 +49,8 @@ def orm_select_by_sku(server_key: str, sku: str):
     Envoxy configures the sessionmaker with ``expire_on_commit=False``.
     """
 
-    with pgsqlc.session(server_key) as session:
-        return session.query(Product).filter(Product.sku == sku).first()
+    with pgsqlc.sa_session(server_key) as _session:
+        return _session.query(Product).filter(Product.sku == sku).first()
 
 
 # ORM: create/insert
@@ -62,12 +61,12 @@ def orm_create_product(server_key: str, sku: str, name: str, price_cents: int, m
     still have its attributes available after commit because Envoxy sets
     ``expire_on_commit=False`` on the sessionmaker.
     """
-    p = Product(sku=sku, name=name, price_cents=price_cents, metadata=metadata)
-    with pgsqlc.session(server_key) as session:
-        session.add(p)
+    _p = Product(sku=sku, name=name, price_cents=price_cents, metadata=metadata)
+    with pgsqlc.sa_session(server_key) as _session:
+        _session.add(p)
         # session_scope commits on successful exit; returned object remains
         # usable because Envoxy's sessionmaker sets expire_on_commit=False.
-        return p
+        return _p
 
 
 # ORM: update
@@ -77,7 +76,7 @@ def orm_update_price(server_key: str, product_id: str, new_price: int):
     Uses the server_key-first session helper so callers don't manage
     session/transactions directly. The session commits on exit.
     """
-    with pgsqlc.session(server_key) as session:
+    with pgsqlc.sa_session(server_key) as session:
         p = session.get(Product, product_id)
         if not p:
             return None
@@ -96,12 +95,12 @@ def raw_select_by_sku(server_key: str, sku: str):
     SQLAlchemy ``text()`` object using ``:name`` bind parameters. The
     returned rows are dict-like mappings accessible as normal dicts.
     """
-    mgr = pgsqlc.manager(server_key)
-    sql = to_sa_text("SELECT id, sku, name, price_cents, href FROM products WHERE sku = %(sku)s")
-    with mgr.engine.connect() as conn:
-        result = conn.execute(sql, {"sku": sku})
-        rows = result.mappings().all()
-    return rows
+    _mgr = pgsqlc.sa_manager(server_key)
+    _sql = to_sa_text("SELECT id, sku, name, price_cents, href FROM products WHERE sku = %(sku)s")
+    with _mgr.engine.connect() as _conn:
+        _result = _conn.execute(_sql, {"sku": sku})
+        _rows = _result.mappings().all()
+    return _rows
 
 # Transaction example: mix ORM + Core inside a single transaction
 def mixed_transaction_example(server_key: str, sku: str, extra_debug=False):
@@ -112,18 +111,19 @@ def mixed_transaction_example(server_key: str, sku: str, extra_debug=False):
     Core and ORM statements participate in the same transaction.
     """
     # Bind the session to the same connection via begin() context
-    mgr = pgsqlc.manager(server_key)
-    with mgr.engine.begin() as connection:
+    _mgr = pgsqlc.sa_manager(server_key)
+    with _mgr.engine.begin() as _connection:
         # Option A: use ORM session tied to the connection
-        with Session(bind=connection) as sess:
-            prod = sess.query(Product).filter_by(sku=sku).first()
+        from sqlalchemy.orm import Session # Just an example that is possible to use Session directly
+        with Session(bind=_connection) as _sess:
+            _prod = _sess.query(Product).filter_by(sku=sku).first()
             if extra_debug:
-                print('found', prod)
+                print('found', _prod)
             # run a raw count using the same connection
-            count = connection.execute(to_sa_text("SELECT count(*) FROM products WHERE sku = %(sku)s"), {"sku": sku}).scalar()
+            _count = _connection.execute(to_sa_text("SELECT count(*) FROM products WHERE sku = %(sku)s"), {"sku": sku}).scalar()
             if extra_debug:
-                print('count', count)
-            return prod, count
+                print('count', _count)
+            return _prod, _count
 
 
 # Note: these examples assume your application has bootstrapped Envoxy
@@ -139,35 +139,35 @@ def mixed_transaction_example(server_key: str, sku: str, extra_debug=False):
 
 def example_using_server_key(server_key: str = None):
     """Show a few simple ways to use the server_key helpers exported by
-    Envoxy. If ``server_key`` is omitted, `pgsqlc.manager`/`pgsqlc.session`
+    Envoxy. If ``server_key`` is omitted, `pgsqlc.sa_manager`/`pgsqlc.sa_session`
     will use the configured default server key.
 
     Demonstrates:
-    - context-manager style via ``pgsqlc.session(server_key)``
-    - decorator style via ``@pgsqlc.transactional(server_key)`` which injects
+    - context-manager style via ``pgsqlc.sa_session(server_key)``
+    - decorator style via ``@pgsqlc.sa_transactional(server_key)`` which injects
       a ``session`` kwarg into the wrapped function
     """
 
     # context manager style — commits on success, rolls back on error
-    with pgsqlc.session(server_key) as session:
-        _ = session.query(Product).filter_by(sku="SKX").first()
+    with pgsqlc.sa_session(server_key) as _session:
+        _ = _session.query(Product).filter_by(sku="SKX").first()
 
     # decorator style — the decorated function must accept `session=None`
-    @pgsqlc.transactional(server_key)
+    @pgsqlc.sa_transactional(server_key)
     def find_or_create(sku: str, session=None):
         # `session` is injected by the decorator as a kwarg
-        prod = session.query(Product).filter_by(sku=sku).first()
-        if prod:
-            return prod
-        prod = Product(sku=sku, name="Auto", price_cents=0)
-        session.add(prod)
-        return prod
+        _prod = session.query(Product).filter_by(sku=sku).first()
+        if _prod:
+            return _prod
+        _prod = Product(sku=sku, name="Auto", price_cents=0)
+        session.add(_prod)
+        return _prod
 
     # call helpers implemented above that accept server_key
-    created = orm_create_product(server_key, "SKX", "Example", 100)
-    found = orm_select_by_sku(server_key, "SKX")
-    updated = orm_update_price(server_key, created.id, 200)
+    _created = orm_create_product(server_key, "SKX", "Example", 100)
+    _found = orm_select_by_sku(server_key, "SKX")
+    _updated = orm_update_price(server_key, created.id, 200)
     # or use decorator example
-    new = find_or_create("SKX")
+    _new = find_or_create("SKX")
 
-    return found, updated, new
+    return _created, _found, _updated, _new

@@ -67,7 +67,7 @@ class SingletonPerThread(object):
 
     @classmethod
     def instance_with_queue(cls, queue_):
-    # Delegate to the primary constructor path; pass queue_ through so
-    # callers that expect to inject a queue can continue to do so. This
-    # avoids static analysis complaints about unknown ctor parameters.
-    return cls.instance(queue_=queue_)
+        # Delegate to the primary constructor path; pass queue_ through so
+        # callers that expect to inject a queue can continue to do so. This
+        # avoids static analysis complaints about unknown ctor parameters.
+        return cls.instance(queue_=queue_)

@@ -1,15 +1,17 @@
+import math
+import uuid
+import re
+from time import sleep
+from threading import BoundedSemaphore as _BoundedSemaphore, Lock, local
+from datetime import datetime, timezone
+from contextlib import contextmanager
+
 from psycopg2.pool import ThreadedConnectionPool
 from psycopg2 import OperationalError, DatabaseError, InterfaceError
 import psycopg2.extras
 import psycopg2.sql as sql
-from contextlib import contextmanager
-from threading import BoundedSemaphore as _BoundedSemaphore, Lock, local
-from time import sleep
-import math
-import uuid
-from datetime import datetime, timezone
-import re
 
+from ..db.sqlalchemy import dispose_manager
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
 from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
@@ -188,7 +190,6 @@ class Client:
         This will update existing server entries and add new ones. It will
         not tear down existing pools for servers that remain unchanged.
         """
-        from envoxy.db.sqlalchemy import dispose_manager
 
         with self._lock:
             # find removed keys

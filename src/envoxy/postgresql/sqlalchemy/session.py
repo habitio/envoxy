@@ -13,9 +13,10 @@ Design goals:
 """
 from __future__ import annotations
 
+import logging
+
 from contextlib import contextmanager
 from typing import Optional, Callable, Any, Dict
-import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine

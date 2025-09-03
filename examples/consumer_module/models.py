@@ -3,18 +3,12 @@
 This file demonstrates a recommended model structure and how to register the
 Envoxy listeners (so id/created/updated/href are auto-populated).
 """
-from sqlalchemy import Column, String, Integer, DateTime, JSON, Index
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, String, Integer, JSON, Index
 
-from envoxy.db.envoxy_mixin import EnvoxyMixin, register_envoxy_listeners
-
-Base = declarative_base()
+from envoxy.db.orm.base import EnvoxyBase, register_envoxy_listeners
 
 
-class Product(EnvoxyMixin, Base):
-    # consumer projects use plural table names by convention
-    __tablename__ = "products"
-
+class Product(EnvoxyBase):
     # EnvoxyMixin provides: id (String(36)), created, updated, href
     sku = Column(String(64), nullable=False)
     name = Column(String(255), nullable=False)
@@ -22,7 +16,7 @@ class Product(EnvoxyMixin, Base):
     price_cents = Column(Integer, nullable=False, default=0)
 
     __table_args__ = (
-        Index("ix_product_sku", "sku"),
+        Index("idx_products_sku", "sku"),
     )
 
 
