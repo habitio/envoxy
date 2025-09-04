@@ -25,7 +25,7 @@ with open(find_file("README.md"), encoding="utf-8") as f:
 
 setup(
     name="envoxy",
-    version="0.3.7",
+    version="0.4.0",
     description="Envoxy Platform Framework",
     long_description=long_description,
     long_description_content_type="text/markdown",
