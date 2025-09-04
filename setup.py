@@ -11,7 +11,7 @@ try:
 except Exception as e:
     requirements = []
 
-requirements.append('systemd-python==235;platform_system=="Linux"')
+requirements.append('systemd-python>=235;platform_system=="Linux"')
 
 data_dir = os.path.dirname(os.path.realpath(__file__))
 
