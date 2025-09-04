@@ -1,5 +1,6 @@
 """Test intelligent pluralization for EnvoxyMeta table naming."""
 import inflect
+from envoxy.db.orm.constants import AUX_TABLE_PREFIX
 
 inflector = inflect.engine()
 examples = [
@@ -12,4 +13,4 @@ for name in examples:
         plural = name
     else:
         plural = inflector.plural(name)
-    print(f"Class: {name:15} -> Table: aux_{plural.lower()}")
+    print(f"Class: {name:15} -> Table: {AUX_TABLE_PREFIX}{plural.lower()}")

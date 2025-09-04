@@ -1,9 +1,11 @@
 import uuid
 import datetime
-from sqlalchemy.orm import Mapper, registry
+from sqlalchemy.orm.mapper import Mapper
+from sqlalchemy.orm.decl_api import registry
 from sqlalchemy import event
 
 from .mixin import EnvoxyMixin
+from .base import EnvoxyBase
 
 def _now_utc():
     return datetime.datetime.now(datetime.timezone.utc)
@@ -33,8 +35,22 @@ def _before_update(mapper, connection, target):
 
 def register_envoxy_listeners():
     """Register ORM listeners for all mapped classes that use EnvoxyMixin."""
+    # idempotency guard - don't register listeners more than once
+    if getattr(register_envoxy_listeners, '_registered', False):
+        return
     def mapper_configured(mapper, class_):
+        # Enforce that every mapped class inherits from EnvoxyBase.
+        # This prevents accidental mappings that bypass the thin-layer base.
+        if not issubclass(class_, EnvoxyBase):
+            raise RuntimeError(
+                f"Mapped class {class_.__module__}.{class_.__name__} must inherit from EnvoxyBase"
+            )
+
+        # Attach listeners that populate id/created/updated/href.
         if issubclass(class_, EnvoxyMixin):
             event.listen(mapper, 'before_insert', _before_insert)
             event.listen(mapper, 'before_update', _before_update)
-    event.listen(registry(), 'mapper_configured', mapper_configured)
+    # Attach to the Mapper class-level event so it fires for all mappers.
+    from sqlalchemy.orm.mapper import Mapper as _MapperClass
+    event.listen(_MapperClass, 'mapper_configured', mapper_configured)
+    register_envoxy_listeners._registered = True

@@ -14,3 +14,15 @@ from .views.containers import Response
 from .celery.client import Client as celeryc
 
 envoxy = locals()
+
+
+def alembic_config_path() -> str:
+	"""Return the absolute path to the bundled alembic.ini inside the envoxy package.
+
+	This helper allows downstream services to discover the framework-provided
+	alembic configuration without hard-coding package installation paths.
+	"""
+	import os
+
+	pkg_dir = os.path.dirname(__file__)
+	return os.path.join(pkg_dir, 'tools', 'alembic', 'alembic.ini')

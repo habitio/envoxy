@@ -1,10 +1,10 @@
 from sqlalchemy import Column, String, DateTime
-from .meta import EnvoxyMeta
+from sqlalchemy.sql.schema import Index
+from .constants import AUX_TABLE_PREFIX
 
-
-from sqlalchemy import Index
-
-class EnvoxyMixin(metaclass=EnvoxyMeta):
+class EnvoxyMixin:
+    # Prevent SQLAlchemy from mapping this mixin as a concrete table.
+    __abstract__ = True
     id = Column('id', String(36), primary_key=True)
     created = Column('created', DateTime, nullable=False)
     updated = Column('updated', DateTime, nullable=False)
@@ -18,12 +18,26 @@ class EnvoxyMixin(metaclass=EnvoxyMeta):
             new_args = []
             for arg in table_args:
                 if isinstance(arg, Index):
-                    name = arg.name
-                    if not name.startswith("aux_"):
-                        # Recreate Index with aux_ prefix
-                        new_args.append(Index("aux_" + name, *arg.expressions, **arg.kwargs))
+                    name = getattr(arg, 'name', None)
+                    # Ensure name is a string before calling startswith.
+                    if not (isinstance(name, str) and name):
+                        # If name is missing or not a string, generate a safe
+                        # name using the index expressions. Fall back to
+                        # a generic name prefixed with the configured prefix.
+                        safe_name = AUX_TABLE_PREFIX + 'index'
+                        kwargs = {}
+                        if getattr(arg, 'unique', False):
+                            kwargs['unique'] = True
+                        new_args.append(Index(safe_name, *arg.expressions, **kwargs))
                     else:
-                        new_args.append(arg)
+                        if not name.startswith(AUX_TABLE_PREFIX):
+                            # Recreate Index with aux_ prefix
+                            kwargs = {}
+                            if getattr(arg, 'unique', False):
+                                kwargs['unique'] = True
+                            new_args.append(Index(AUX_TABLE_PREFIX + name, *arg.expressions, **kwargs))
+                        else:
+                            new_args.append(arg)
                 else:
                     new_args.append(arg)
             cls.__table_args__ = tuple(new_args)

@@ -11,7 +11,7 @@ from psycopg2 import OperationalError, DatabaseError, InterfaceError
 import psycopg2.extras
 import psycopg2.sql as sql
 
-from ..db.sqlalchemy import dispose_manager
+from ..db.orm.session import dispose_manager
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
 from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
