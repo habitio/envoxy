@@ -73,7 +73,7 @@ docs/_build/
 
 # PyBuilder
 target/
-envoxy/
+/envoxy/
 
 # Jupyter Notebook
 .ipynb_checkpoints
