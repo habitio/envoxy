@@ -5,9 +5,7 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
+from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 config = context.config
@@ -47,29 +45,10 @@ if target_metadata is None:
         target_metadata = None
 
 
-# Make sqlite relative paths in the alembic config absolute relative to the
-# config file location. This prevents "unable to open database file" when
-# running the alembic helper from a different working directory.
-cfg_file = config.config_file_name
-if cfg_file:
-    try:
-        cfg_dir = os.path.dirname(os.path.abspath(cfg_file))
-        url = config.get_main_option('sqlalchemy.url')
-        if url and url.startswith('sqlite:///'):
-            # strip the scheme (sqlite:///)
-            db_path = url[len('sqlite:///'):]
-            if not os.path.isabs(db_path):
-                abs_db = os.path.normpath(os.path.join(cfg_dir, db_path))
-                # ensure parent dir exists so sqlite can create the file
-                parent = os.path.dirname(abs_db)
-                if parent and not os.path.isdir(parent):
-                    os.makedirs(parent, exist_ok=True)
-                new_url = f"sqlite:///{abs_db}"
-                config.set_main_option('sqlalchemy.url', new_url)
-    except Exception:
-        # best-effort: if anything fails here, let alembic continue and
-        # surface the original error to the user
-        pass
+# Enforce Postgres URL presence (placeholder in ini must be overridden)
+url_check = config.get_main_option('sqlalchemy.url')
+if not url_check.startswith('postgresql://'):
+    raise RuntimeError('PostgreSQL sqlalchemy.url required (got placeholder or non-postgres URL)')
 
 
 def run_migrations_offline():

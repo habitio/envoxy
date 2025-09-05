@@ -14,7 +14,6 @@ from pathlib import Path
 import tempfile
 import configparser
 import os
-import shutil
 
 
 def _find_bundled_paths():
@@ -63,16 +62,11 @@ def main(argv: list[str] | None = None) -> int:
                         """# Auto-generated proxy to framework env.py\nfrom envoxy.tools.alembic.alembic.env import *  # noqa\n""",
                         encoding="utf-8",
                     )
-                except Exception as pe:  # pragma: no cover
+                except OSError as pe:  # pragma: no cover
                     print(f"WARNING: could not create proxy env.py: {pe}")
-            # Copy script.py.mako template if not present so revisions can be generated locally
-            template_src = (packaged_script_dir / "script.py.mako")
-            template_dst = (custom_dir / "script.py.mako")
-            if template_src.is_file() and not template_dst.exists():
-                try:
-                    shutil.copy2(str(template_src), str(template_dst))
-                except Exception as te:  # pragma: no cover
-                    print(f"WARNING: could not copy template script.py.mako: {te}")
+            # Optional script.py.mako: if user wants customization they can copy it; otherwise
+            # Alembic will fall back to built-in or packaged template because env.py lives in package.
+            # (No mandatory copy to keep service repo clean.)
             # Final guard: ensure versions directory still exists (race or cleanup)
             if not versions_dir.exists():
                 versions_dir.mkdir(parents=True, exist_ok=True)
@@ -98,10 +92,16 @@ def main(argv: list[str] | None = None) -> int:
                     need_rewrite = True
             if need_rewrite:
                 cp.set("alembic", "script_location", str(effective_script_dir))
-                tmp_fd, tmp_name = tempfile.mkstemp(prefix="envoxy-alembic-", suffix=".ini")
-                with open(tmp_name, "w", encoding="utf-8") as out_fh:
-                    cp.write(out_fh)
-                tmp_ini_path = Path(tmp_name)
+                fd, tmp_name = tempfile.mkstemp(prefix="envoxy-alembic-", suffix=".ini")
+                try:
+                    with open(tmp_name, "w", encoding="utf-8") as out_fh:
+                        cp.write(out_fh)
+                    tmp_ini_path = Path(tmp_name)
+                finally:  # ensure fd closed
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
     except Exception:  # pragma: no cover
         tmp_ini_path = None
 

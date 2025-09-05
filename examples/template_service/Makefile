@@ -1,8 +1,10 @@
 PYTHONPATH := src:.
 SERVICE_MODELS := examples.template_service.models
 ALEMBIC_DIR ?= alembic
+# Optional: override per-service version table (else auto-derived: alembic_version_<service>)
+ENVOXY_VERSION_TABLE ?=
 ALEMBIC := envoxy-alembic
-AL := SERVICE_MODELS=$(SERVICE_MODELS) SERVICE_ALEMBIC_DIR=$(ALEMBIC_DIR) $(ALEMBIC)
+AL := SERVICE_MODELS=$(SERVICE_MODELS) SERVICE_ALEMBIC_DIR=$(ALEMBIC_DIR) $(if $(ENVOXY_VERSION_TABLE),ENVOXY_VERSION_TABLE=$(ENVOXY_VERSION_TABLE) ,)$(ALEMBIC)
 
 .PHONY: alembic-rev alembic-upgrade alembic-downgrade alembic-current alembic-history alembic-heads alembic-stamp alembic-show alembic-merge alembic-help alembic generic-alembic
 
@@ -62,5 +64,5 @@ alembic-help:
 	echo "  make alembic-show rev=<rev>"; \
 	echo "  make alembic-merge revs=rev1\\ rev2 m=msg"; \
 	echo "  make alembic cmd=\"upgrade head\" (generic passthrough)"; \
-	echo "Variables: SERVICE_MODELS=$(SERVICE_MODELS) ALEMBIC_DIR=$(ALEMBIC_DIR)";
+	echo "Variables: SERVICE_MODELS=$(SERVICE_MODELS) ALEMBIC_DIR=$(ALEMBIC_DIR) ENVOXY_VERSION_TABLE=$(ENVOXY_VERSION_TABLE)";
 

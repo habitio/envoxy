@@ -44,6 +44,32 @@ if REPO_ROOT not in sys.path:
 DEBUG = os.environ.get("ENVOXY_ALEMBIC_DEBUG") == "1"
 log = logging.getLogger("envoxy.alembic.env")
 
+# ---------------------------------------------------------------------------
+# Per-service version table support
+# You can set ENVOXY_VERSION_TABLE explicitly. Otherwise we derive a stable
+# identifier from SERVICE_MODELS (first module name) or the managed prefix.
+# Generates table name: alembic_version_<service_id>
+# ---------------------------------------------------------------------------
+def _derive_service_version_table() -> str:
+    explicit = os.environ.get('ENVOXY_VERSION_TABLE')
+    if explicit:
+        return explicit
+    raw_models = os.environ.get('SERVICE_MODELS', '')
+    candidate = None
+    if raw_models:
+        first_mod = raw_models.split(',')[0].strip()
+        if first_mod:
+            candidate = first_mod.split('.')[0]
+    if not candidate:
+        candidate = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX).strip('_') or 'service'
+    # Sanitize: only alnum + underscore
+    safe = ''.join(ch if (ch.isalnum() or ch == '_') else '_' for ch in candidate.lower())[:40]
+    return f"alembic_version_{safe}"
+
+VERSION_TABLE_NAME = _derive_service_version_table()
+if DEBUG:
+    log.warning("[alembic] using version table: %s", VERSION_TABLE_NAME)
+
 def _discover_metadata():  # noqa: D401
     """Locate service metadata.
 
@@ -141,21 +167,23 @@ if DEBUG and target_metadata:  # pragma: no cover
                 log.warning('[alembic] failed listing columns for %s: %s', _tname, _exc)
 
 # ---------------------------------------------------------------------------
-# Dynamic database URL resolution
+# Dynamic database URL resolution (PostgreSQL REQUIRED)
 # Priority:
-#   1. Explicit SERVICE_DB_URL env var
-#   2. ENVOXY_SERVICE_CONF file (attempt to parse)
-#   3. Existing alembic.ini sqlalchemy.url
+#   1. SERVICE_DB_URL env var (must be postgresql://)
+#   2. RC file (ENVOXY_RC_PATH or default /etc/zapata/rc.d/muzzley.rc)
+# If neither yields a Postgres URL, abort. No sqlite fallback is allowed.
 # ---------------------------------------------------------------------------
 
 def _maybe_set_sqlalchemy_url():  # noqa: D401
-    existing = config.get_main_option('sqlalchemy.url')
     env_url = os.environ.get('SERVICE_DB_URL')
     if env_url:
+        if not env_url.startswith('postgresql://'):
+            raise RuntimeError("SERVICE_DB_URL must start with postgresql:// (got masked value)")
         if DEBUG:
             log.warning('[alembic] using SERVICE_DB_URL (masked)')
         config.set_main_option('sqlalchemy.url', env_url)
         return
+
     # RC file with exported variables (e.g. /etc/zapata/rc.d/muzzley.rc)
     rc_path = os.environ.get('ENVOXY_RC_PATH', '/etc/zapata/rc.d/muzzley.rc')
     if os.path.isfile(rc_path):
@@ -177,42 +205,34 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
             user = rc_vars.get('MUZZLEY_PGSQL_USER')
             pwd = rc_vars.get('MUZZLEY_PGSQL_PASSWD', '')
             dbname = rc_vars.get('MUZZLEY_PGSQL_DB') or user  # assume db = user if absent
-            if host and user and dbname and (not existing or existing.startswith('sqlite:')):
+            if host and user and dbname:
                 auth = f"{user}:{pwd}@" if pwd else f"{user}@"
-                # Use generic 'postgresql://' so SQLAlchemy selects an installed driver (psycopg/psycopg2)
                 url = f"postgresql://{auth}{host}:{port}/{dbname}"
                 config.set_main_option('sqlalchemy.url', url)
                 if DEBUG:
                     log.warning('[alembic] derived DB URL from RC file %s (masked)', rc_path)
+                return
+            else:
+                if DEBUG:
+                    log.warning('[alembic] RC file %s missing required PG vars (host/user/db)', rc_path)
         except Exception as exc:  # pragma: no cover
             if DEBUG:
                 log.warning('[alembic] failed parsing RC file %s: %s', rc_path, exc)
-    return
+
+    raise RuntimeError('PostgreSQL URL required: set SERVICE_DB_URL=postgresql://... or provide RC file with MUZZLEY_PGSQL_* variables')
 
 _maybe_set_sqlalchemy_url()
+
+# Enforce final URL correctness (defensive)
+final_url = config.get_main_option('sqlalchemy.url')
+if not final_url or not final_url.startswith('postgresql://'):
+    raise RuntimeError('PostgreSQL sqlalchemy.url is mandatory (expected postgresql://...)')
 
 
 # Make sqlite relative paths in the alembic config absolute relative to the
 # config file location. This avoids "unable to open database file" when
 # alembic is executed from a different working directory.
-cfg_file = config.config_file_name
-if cfg_file:
-    try:
-        cfg_dir = os.path.dirname(os.path.abspath(cfg_file))
-        url = config.get_main_option('sqlalchemy.url')
-        if url and url.startswith('sqlite:///'):
-            # strip the scheme (sqlite:///)
-            db_path = url[len('sqlite:///'):]
-            if not os.path.isabs(db_path):
-                abs_db = os.path.normpath(os.path.join(cfg_dir, db_path))
-                parent = os.path.dirname(abs_db)
-                if parent and not os.path.isdir(parent):
-                    os.makedirs(parent, exist_ok=True)
-                new_url = f"sqlite:///{abs_db}"
-                config.set_main_option('sqlalchemy.url', new_url)
-    except Exception:
-        # best-effort: let Alembic surface errors if something goes wrong here
-        pass
+# (Removed sqlite path normalization logic – Postgres required)
 
 
 def run_migrations_offline():
@@ -245,6 +265,7 @@ def run_migrations_offline():
         literal_binds=True,
         include_name=include_name,
         include_object=include_object,
+        version_table=VERSION_TABLE_NAME,
     )
 
     with context.begin_transaction():
@@ -282,6 +303,7 @@ def run_migrations_online():
             target_metadata=target_metadata,
             include_name=include_name,
             include_object=include_object,
+            version_table=VERSION_TABLE_NAME,
         )
 
         with context.begin_transaction():
