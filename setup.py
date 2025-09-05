@@ -11,7 +11,7 @@ try:
 except Exception as e:
     requirements = []
 
-requirements.append('systemd-python>=235;platform_system=="Linux"')
+# systemd-python is optional (journald / watchdog integration). Kept as extra.
 
 data_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -25,7 +25,7 @@ with open(find_file("README.md"), encoding="utf-8") as f:
 
 setup(
     name="envoxy",
-    version="0.4.1",
+    version="0.4.2",
     description="Envoxy Platform Framework",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -34,6 +34,9 @@ setup(
     url="https://github.com/habitio/envoxy",
     packages=find_namespace_packages(where="src", exclude=("tests", "templates")),
     install_requires=requirements,
+    extras_require={
+        "journald": ["systemd-python>=235"],
+    },
     # map the root package directory to `src/` so find_namespace_packages discovers all
     # nested packages under src/ (including PEP 420 namespace packages).
     package_dir={

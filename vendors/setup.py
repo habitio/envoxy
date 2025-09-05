@@ -22,26 +22,35 @@ class InstallCommand(install):
         install.run(self)
 
 
+packages = find_packages(include=["envoxyd", "envoxyd.*"], exclude=["tests", "uwsgi.build"])
+
 setup(
     name="envoxyd",
-    version="0.3.1",
+    version="0.3.2",
     description="Envoxyd",
     author="Matheus Santos",
     author_email="vorj.dux@gmail.com",
     url="https://github.com/muzzley/envoxy",
-    packages=find_packages(exclude=["uwsgi", "templates", "tests"]),
-    install_requires=["envoxy>=0.4.1", "flask-cors==6.0.0", "isort>=4.2.5,<5"],
+    packages=packages,
+    install_requires=["envoxy>=0.4.2", "flask-cors==6.0.0", "isort>=4.2.5,<5"],
     package_dir={
         "envoxyd": "envoxyd/",
+    },
+    # console_scripts not defined because envoxy-cli is a bash script distributed via data_files/bin
+    package_data={
+        "envoxyd": [
+            "templates/run.py",
+            "templates/view.py",
+            "templates/confs/envoxy.json",
+            "tools/*",
+            "templates/__init__.py",
+            "templates/confs/__init__.py",
+        ]
     },
     data_files=[
         ("bin", ["src/envoxyd/envoxyd"]),
         ("bin", ["envoxyd/tools/envoxy-cli"]),
         ("envoxyd", ["LICENSE.txt"]),
-        ("envoxyd/etc/templates", ["envoxyd/templates/__init__.py"]),
-        ("envoxyd/etc/templates", ["envoxyd/templates/run.py"]),
-        ("envoxyd/etc/templates/confs", ["envoxyd/templates/confs/envoxy.json"]),
-        ("envoxyd/etc/templates/views", ["envoxyd/templates/view.py"]),
     ],
     cmdclass={"install": InstallCommand},
     python_requires=">=3.11",
