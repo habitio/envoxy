@@ -2,9 +2,26 @@ PYTHONPATH := src:.
 SERVICE_MODELS := examples.template_service.models
 ALEMBIC_DIR ?= alembic
 # Optional: override per-service version table (else auto-derived: alembic_version_<service>)
-ENVOXY_VERSION_TABLE ?=
+ENVOXY_VERSION_TABLE ?= alembic_version_examples_template_service
+# Optional safety controls (see env.py):
+#  ENVOXY_MANAGE_ALL_PREFIXED=1    -> manage all prefixed tables (cross-service)
+#  ENVOXY_ALLOW_DROPS=1            -> allow drop ops for unmanaged prefixed tables
+#  ENVOXY_DROP_TABLES=tbl1,tbl2    -> explicitly allow drops for listed tables only
+ENVOXY_MANAGE_ALL_PREFIXED ?=
+ENVOXY_ALLOW_DROPS ?=
+ENVOXY_DROP_TABLES ?=
+ENVOXY_ALEMBIC_DEBUG ?= 1
+# Managed prefix (defaults to aux_ in env.py if unset)
+ENVOXY_MANAGED_PREFIX ?=
 ALEMBIC := envoxy-alembic
-AL := SERVICE_MODELS=$(SERVICE_MODELS) SERVICE_ALEMBIC_DIR=$(ALEMBIC_DIR) $(if $(ENVOXY_VERSION_TABLE),ENVOXY_VERSION_TABLE=$(ENVOXY_VERSION_TABLE) ,)$(ALEMBIC)
+AL := SERVICE_MODELS=$(SERVICE_MODELS) SERVICE_ALEMBIC_DIR=$(ALEMBIC_DIR) \
+	$(if $(ENVOXY_VERSION_TABLE),ENVOXY_VERSION_TABLE=$(ENVOXY_VERSION_TABLE) ,) \
+	$(if $(ENVOXY_MANAGE_ALL_PREFIXED),ENVOXY_MANAGE_ALL_PREFIXED=$(ENVOXY_MANAGE_ALL_PREFIXED) ,) \
+	$(if $(ENVOXY_ALLOW_DROPS),ENVOXY_ALLOW_DROPS=$(ENVOXY_ALLOW_DROPS) ,) \
+	$(if $(ENVOXY_DROP_TABLES),ENVOXY_DROP_TABLES=$(ENVOXY_DROP_TABLES) ,) \
+	$(if $(ENVOXY_ALEMBIC_DEBUG),ENVOXY_ALEMBIC_DEBUG=$(ENVOXY_ALEMBIC_DEBUG) ,) \
+	$(if $(ENVOXY_MANAGED_PREFIX),ENVOXY_MANAGED_PREFIX=$(ENVOXY_MANAGED_PREFIX) ,) \
+	$(ALEMBIC)
 
 .PHONY: alembic-rev alembic-upgrade alembic-downgrade alembic-current alembic-history alembic-heads alembic-stamp alembic-show alembic-merge alembic-help alembic generic-alembic
 
@@ -64,5 +81,19 @@ alembic-help:
 	echo "  make alembic-show rev=<rev>"; \
 	echo "  make alembic-merge revs=rev1\\ rev2 m=msg"; \
 	echo "  make alembic cmd=\"upgrade head\" (generic passthrough)"; \
-	echo "Variables: SERVICE_MODELS=$(SERVICE_MODELS) ALEMBIC_DIR=$(ALEMBIC_DIR) ENVOXY_VERSION_TABLE=$(ENVOXY_VERSION_TABLE)";
+	echo "Variables:"; \
+	echo "  SERVICE_MODELS=$(SERVICE_MODELS)"; \
+	echo "  ALEMBIC_DIR=$(ALEMBIC_DIR)"; \
+	echo "  ENVOXY_VERSION_TABLE=$(ENVOXY_VERSION_TABLE)"; \
+	echo "  ENVOXY_MANAGE_ALL_PREFIXED=$(ENVOXY_MANAGE_ALL_PREFIXED)"; \
+	echo "  ENVOXY_ALLOW_DROPS=$(ENVOXY_ALLOW_DROPS)"; \
+	echo "  ENVOXY_DROP_TABLES=$(ENVOXY_DROP_TABLES)"; \
+	echo "  ENVOXY_ALEMBIC_DEBUG=$(ENVOXY_ALEMBIC_DEBUG)"; \
+	echo "  ENVOXY_MANAGED_PREFIX=$(ENVOXY_MANAGED_PREFIX)"; \
+	echo "Examples:"; \
+	echo "  make alembic-rev m=drop_old ENVOXY_DROP_TABLES=aux_oldtable AUTO=1"; \
+	echo "  make alembic-rev m=global AUTO=1 ENVOXY_MANAGE_ALL_PREFIXED=1 ENVOXY_ALLOW_DROPS=1"; \
+	echo "  make alembic-upgrade ENVOXY_ALEMBIC_DEBUG=1 (show managed vs ignored aux_ tables)"; \
+	echo "  make alembic-upgrade ENVOXY_ALEMBIC_DEBUG=1 ENVOXY_MANAGE_ALL_PREFIXED=1"; \
+	echo "  make alembic-upgrade ENVOXY_ALEMBIC_DEBUG=1 ENVOXY_DROP_TABLES=aux_old1,aux_old2 ENVOXY_ALLOW_DROPS=1";
 

@@ -17,6 +17,7 @@ from logging.config import fileConfig
 import logging
 
 from sqlalchemy import pool  # type: ignore
+from sqlalchemy import inspect  # type: ignore
 from sqlalchemy.engine import engine_from_config  # type: ignore
 try:
     from envoxy.db.orm.constants import AUX_TABLE_PREFIX  # authoritative prefix
@@ -238,17 +239,41 @@ if not final_url or not final_url.startswith('postgresql://'):
 def run_migrations_offline():
     url = config.get_main_option('sqlalchemy.url')
     managed_prefix = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX)
+    manage_all_prefixed = os.environ.get('ENVOXY_MANAGE_ALL_PREFIXED') == '1'
+    allow_drops = os.environ.get('ENVOXY_ALLOW_DROPS') == '1'
+    metadata_names = set(getattr(target_metadata, 'tables', {}).keys()) if target_metadata else set()
+    drop_list_env = os.environ.get('ENVOXY_DROP_TABLES', '')
+    drop_tables = {t.strip() for t in drop_list_env.split(',') if t.strip()}
 
     def include_object(object_, name, type_, reflected, compare_to):  # noqa: D401
-        # Only manage tables (and their indexes) matching the managed prefix.
+        # Manage only tables declared in this service's metadata to avoid cross-service drops.
         if type_ == 'table':
-            return name.startswith(managed_prefix)
+            if not name.startswith(managed_prefix):
+                return False
+            if manage_all_prefixed:
+                return True
+            # If table not in metadata we normally skip (prevents accidental drop)
+            if name in metadata_names:
+                return True
+            # Explicit per-table drop list has priority over global flags.
+            if name in drop_tables:
+                return True
+            # Allow broader drops only when allow_drops toggled.
+            return allow_drops
         if type_ == 'index':
             try:
                 tbl_name = object_.table.name  # type: ignore[attr-defined]
             except Exception:  # pragma: no cover
                 tbl_name = None
-            return bool(tbl_name and tbl_name.startswith(managed_prefix))
+            if not tbl_name or not tbl_name.startswith(managed_prefix):
+                return False
+            if manage_all_prefixed:
+                return True
+            if tbl_name in metadata_names:
+                return True
+            if tbl_name in drop_tables:
+                return True
+            return allow_drops
         return True  # other object types (constraints) decided by parent table
 
     # Early reflection pruning: avoid inspecting unrelated tables (suppresses
@@ -280,16 +305,37 @@ def run_migrations_online():
     )
 
     managed_prefix = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX)
+    manage_all_prefixed = os.environ.get('ENVOXY_MANAGE_ALL_PREFIXED') == '1'
+    allow_drops = os.environ.get('ENVOXY_ALLOW_DROPS') == '1'
+    metadata_names = set(getattr(target_metadata, 'tables', {}).keys()) if target_metadata else set()
+    drop_list_env = os.environ.get('ENVOXY_DROP_TABLES', '')
+    drop_tables = {t.strip() for t in drop_list_env.split(',') if t.strip()}
 
     def include_object(object_, name, type_, reflected, compare_to):  # noqa: D401
         if type_ == 'table':
-            return name.startswith(managed_prefix)
+            if not name.startswith(managed_prefix):
+                return False
+            if manage_all_prefixed:
+                return True
+            if name in metadata_names:
+                return True
+            if name in drop_tables:
+                return True
+            return allow_drops
         if type_ == 'index':
             try:
                 tbl_name = object_.table.name  # type: ignore[attr-defined]
             except Exception:  # pragma: no cover
                 tbl_name = None
-            return bool(tbl_name and tbl_name.startswith(managed_prefix))
+            if not tbl_name or not tbl_name.startswith(managed_prefix):
+                return False
+            if manage_all_prefixed:
+                return True
+            if tbl_name in metadata_names:
+                return True
+            if tbl_name in drop_tables:
+                return True
+            return allow_drops
         return True
 
     def include_name(name, type_, parent_names):  # pragma: no cover - simple predicate
@@ -298,6 +344,52 @@ def run_migrations_online():
         return True
 
     with connectable.connect() as connection:  # type: ignore[attr-defined]
+        # Optional deep visibility: enumerate all prefixed tables in the live DB and
+        # classify which ones this service will manage vs ignore. Enabled when
+        # ENVOXY_ALEMBIC_DEBUG=1. This gives operators confidence that cross-service
+        # tables (same prefix but not in metadata) are being deliberately skipped.
+        if DEBUG:
+            try:  # pragma: no cover - debug/inspection path
+                insp = inspect(connection)
+                get_tables = getattr(insp, 'get_table_names')  # type: ignore[attr-defined]
+                prefixed_tables = [t for t in get_tables() if t.startswith(managed_prefix)]  # type: ignore[arg-type]
+                managed: list[str] = []
+                ignored: list[str] = []
+                log.warning(
+                    '[alembic] analyzing %s* tables (manage_all=%s allow_drops=%s drop_list=%s metadata_tables=%d)',
+                    managed_prefix,
+                    manage_all_prefixed,
+                    allow_drops,
+                    ','.join(sorted(drop_tables)) or '-',
+                    len(metadata_names),
+                )
+                for t in sorted(prefixed_tables):
+                    if manage_all_prefixed:
+                        managed.append(t)
+                        log.warning('[alembic] table %s: MANAGED (manage_all_prefixed)', t)
+                    elif t in metadata_names:
+                        managed.append(t)
+                        log.warning('[alembic] table %s: MANAGED (in service metadata)', t)
+                    elif t in drop_tables:
+                        managed.append(t)
+                        log.warning('[alembic] table %s: MANAGED (explicit ENVOXY_DROP_TABLES)', t)
+                    elif allow_drops:
+                        managed.append(t)
+                        log.warning('[alembic] table %s: MANAGED (ENVOXY_ALLOW_DROPS=1)', t)
+                    else:
+                        ignored.append(t)
+                        log.warning('[alembic] table %s: IGNORED (other service / not in metadata)', t)
+                log.warning(
+                    '[alembic] table analysis summary: %d %s* tables: %d managed, %d ignored',
+                    len(prefixed_tables),
+                    managed_prefix,
+                    len(managed),
+                    len(ignored),
+                )
+                if ignored:
+                    log.warning('[alembic] IGNORED tables (will NOT be altered/dropped): %s', ', '.join(ignored))
+            except Exception as exc:  # pragma: no cover
+                log.warning('[alembic] table scan failed: %s', exc)
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
