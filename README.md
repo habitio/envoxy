@@ -1,261 +1,205 @@
 Envoxy Platform Framework
 =========================
 
-The Envoxy is a different kind of API REST framework and application daemon, we are trying to use all the best tools and technics together getting all their power and performance to be able to have all the platform running in one unique framework allowing communications and task distribution with:
-- Zapata using (ZeroMQ / UPnP);
-- RabbitMQ using (MQTT / AMQP);
-- Celery;
-- CouchDB;
-- PostgreSQL;
+Envoxy is a service platform framework + uWSGI‑based daemon that unifies
+messaging, persistence, background processing and an opinionated ORM layer.
+One install gives you structured modules, connectors, conventions and a
+packaged migration workflow.
 
-# Build envoxyd (Envoxy Daemon) and envoxy python package:
-What is `envoxyd`? It is the process daemon using embeded uWSGI customized to be able to boot our modules using the `envoxy` structure and API's. 
+Core capabilities
+-----------------
+- ZeroMQ / UPnP integration ("Zapata")
+- MQTT / AMQP (RabbitMQ) messaging
+- Celery task dispatch
+- CouchDB & PostgreSQL connectors (direct + SQLAlchemy helpers)
+- Redis cache / key‑value utilities
+- Packaged Alembic migrations & CLI (`envoxy-alembic`)
+- Opinionated ORM conventions (automatic naming, audit columns, index safety)
+
+Recent additions
+----------------
+- `EnvoxyBase` declarative base (prefix + pluralization + audit fields)
+- Idempotent mapper listeners (populate id/created/updated/href)
+- Bundled Alembic config (`alembic.ini` + `env.py`) with model auto‑discovery
+- Session helpers: `session_scope`, `transactional`
+
+Why
+---
+Reduce boilerplate per service, enforce naming consistency across a fleet and
+make migrations / messaging predictable and safe.
+
+ORM conventions
+---------------
+`EnvoxyBase` is the unified model base.
+
+Automatic rules:
+- Table prefix: `aux_`
+- Pluralized class names (with curated exceptions)
+- Audit columns injected: `id`, `created`, `updated`, `href`
+- Index names rewritten with framework prefix
+- Audit values populated by idempotent listeners
+
+Why `aux_`?
+The core Envoxy platform is designed around a ZeroMQ data-layer for primary domain
+entities. The SQLAlchemy layer is intentionally a secondary/auxiliary persistence
+mechanism for sidecar tables: caches, denormalized projections, integration state,
+small feature flags, ephemeral join helpers—NOT the canonical domain records.
+
+The `aux_` prefix:
+* Visibly segregates auxiliary tables from core platform data-layer storage.
+* Prevents future naming collisions if a core table later lands in RDBMS form.
+* Makes auditing / cleanup simpler (drop or archive all `aux_` tables safely).
+* Signals that schemas can evolve faster with fewer cross‑service guarantees.
+
+Guidelines:
+* Keep business‑critical source-of-truth entities in the primary data-layer.
+* Use ORM `aux_` tables for performance, enrichment, or transient coordination.
+* Avoid back‑writing from `aux_` tables into the core pipeline except via explicit
+    integration processes.
+
+Minimal model:
 ```
-$ make install
-```
+from envoxy.db.orm import EnvoxyBase
+from sqlalchemy import Column, String
 
-or using docker
+class Product(EnvoxyBase):
+    name = Column(String(255), nullable=False)
 
-```
-$ docker build -t envoxy .
-```
-
-### Steps during the build processs
-
-- Install dependencies
-- Delete previous virtualenv dir if exists (/opt/envoxy)
-- Create clean virtualenv (/opt/envoxy) with python3.6 version and activate
-- Give current user permissions to virtualenv dir
-- Install envoxy:  `python setup install`
-- Prepare envoxyd files:
-    * Delete src dir (vendors/src)
-    * Create envoxyd src dir and make a clean copy o uWSGI
-    * Copy envoxyd files to customize uWSGI
-- Install envoxyd: `python setup install`
-
-# Prepare packages to pypi repository
-
-```
-$ make packages
-```
-
-### Steps during the packaging processs
-
-- Install Process
-- Create a Source distribution for both packages: `python3 setup.py sdist bdist_wheel`
-
-# Publish to pypi repository
-
-On project root for *envoxy* and ./vendors dir for *envoxyd*
-
-- Make sure `build` dir was created
-- `build` dir must contain a `.whl` and `.tar.gz` of the current version
-
-
-```
-envoxy-0.0.2-py3-none-any.whl
-envoxy-0.0.2.tar.gz
-```
-
-- Upload current package using twine command and enter your credentials for the account you registered on the real PyPI.
-
-```
-$ twine upload dist/*
-```
-
-
-# Run envoxyd
-```
-$ envoxyd --http :8080 --set conf=/path/to/confs/envoxy.json
-```
-
-# How to use envoxy
-Create a new project
-```
-$ envoxy-cli --create-project --name my-container
+metadata = EnvoxyBase.metadata  # for Alembic autogenerate
 ```
 
-# How to build envoxy with Docker
+Benefits: consistent naming, fewer conflicts, less boilerplate.
+More: `docs/HOWTO-migrations.md`, `docs/POSTGRES.md`.
+
+Migrations (packaged Alembic)
+-----------------------------
+Run migrations without copying config.
+
+CLI:
 ```
-$ docker build --no-cache -t envoxy-ubuntu:20.04 -f envoxy-ubuntu.Dockerfile .
-$ docker build -t envoxy .
+envoxy-alembic revision -m "create product table" --autogenerate
+envoxy-alembic upgrade head
+```
+Module form:
+```
+python -m envoxy.tools.alembic.alembic current
+```
+Features: packaged config, model discovery, sqlite path normalization, baseline versions.
+CI helper: `python -m envoxy.tools.check_migrations <versions_dir>`.
+Docs: `docs/HOWTO-migrations.md`.
+
+Daemon & packaging
+------------------
+`envoxyd` boots service modules via embedded customized uWSGI.
+
+Install (Make):
+```
+make install
+```
+Docker:
+```
+docker build --no-cache -t envoxy-ubuntu:20.04 -f envoxy-ubuntu.Dockerfile .
+docker build -t envoxy .
+```
+Run:
+```
+envoxyd --http :8080 --set conf=/path/to/confs/envoxy.json
+```
+Build packages:
+```
+make packages
+```
+Manual (example):
+```
+python3.11 setup.py sdist bdist_wheel
+cd vendors && python3.11 setup.py sdist bdist_wheel
+twine upload dist/*
+```
+Details: `docs/ENVOXYD.md`.
+
+Project scaffold
+----------------
+```
+envoxy-cli --create-project --name my-container
 ```
 
-# Use an existent project path as volume
+Docker (mount volumes):
 ```
-$ docker run -it -d -p 8080:8080 -v /path/to/project:/home/envoxy -v /path/to/plugins:/usr/envoxy/plugins envoxy
+docker run -it -d -p 8080:8080 \
+  -v /path/to/project:/home/envoxy \
+  -v /path/to/plugins:/usr/envoxy/plugins envoxy
 ```
 
-
-# PostgreSQL connector samples
-
-### Select Query
-
+PostgreSQL (direct connector)
+-----------------------------
+Select:
 ```
 from envoxy import pgsqlc
-
-result = pgsqlc.query(
-    "db_name",
-    "select * from sample_table where id = 1;"
-)
-
+rows = pgsqlc.query("db_name", "select * from sample_table where id = 1;")
 ```
-
-
-### Insert statement and Transaction block
-
+Insert (transaction block required):
 ```
 from envoxy import pgsqlc
-
-with pgsqlc.transaction('db_name') as db_conn:
-
-    r = db_conn.query(
-        sql="select * from sample_table limit 2"
-    )
-
-    db_conn.insert('sample_table2', {
-        "field1": "test",
-        "field2": "test",
-        "id": 1
-    })
-
+with pgsqlc.transaction('db_name') as db:
+    db.insert('sample_table2', {"field1": "test", "field2": "test", "id": 1})
 ```
 
-_all inserts statements must be placed inside a transaction block_
-
-
-# CouchDB connector samples
-
-
-## Find
-
-*valid selectors:* eq, gt, gte, lt, lte
-*fields*: if defined will only return this fields, otherwise will return all fields
-
+CouchDB
+-------
+Find:
 ```
 from envoxy import couchdbc
-
-perms = couchdbc.find(
+docs = couchdbc.find(
     db="server_key.db_name",
-    fields=["id", "field2"]
-    params={
-        "id": "1234"
-        "field1__gt": "2345"
-    }
+    fields=["id", "field2"],
+    params={"id": "1234", "field1__gt": "2345"}
 )
 ```
-
-
-## Get
-
-Get the document by id
-
+Get:
 ```
-from envoxy import couchdbc
-
-perms = couchdbc.get(
-    "005r9odyj91dw0y1ho32lvzh5r2avzngvrouyj",
-    db="server_key.db_name",
-)
+doc = couchdbc.get("005r9odyj...", db="server_key.db_name")
 ```
 
-# Redis connector samples
-
-### Get value
-
+Redis
+-----
 ```
 from envoxy import redisc
-
-redisc.get(
-    "server_key",
-    "my_key"
-)
-
-redisc.set(
-    "server_key",
-    "my_key",
-    {
-        "a": 1,
-        "b": 2
-    }
-)
-
-# for more operations get raw client
-client = redisc.client('server_key')
-
-client.hgetall('my_hash')
-
+redisc.set("server_key", "my_key", {"a": 1, "b": 2})
+val = redisc.get("server_key", "my_key")
+client = redisc.client('server_key'); client.hgetall('my_hash')
 ```
 
-
-# MQTT connector samples
-
-## Publish
-
-
+MQTT
+----
+Publish:
 ```
 from envoxy import mqttc
-
-mqttc.publish(
-    'server_key',
-    '/v3/topic/channel',
-    { "data": "test" },
-    no_envelope=True)
+mqttc.publish('server_key', '/v3/topic/channel', {"data": "test"}, no_envelope=True)
 ```
-
-
-## Subscribe
-
+Subscribe:
 ```
 from envoxy import mqttc
-
-mqttc.subscribe(
-    'server_key',
-    '/v3/topic/channels/#',
-    callback
-)
+mqttc.subscribe('server_key', '/v3/topic/channels/#', callback)
 ```
-
-## on_event
-
-
+on_event class:
 ```
-
 from envoxy import on
 from envoxy.decorators import log_event
 
 @on(endpoint='/v3/topic/channels/#', protocols=['mqtt'], server='server_key')
 class MqttViewCtrl(View):
-
     @log_event
-    def on_event(self, data, **kwargs):
-
+    def on_event(self, data, **kw):
         do_stuff(data)
 ```
+Low‑level client example: `docs/MQTT.md`.
 
-## client
-
-```
-
-from envoxy.mqtt.client import Client as MqttClient
-
-credentials = {
-    "client_id": ":client_id"
-    "access_token": ":access_token"
-}
-
-conf = {
-    "myserver": {
-        "bind": "mqtt://localhost:8000",
-        "cert_path": "/usr/lib/ssl/certs/ca-certificates.crt"
-    }
-}
-
-mqtt_client = MqttClient(conf, credentials=credentials)
-mqtt_cient.publish(
-    "myserver",
-    "/v3/topic/channel",
-    { "data": "test" }
-)
-
-```
+More documentation
+------------------
+- Daemon build & packaging: `docs/ENVOXYD.md`
+- PostgreSQL (direct + ORM): `docs/POSTGRES.md`
+- CouchDB usage & selectors: `docs/COUCHDB.md`
+- MQTT detailed usage: `docs/MQTT.md`
+- Migrations & Alembic packaging: `docs/HOWTO-migrations.md`
+- Shared DB guidance: `docs/HOWTO-shared-db.md`
+- CI tooling helpers: `docs/HOWTO-ci-tools.md`

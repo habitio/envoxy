@@ -4,10 +4,10 @@ SERVICE_MODELS := examples.template_service.models
 .PHONY: alembic-rev alembic-upgrade alembic-current
 
 alembic-rev:
-	PYTHONPATH=$(PYTHONPATH) SERVICE_MODELS=$(SERVICE_MODELS) ./scripts/alembic.sh revision -m "$(m)"
+	SERVICE_MODELS=$(SERVICE_MODELS) envoxy-alembic revision -m "$(m)" --autogenerate
 
 alembic-upgrade:
-	PYTHONPATH=$(PYTHONPATH) SERVICE_MODELS=$(SERVICE_MODELS) ./scripts/alembic.sh upgrade head
+	SERVICE_MODELS=$(SERVICE_MODELS) envoxy-alembic upgrade head
 
 alembic-current:
-	PYTHONPATH=$(PYTHONPATH) SERVICE_MODELS=$(SERVICE_MODELS) ./scripts/alembic.sh current
+	SERVICE_MODELS=$(SERVICE_MODELS) envoxy-alembic current
