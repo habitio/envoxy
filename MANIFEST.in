@@ -1,0 +1,3 @@
+recursive-include src/envoxy/tools *
+recursive-include src/envoxy/tools/alembic *
+recursive-include src/envoxy/tools/alembic/alembic *

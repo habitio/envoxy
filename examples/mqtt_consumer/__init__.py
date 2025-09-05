@@ -1,0 +1,1 @@
+# Example MQTT consumer package

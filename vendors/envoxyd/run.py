@@ -10,6 +10,7 @@ from envoxy import zmqc, mqttc, celeryc, Response
 import uwsgi
 from flask import Flask, request, g
 from flask_cors import CORS
+from envoxy.db.orm.listeners import register_envoxy_listeners
 
 
 def load_modules(_modules_list):
@@ -113,6 +114,11 @@ class AppContext(object):
                     exit(-10)
 
                 _view_classes = []
+
+                # Register ORM listeners before importing/loading modules so
+                # mapper_configured events fire for each model as it's mapped.
+                # This enforces EnvoxyBase inheritance and attaches id/ts listeners.
+                register_envoxy_listeners()
 
                 # Loading modules from path
                 _view_classes.extend(load_modules(_modules_list))
