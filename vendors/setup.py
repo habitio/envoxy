@@ -26,13 +26,13 @@ packages = find_packages(include=["envoxyd", "envoxyd.*"], exclude=["tests", "uw
 
 setup(
     name="envoxyd",
-    version="0.3.3",
+    version="0.3.4",
     description="Envoxyd",
     author="Matheus Santos",
     author_email="vorj.dux@gmail.com",
     url="https://github.com/muzzley/envoxy",
     packages=packages,
-    install_requires=["envoxy>=0.4.3", "flask-cors==6.0.0", "isort>=4.2.5,<5"],
+    install_requires=["envoxy>=0.4.4", "flask-cors==6.0.0", "isort>=4.2.5,<5"],
     package_dir={
         "envoxyd": "envoxyd/",
     },

@@ -5,18 +5,24 @@ Decimal, Float, DateTime`.
 """
 from sqlalchemy.sql.sqltypes import (
 	String,
-	Integer,
-	JSON,
-	Float,
-	DateTime,
-	Date,
-	Time,
-	Boolean,
+	Unicode,
+	UnicodeText,
 	Text,
-	LargeBinary,
+	Integer,
+	SmallInteger,
+	BigInteger,
 	Numeric,
 	DECIMAL,
+	Float,
+	Boolean,
+	Date,
+	Time,
+	DateTime,
+	Interval,
+	JSON,
+	Enum,
 )
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 
 # Provide a familiar name alias 'Decimal' mapped to SQLAlchemy's Numeric
 # which is commonly used for fixed-precision decimals.
@@ -24,16 +30,25 @@ Decimal = Numeric
 
 __all__ = [
 	"String",
-	"Integer",
-	"JSON",
-	"Float",
-	"DateTime",
-	"Date",
-	"Time",
-	"Boolean",
+	"Unicode",
+	"UnicodeText",
 	"Text",
-	"LargeBinary",
+	"Integer",
+	"SmallInteger",
+	"BigInteger",
 	"Numeric",
 	"DECIMAL",
 	"Decimal",
+	"Float",
+	"Boolean",
+	"Date",
+	"Time",
+	"DateTime",
+	"Interval",
+	"JSON",
+	"Enum",
+	# Postgres dialect types
+	"UUID",
+	"JSONB",
+	"ARRAY",
 ]

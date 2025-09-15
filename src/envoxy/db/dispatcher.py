@@ -173,19 +173,8 @@ class PgDispatcher:
         """
         return PgConnector.instance().postgres.query(server_key, sql, params)
 
-    @staticmethod
-    def insert(db_table: str, data: dict):
-        """
-        Inserts a new record into the specified database table.
-
-        Args:
-            db_table (str): The name of the database table to insert the record into.
-            data (dict): A dictionary containing the column-value pairs to be inserted.
-
-        Returns:
-            Any: The result of the insert operation as returned by the underlying PgConnector.
-        """
-        return PgConnector.instance().postgres.insert(db_table, data)
+    # Direct inserts are intentionally not exposed to encourage ORM usage.
+    # Use SQLAlchemy models and sessions via sa_manager(), or raw query() if needed.
 
     @staticmethod
     def transaction(server_key):

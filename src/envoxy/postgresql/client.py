@@ -439,77 +439,12 @@ class Client:
                 self.release_conn(server_key, _conn)
 
     def insert(self, db_table: str, data: dict, returning=None):
+        """Direct inserts are disabled: use the ORM.
+
+        This method now always raises to discourage raw SQL writes outside the
+        ORM layer. Use SQLAlchemy models and sessions via the SA manager.
         """
-        Inserts a row into the database table.
-
-        :param db_table: Database table name.
-        :param data: Dictionary with column names and values.
-        :param returning: optional column name or list to RETURN
-        :return: returned value(s) when using RETURNING, or None
-        """
-
-        if not hasattr(self._thread_local_data, 'conn'):
-            raise DatabaseException("Insert must be inside a transaction block")
-
-        # copy input so we don't mutate caller dict
-        _data = dict(data)
-
-        # Ensure id and timestamps and href are set by Python
-        if 'id' not in _data or not _data.get('id'):
-            _data['id'] = str(uuid.uuid4())
-
-        now = datetime.now(timezone.utc)
-        if 'created' not in _data or not _data.get('created'):
-            _data['created'] = now
-        # always set updated to now
-        _data['updated'] = now
-
-        # href: if not provided, derive from table name and id
-        if 'href' not in _data or not _data.get('href'):
-            # extract table name if schema-qualified
-            if '.' in db_table:
-                _entity = db_table.split('.', 1)[1]
-            else:
-                _entity = db_table
-            _data['href'] = f"/v3/data-layer/{_entity}/{_data['id']}"
-
-        # validate href pattern and length
-        if len(_data['href']) > 1024:
-            raise DatabaseException('href too long')
-
-        _href_re = re.compile(r"^/v3/data-layer/[A-Za-z0-9_\-]+/[0-9a-fA-F\-]{36}$")
-        if not _href_re.match(_data['href']):
-            raise DatabaseException('href does not match required pattern')
-
-        _columns = list(_data.keys())
-
-        placeholders = sql.SQL(', ').join(sql.Placeholder() * len(_columns))
-        cols_sql = sql.SQL(', ').join(map(sql.Identifier, _columns))
-
-        # support schema-qualified table names
-        parts = db_table.split('.', 1)
-        table_ident = sql.Identifier(parts[0], parts[1]) if len(parts) == 2 else sql.Identifier(db_table)
-
-        if returning:
-            if isinstance(returning, (list, tuple)):
-                returning_sql = sql.SQL(', ').join(map(sql.Identifier, returning))
-            else:
-                returning_sql = sql.Identifier(returning)
-
-            _query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) RETURNING {}")
-            _query = _query.format(table_ident, cols_sql, placeholders, returning_sql)
-        else:
-            _query = sql.SQL("INSERT INTO {} ({}) VALUES ({})")
-            _query = _query.format(table_ident, cols_sql, placeholders)
-
-        with self._thread_local_data.conn.cursor() as _cursor:
-            _cursor.execute(_query, list(_data.values()))
-
-            if returning:
-                # fetchone() for RETURNING; return scalar for single column
-                row = _cursor.fetchone()
-                if row is None:
-                    return None
-                if isinstance(returning, (list, tuple)):
-                    return row
-                return row[0]
+        raise DatabaseException(
+            "Direct insert() is not supported. Use the ORM (SQLAlchemy) for writes; "
+            "fallback to query() only for read-only SQL."
+        )
