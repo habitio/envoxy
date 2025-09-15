@@ -15,6 +15,9 @@ import os
 import sys
 from logging.config import fileConfig
 import logging
+import shlex
+import subprocess
+from urllib.parse import quote_plus
 
 from sqlalchemy import pool  # type: ignore
 from sqlalchemy import inspect  # type: ignore
@@ -28,7 +31,7 @@ from alembic import context
 
 # this is the Alembic Config object, which provides access to the values within
 # the .ini file in use.
-config = context.config
+config = context.config  # type: ignore[attr-defined]
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
@@ -46,26 +49,48 @@ DEBUG = os.environ.get("ENVOXY_ALEMBIC_DEBUG") == "1"
 log = logging.getLogger("envoxy.alembic.env")
 
 # ---------------------------------------------------------------------------
+# Service namespace -> managed prefix helper
+# Use AUX_TABLE_PREFIX from the ORM (single source of truth). It already
+# reflects ENVOXY_SERVICE_NAMESPACE at import time, yielding aux_<ns>_.
+# Fall back to composing aux_<ns>_ only if the env var wasn’t reflected.
+# ---------------------------------------------------------------------------
+def _get_service_namespace() -> str | None:
+    ns = os.environ.get('ENVOXY_SERVICE_NAMESPACE') or os.environ.get('SERVICE_NAMESPACE')
+    if not ns:
+        return None
+    # sanitize: lowercase, alnum + underscore only
+    safe = ''.join(ch if (ch.isalnum() or ch == '_') else '_' for ch in ns.strip().lower()).strip('_')
+    return safe or None
+
+
+def _compute_managed_prefix() -> str:
+    ns = _get_service_namespace()
+    if not ns:
+        raise RuntimeError('ENVOXY_SERVICE_NAMESPACE is required to run Alembic for this service')
+    if os.environ.get('ENVOXY_MANAGED_PREFIX') and DEBUG:
+        log.warning('[alembic] ENVOXY_MANAGED_PREFIX is ignored; deriving from ENVOXY_SERVICE_NAMESPACE')
+    # Prefer the framework constant, already namespaced when the env var is set
+    prefix = AUX_TABLE_PREFIX
+    if prefix == 'aux_':
+        # Defensive fallback: env var not reflected in constants for any reason
+        prefix = f"aux_{ns}_"
+    return prefix
+
+# ---------------------------------------------------------------------------
 # Per-service version table support
-# You can set ENVOXY_VERSION_TABLE explicitly. Otherwise we derive a stable
-# identifier from SERVICE_MODELS (first module name) or the managed prefix.
-# Generates table name: alembic_version_<service_id>
+# We derive a stable identifier primarily from ENVOXY_SERVICE_NAMESPACE.
+# If not set, we fall back to SERVICE_MODELS (first module name) or the managed prefix.
+# Final format: alembic_version_<service_id>
 # ---------------------------------------------------------------------------
 def _derive_service_version_table() -> str:
-    explicit = os.environ.get('ENVOXY_VERSION_TABLE')
-    if explicit:
-        return explicit
-    raw_models = os.environ.get('SERVICE_MODELS', '')
-    candidate = None
-    if raw_models:
-        first_mod = raw_models.split(',')[0].strip()
-        if first_mod:
-            candidate = first_mod.split('.')[0]
-    if not candidate:
-        candidate = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX).strip('_') or 'service'
-    # Sanitize: only alnum + underscore
-    safe = ''.join(ch if (ch.isalnum() or ch == '_') else '_' for ch in candidate.lower())[:40]
-    return f"alembic_version_{safe}"
+    # Namespace is mandatory; derive version table strictly from it
+    if os.environ.get('ENVOXY_VERSION_TABLE') and DEBUG:
+        log.warning('[alembic] ENVOXY_VERSION_TABLE is deprecated/ignored; using namespace-derived name instead')
+    ns = _get_service_namespace()
+    if not ns:
+        raise RuntimeError('ENVOXY_SERVICE_NAMESPACE is required to determine the alembic version table name')
+    safe_ns = ''.join(ch if (ch.isalnum() or ch == '_') else '_' for ch in str(ns))[:40]
+    return f"alembic_version_{safe_ns}"
 
 VERSION_TABLE_NAME = _derive_service_version_table()
 if DEBUG:
@@ -158,7 +183,7 @@ if getattr(cmd_opts, 'autogenerate', False) and (not target_metadata or len(geta
 
 # Optional deep debug: list managed tables & columns (helps diagnose missing columns)
 if DEBUG and target_metadata:  # pragma: no cover
-    managed_prefix_dbg = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX)
+    managed_prefix_dbg = _compute_managed_prefix()
     for _tname, _table in target_metadata.tables.items():  # type: ignore[attr-defined]
         if _tname.startswith(managed_prefix_dbg):
             try:
@@ -175,6 +200,36 @@ if DEBUG and target_metadata:  # pragma: no cover
 # If neither yields a Postgres URL, abort. No sqlite fallback is allowed.
 # ---------------------------------------------------------------------------
 
+def _load_rc_vars(rc_path: str) -> dict[str, str] | None:
+    """Source a shell RC file with bash and extract MUZZLEY_PGSQL_* vars safely.
+
+    This approach lets bash handle quotes, exports, and variable expansions, avoiding
+    brittle manual parsing. Returns a dict or None on failure.
+    """
+    script = (
+        "set -a; "
+        f"source {shlex.quote(rc_path)} >/dev/null 2>&1; "
+        "printf 'MUZZLEY_PGSQL_ADDR=%s\n' \"${MUZZLEY_PGSQL_ADDR-}\"; "
+        "printf 'MUZZLEY_PGSQL_PORT=%s\n' \"${MUZZLEY_PGSQL_PORT-}\"; "
+        "printf 'MUZZLEY_PGSQL_USER=%s\n' \"${MUZZLEY_PGSQL_USER-}\"; "
+        "printf 'MUZZLEY_PGSQL_PASSWD=%s\n' \"${MUZZLEY_PGSQL_PASSWD-}\"; "
+        "printf 'MUZZLEY_PGSQL_DB=%s\n' \"${MUZZLEY_PGSQL_DB-}\"; "
+    )
+    try:
+        out = subprocess.check_output(['bash', '-c', script], text=True, stderr=subprocess.DEVNULL)
+        result: dict[str, str] = {}
+        for line in out.splitlines():
+            if not line or '=' not in line:
+                continue
+            k, v = line.split('=', 1)
+            result[k.strip()] = v
+        return result
+    except Exception as exc:  # pragma: no cover
+        if DEBUG:
+            log.warning('[alembic] failed sourcing RC file with bash: %s', exc)
+        return None
+
+
 def _maybe_set_sqlalchemy_url():  # noqa: D401
     env_url = os.environ.get('SERVICE_DB_URL')
     if env_url:
@@ -188,37 +243,24 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
     # RC file with exported variables (e.g. /etc/zapata/rc.d/muzzley.rc)
     rc_path = os.environ.get('ENVOXY_RC_PATH', '/etc/zapata/rc.d/muzzley.rc')
     if os.path.isfile(rc_path):
-        try:
-            with open(rc_path, 'r', encoding='utf-8') as fh:
-                lines = fh.readlines()
-            rc_vars = {}
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                if line.startswith('export '):
-                    line = line[len('export '):]
-                if '=' in line:
-                    k, v = line.split('=', 1)
-                    rc_vars[k.strip()] = v.strip()
+        rc_vars = _load_rc_vars(rc_path)
+        if rc_vars is not None:
             host = rc_vars.get('MUZZLEY_PGSQL_ADDR')
-            port = rc_vars.get('MUZZLEY_PGSQL_PORT', '5432')
+            port = rc_vars.get('MUZZLEY_PGSQL_PORT', '5432') or '5432'
             user = rc_vars.get('MUZZLEY_PGSQL_USER')
             pwd = rc_vars.get('MUZZLEY_PGSQL_PASSWD', '')
             dbname = rc_vars.get('MUZZLEY_PGSQL_DB') or user  # assume db = user if absent
             if host and user and dbname:
-                auth = f"{user}:{pwd}@" if pwd else f"{user}@"
+                user_enc = quote_plus(user)
+                pwd_enc = quote_plus(pwd) if pwd else ''
+                auth = f"{user_enc}:{pwd_enc}@" if pwd else f"{user_enc}@"
                 url = f"postgresql://{auth}{host}:{port}/{dbname}"
                 config.set_main_option('sqlalchemy.url', url)
                 if DEBUG:
-                    log.warning('[alembic] derived DB URL from RC file %s (masked)', rc_path)
+                    log.warning('[alembic] derived DB URL from RC file %s via bash (masked)', rc_path)
                 return
-            else:
-                if DEBUG:
-                    log.warning('[alembic] RC file %s missing required PG vars (host/user/db)', rc_path)
-        except Exception as exc:  # pragma: no cover
             if DEBUG:
-                log.warning('[alembic] failed parsing RC file %s: %s', rc_path, exc)
+                log.warning('[alembic] RC file %s missing required PG vars (host/user/db)', rc_path)
 
     raise RuntimeError('PostgreSQL URL required: set SERVICE_DB_URL=postgresql://... or provide RC file with MUZZLEY_PGSQL_* variables')
 
@@ -238,53 +280,25 @@ if not final_url or not final_url.startswith('postgresql://'):
 
 def run_migrations_offline():
     url = config.get_main_option('sqlalchemy.url')
-    managed_prefix = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX)
-    manage_all_prefixed = os.environ.get('ENVOXY_MANAGE_ALL_PREFIXED') == '1'
-    allow_drops = os.environ.get('ENVOXY_ALLOW_DROPS') == '1'
-    metadata_names = set(getattr(target_metadata, 'tables', {}).keys()) if target_metadata else set()
-    drop_list_env = os.environ.get('ENVOXY_DROP_TABLES', '')
-    drop_tables = {t.strip() for t in drop_list_env.split(',') if t.strip()}
+    managed_prefix = _compute_managed_prefix()
 
-    def include_object(object_, name, type_, reflected, compare_to):  # noqa: D401
-        # Manage only tables declared in this service's metadata to avoid cross-service drops.
+    def include_object(object_, name, type_, _reflected, _compare_to):  # noqa: D401
         if type_ == 'table':
-            if not name.startswith(managed_prefix):
-                return False
-            if manage_all_prefixed:
-                return True
-            # If table not in metadata we normally skip (prevents accidental drop)
-            if name in metadata_names:
-                return True
-            # Explicit per-table drop list has priority over global flags.
-            if name in drop_tables:
-                return True
-            # Allow broader drops only when allow_drops toggled.
-            return allow_drops
+            return name.startswith(managed_prefix)
         if type_ == 'index':
             try:
                 tbl_name = object_.table.name  # type: ignore[attr-defined]
             except Exception:  # pragma: no cover
                 tbl_name = None
-            if not tbl_name or not tbl_name.startswith(managed_prefix):
-                return False
-            if manage_all_prefixed:
-                return True
-            if tbl_name in metadata_names:
-                return True
-            if tbl_name in drop_tables:
-                return True
-            return allow_drops
+            return bool(tbl_name and tbl_name.startswith(managed_prefix))
         return True  # other object types (constraints) decided by parent table
 
-    # Early reflection pruning: avoid inspecting unrelated tables (suppresses
-    # warnings about unsupported reflection on expression indexes/types for
-    # non-managed tables).
-    def include_name(name, type_, parent_names):  # pragma: no cover - simple predicate
+    def include_name(name, type_, _parent_names):  # pragma: no cover - simple predicate
         if type_ == 'table':
             return name.startswith(managed_prefix)
         return True
 
-    context.configure(
+    context.configure(  # type: ignore[attr-defined]
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
@@ -293,8 +307,8 @@ def run_migrations_offline():
         version_table=VERSION_TABLE_NAME,
     )
 
-    with context.begin_transaction():
-        context.run_migrations()
+    with context.begin_transaction():  # type: ignore[attr-defined]
+        context.run_migrations()  # type: ignore[attr-defined]
 
 
 def run_migrations_online():
@@ -304,93 +318,37 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
 
-    managed_prefix = os.environ.get('ENVOXY_MANAGED_PREFIX', AUX_TABLE_PREFIX)
-    manage_all_prefixed = os.environ.get('ENVOXY_MANAGE_ALL_PREFIXED') == '1'
-    allow_drops = os.environ.get('ENVOXY_ALLOW_DROPS') == '1'
-    metadata_names = set(getattr(target_metadata, 'tables', {}).keys()) if target_metadata else set()
-    drop_list_env = os.environ.get('ENVOXY_DROP_TABLES', '')
-    drop_tables = {t.strip() for t in drop_list_env.split(',') if t.strip()}
+    managed_prefix = _compute_managed_prefix()
 
-    def include_object(object_, name, type_, reflected, compare_to):  # noqa: D401
+    def include_object(object_, name, type_, _reflected, _compare_to):  # noqa: D401
         if type_ == 'table':
-            if not name.startswith(managed_prefix):
-                return False
-            if manage_all_prefixed:
-                return True
-            if name in metadata_names:
-                return True
-            if name in drop_tables:
-                return True
-            return allow_drops
+            return name.startswith(managed_prefix)
         if type_ == 'index':
             try:
                 tbl_name = object_.table.name  # type: ignore[attr-defined]
             except Exception:  # pragma: no cover
                 tbl_name = None
-            if not tbl_name or not tbl_name.startswith(managed_prefix):
-                return False
-            if manage_all_prefixed:
-                return True
-            if tbl_name in metadata_names:
-                return True
-            if tbl_name in drop_tables:
-                return True
-            return allow_drops
+            return bool(tbl_name and tbl_name.startswith(managed_prefix))
         return True
 
-    def include_name(name, type_, parent_names):  # pragma: no cover - simple predicate
+    def include_name(name, type_, _parent_names):  # pragma: no cover - simple predicate
         if type_ == 'table':
             return name.startswith(managed_prefix)
         return True
 
     with connectable.connect() as connection:  # type: ignore[attr-defined]
-        # Optional deep visibility: enumerate all prefixed tables in the live DB and
-        # classify which ones this service will manage vs ignore. Enabled when
-        # ENVOXY_ALEMBIC_DEBUG=1. This gives operators confidence that cross-service
-        # tables (same prefix but not in metadata) are being deliberately skipped.
+        # Optional deep visibility: enumerate all prefixed tables in the live DB
         if DEBUG:
             try:  # pragma: no cover - debug/inspection path
                 insp = inspect(connection)
                 get_tables = getattr(insp, 'get_table_names')  # type: ignore[attr-defined]
                 prefixed_tables = [t for t in get_tables() if t.startswith(managed_prefix)]  # type: ignore[arg-type]
-                managed: list[str] = []
-                ignored: list[str] = []
-                log.warning(
-                    '[alembic] analyzing %s* tables (manage_all=%s allow_drops=%s drop_list=%s metadata_tables=%d)',
-                    managed_prefix,
-                    manage_all_prefixed,
-                    allow_drops,
-                    ','.join(sorted(drop_tables)) or '-',
-                    len(metadata_names),
-                )
                 for t in sorted(prefixed_tables):
-                    if manage_all_prefixed:
-                        managed.append(t)
-                        log.warning('[alembic] table %s: MANAGED (manage_all_prefixed)', t)
-                    elif t in metadata_names:
-                        managed.append(t)
-                        log.warning('[alembic] table %s: MANAGED (in service metadata)', t)
-                    elif t in drop_tables:
-                        managed.append(t)
-                        log.warning('[alembic] table %s: MANAGED (explicit ENVOXY_DROP_TABLES)', t)
-                    elif allow_drops:
-                        managed.append(t)
-                        log.warning('[alembic] table %s: MANAGED (ENVOXY_ALLOW_DROPS=1)', t)
-                    else:
-                        ignored.append(t)
-                        log.warning('[alembic] table %s: IGNORED (other service / not in metadata)', t)
-                log.warning(
-                    '[alembic] table analysis summary: %d %s* tables: %d managed, %d ignored',
-                    len(prefixed_tables),
-                    managed_prefix,
-                    len(managed),
-                    len(ignored),
-                )
-                if ignored:
-                    log.warning('[alembic] IGNORED tables (will NOT be altered/dropped): %s', ', '.join(ignored))
+                    log.warning('[alembic] table %s: MANAGED (matches prefix %s)', t, managed_prefix)
+                log.warning('[alembic] table analysis summary: %d %s* tables managed', len(prefixed_tables), managed_prefix)
             except Exception as exc:  # pragma: no cover
                 log.warning('[alembic] table scan failed: %s', exc)
-        context.configure(
+        context.configure(  # type: ignore[attr-defined]
             connection=connection,
             target_metadata=target_metadata,
             include_name=include_name,
@@ -398,11 +356,11 @@ def run_migrations_online():
             version_table=VERSION_TABLE_NAME,
         )
 
-        with context.begin_transaction():
-            context.run_migrations()
+        with context.begin_transaction():  # type: ignore[attr-defined]
+            context.run_migrations()  # type: ignore[attr-defined]
 
 
-if context.is_offline_mode():
+if context.is_offline_mode():  # type: ignore[attr-defined]
     run_migrations_offline()
 else:
     run_migrations_online()

@@ -132,17 +132,13 @@ docker run -it -d -p 8080:8080 \
 
 PostgreSQL (direct connector)
 -----------------------------
-Select:
+Read-only queries:
 ```
 from envoxy import pgsqlc
 rows = pgsqlc.query("db_name", "select * from sample_table where id = 1;")
 ```
-Insert (transaction block required):
-```
-from envoxy import pgsqlc
-with pgsqlc.transaction('db_name') as db:
-    db.insert('sample_table2', {"field1": "test", "field2": "test", "id": 1})
-```
+Writes: use the ORM (SQLAlchemy) via `PgDispatcher.sa_manager()` and models. Direct
+`insert()` on the raw client is no longer supported by design.
 
 CouchDB
 -------

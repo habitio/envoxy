@@ -1,37 +1,33 @@
 ## PostgreSQL Usage
 
 Envoxy provides two complementary access modes:
-1. Direct connector (`pgsqlc`) for simple SQL + explicit transactions.
-2. ORM layer (SQLAlchemy) with `EnvoxyBase` for rich models & migrations.
+1. Direct connector (`pgsqlc`) for simple, read-only SQL and explicit transactions when needed.
+2. ORM layer (SQLAlchemy) with `EnvoxyBase` for all writes plus rich models & migrations.
 
-Use either or both—pick the simplest tool that fits the job.
+Prefer the ORM for inserts and other entity writes. Use the direct connector for reads and maintenance queries.
 
-### 1. Direct Connector
+### 1. Direct Connector (reads)
 ```python
 from envoxy import pgsqlc
 
+# Simple read
 rows = pgsqlc.query("main", "select id, name from aux_products limit 5")
 
-from datetime import datetime
+# If you need a transactional context for multiple reads or maintenance
 with pgsqlc.transaction("main") as db:
-	db.insert("aux_audit_events", {
-		"id": "...uuid...",
-		"action": "created",
-		"created": datetime.utcnow(),
-		"updated": datetime.utcnow()
-	})
+	# run read queries using db.query(...) as needed
+	pass
 ```
-All writes must occur inside a `transaction()` context.
 
 #### When to choose direct
-* Ad‑hoc queries
-* Bulk operations / performance tuning
-* Reporting / ETL scripts
+* Ad‑hoc queries and reporting
+* Bulk reads / performance tuning
+* Operational maintenance where no inserts are required
 
 ### 2. ORM Layer (`EnvoxyBase`)
 Automatic naming & audit conventions:
-* Table prefix: `aux_`
-* Pluralization (`Product` -> `aux_products`)
+* Table prefix: `aux_<namespace>_` (derived automatically from `ENVOXY_SERVICE_NAMESPACE`)
+* Pluralization (`Product` -> `aux_<namespace>_products`)
 * Injected columns: `id` (UUID), `created`, `updated`, `href`
 * Index naming standardization
 
@@ -45,7 +41,7 @@ class Product(EnvoxyBase):
 metadata = EnvoxyBase.metadata  # used by Alembic
 ```
 
-### Sessions
+### Sessions (writes via ORM)
 ```python
 from envoxy.db.orm.session import session_scope
 
@@ -60,7 +56,7 @@ envoxy-alembic upgrade head
 ```
 
 ### Mixing Modes
-You can run bulk loads with the direct connector and transactional entity work with the ORM in the same service. Keep cross‑mode consistency by committing ORM work before issuing connector queries that depend on it.
+You can combine the direct connector for reads with ORM writes in the same service. Commit ORM work before issuing connector queries that depend on it.
 
 ### Error Handling Tips
 | Issue | Mitigation |

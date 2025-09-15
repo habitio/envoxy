@@ -127,24 +127,11 @@ def test_release_conn_for_broken_connection(client_instance):
     assert pool.put_called
 
 
-def test_insert_returning_single_column(client_instance):
+def test_insert_is_disabled(client_instance):
     c = client_instance
-
-    # Ensure we're inside a transaction
-    conn = DummyConn(healthy=True)
-    c._instances['pg']['conn_pool']._conn = conn
-
-    # simulate setting thread-local connection by entering a transaction
-    try:
+    with pytest.raises(DatabaseException):
         with c.transaction('pg'):
-            res = c.insert('my_table', {'a': 1, 'b': 2}, returning='id')
-            assert res == 123
-    finally:
-        # ensure cleanup
-        try:
-            delattr(c._thread_local_data, 'conn')
-        except Exception:
-            pass
+            c.insert('my_table', {'a': 1, 'b': 2}, returning='id')
 
 
 def test_update_and_delete_returning(client_instance):
