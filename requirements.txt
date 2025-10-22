@@ -55,7 +55,7 @@ greenlet==3.2.4
     # via sqlalchemy
 idna==3.11
     # via requests
-ifaddr==0.1.7
+ifaddr==0.2.0
     # via upnpclient
 inflect==7.5.0
     # via envoxy (pyproject.toml)
