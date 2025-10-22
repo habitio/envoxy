@@ -88,13 +88,13 @@ jobs:
 
     steps:
       - name: Download envoxy artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: envoxy-packages
           path: dist/
 
       - name: Download envoxyd artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: envoxyd-packages
           path: vendors-dist/
@@ -127,13 +127,13 @@ jobs:
 
     steps:
       - name: Download envoxy artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: envoxy-packages
           path: dist/
 
       - name: Download envoxyd artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: envoxyd-packages
           path: vendors-dist/
