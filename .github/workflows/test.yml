@@ -63,7 +63,7 @@ jobs:
           pytest -m unit -v --cov=src/envoxy --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           flags: unit
@@ -139,7 +139,7 @@ jobs:
           pytest -m integration -v --cov=src/envoxy --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           flags: integration
