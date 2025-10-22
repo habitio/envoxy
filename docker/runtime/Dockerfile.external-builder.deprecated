@@ -20,7 +20,7 @@ COPY . /usr/envoxy
 RUN make install
 
 ### Runtime stage: small image with only runtime deps and installed package
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Install only runtime system packages (e.g. libpq)
 RUN apt-get update \
