@@ -5,11 +5,33 @@ from setuptools import setup, find_namespace_packages
 
 import sys
 
+# Read project metadata from pyproject.toml (PEP 621) as the single source of truth.
+# If pyproject.toml is missing or invalid, the build will fail.
 try:
-    with open("./requirements.txt") as f:
-        requirements = f.read().splitlines()
-except Exception as e:
-    requirements = []
+    import tomllib as _toml  # Python 3.11+
+except ImportError:
+    import tomli as _toml  # type: ignore
+
+with open("pyproject.toml", "rb") as _f:
+    _pyproject_data = _toml.load(_f).get("project", {})
+
+if not _pyproject_data:
+    raise ValueError("pyproject.toml is missing [project] section")
+
+# Extract metadata for setup() call (dependencies are read from pyproject by setuptools)
+_py_requires = _pyproject_data["requires-python"]
+_name = _pyproject_data["name"]
+_version = _pyproject_data["version"]
+_description = _pyproject_data["description"]
+
+# Extract author info (PEP 621 format: list of dicts with name/email)
+_authors = _pyproject_data.get("authors", [])
+_author = _authors[0].get("name") if _authors else None
+_author_email = _authors[0].get("email") if _authors else None
+
+# Extract URLs
+_urls = _pyproject_data.get("urls", {})
+_homepage = _urls.get("Homepage")
 
 # systemd-python is optional (journald / watchdog integration). Kept as extra.
 
@@ -24,19 +46,15 @@ with open(find_file("README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="envoxy",
-    version="0.4.4",
-    description="Envoxy Platform Framework",
+    name=_name,
+    version=_version,
+    description=_description,
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Matheus (vorjdux) Santos",
-    author_email="vorj.dux@gmail.com",
-    url="https://github.com/habitio/envoxy",
+    author=_author,
+    author_email=_author_email,
+    url=_homepage,
     packages=find_namespace_packages(where="src", exclude=("tests", "templates")),
-    install_requires=requirements,
-    extras_require={
-        "journald": ["systemd-python>=235"],
-    },
     # map the root package directory to `src/` so find_namespace_packages discovers all
     # nested packages under src/ (including PEP 420 namespace packages).
     package_dir={
@@ -46,18 +64,12 @@ setup(
     package_data={
         "envoxy": [
             find_file("LICENSE"),
-            find_file("requirements.txt"),
             # include packaged tools assets
             "tools/*",
             "tools/alembic/*",
             "tools/alembic/alembic/*",
         ]
     },
-    entry_points={
-        "console_scripts": [
-            "envoxy-alembic = envoxy.tools.alembic.cli:main",
-        ],
-    },
-    python_requires=">=3.11",
-    data_files=[("envoxy", ["LICENSE", "requirements.txt"])],
+    python_requires=_py_requires,
+    data_files=[("envoxy", ["LICENSE"])],
 )

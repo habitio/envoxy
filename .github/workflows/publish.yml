@@ -1,0 +1,213 @@
+name: Build and Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      publish_to:
+        description: "Publish to (pypi/testpypi/none)"
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - none
+          - testpypi
+          - pypi
+
+jobs:
+  build:
+    name: Build Distribution Packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev libsystemd-dev build-essential
+
+      - name: Install build dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel build twine
+
+      - name: Build envoxy packages
+        run: |
+          python -m build
+
+      - name: Build envoxyd packages
+        run: |
+          cd vendors
+          python -m build
+
+      - name: Check distributions
+        run: |
+          twine check dist/*
+          twine check vendors/dist/*
+
+      - name: Upload envoxy artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: envoxy-packages
+          path: dist/
+
+      - name: Upload envoxyd artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: envoxyd-packages
+          path: vendors/dist/
+
+      - name: Display package info
+        run: |
+          echo "## Envoxy Packages" >> $GITHUB_STEP_SUMMARY
+          ls -lh dist/ >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Envoxyd Packages" >> $GITHUB_STEP_SUMMARY
+          ls -lh vendors/dist/ >> $GITHUB_STEP_SUMMARY
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.publish_to == 'testpypi'
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/envoxy
+
+    steps:
+      - name: Download envoxy artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxy-packages
+          path: dist/
+
+      - name: Download envoxyd artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxyd-packages
+          path: vendors-dist/
+
+      - name: Publish envoxy to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Publish envoxyd to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: vendors-dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to == 'pypi')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/envoxy
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download envoxy artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxy-packages
+          path: dist/
+
+      - name: Download envoxyd artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxyd-packages
+          path: vendors-dist/
+
+      - name: Publish envoxy to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Publish envoxyd to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: vendors-dist/
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+            vendors-dist/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker-build:
+    name: Build and Push Docker Images
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and push runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/runtime/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            habitio/envoxy:${{ steps.version.outputs.VERSION }}
+            habitio/envoxy:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push builder image (Ubuntu 24.04)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/builder/ubuntu-24.04.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            habitio/envoxy-builder:24.04
+            habitio/envoxy-builder:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

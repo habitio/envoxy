@@ -1,3 +1,136 @@
+[project]
+name = "envoxy"
+version = "0.5.0"
+description = "Envoxy Platform Framework"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Matheus (vorjdux) Santos", email = "vorj.dux@gmail.com" },
+    { name = "Laoska Guadamuz", email = "laoska@benyasca.com" },
+]
+
+# Top-level (runtime) dependencies. Keep this file as the source-of-truth and
+# generate a pinned requirements.txt for Docker/CI using pip-tools (pip-compile).
+dependencies = [
+    "cachetools==6.2.1",
+    "Flask==3.1.2",
+    "paho-mqtt==2.1.0",
+    "pika==1.3.2",
+    "pyzmq==27.1.0",
+    "requests==2.32.5",
+    "sdnotify==0.3.2",
+    "pymongo==4.15.3",
+    "uPnPClient==1.0.3",
+    "pylint==4.0.2",
+    "psycopg2==2.9.11",
+    "SQLAlchemy==2.0.44",
+    "redis==6.4.0",
+    "flask_cors==6.0.1",
+    "isort==7.0.0",
+    "orjson==3.11.3",
+    "celery==5.5.3",
+    "amqp==5.3.1",
+    "celerybeat-mongo==0.2.0",
+    "inflect==7.5.0",
+    "alembic==1.17.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "zipp==3.23.0",
+    "pytest==8.4.2",
+    "twine==6.2.0",
+    "urllib3==2.5.0",
+    "alembic==1.17.0",
+    "pytest-cov==6.0.0",
+    "pytest-asyncio==0.24.0",
+    "pytest-mock==3.14.0",
+    "pytest-xdist==3.6.1",
+    "coverage[toml]>=7.6.0",
+    "pre-commit>=4.0.0",
+    "ruff>=0.7.0",
+    "mypy>=1.14.0",
+    "bandit[toml]>=1.8.0",
+    "safety>=3.2.0",
+    "pip-audit>=2.7.0",
+]
+test = [
+    "pytest==8.4.2",
+    "pytest-cov==6.0.0",
+    "pytest-asyncio==0.24.0",
+    "pytest-mock==3.14.0",
+    "pytest-xdist==3.6.1",
+    "coverage[toml]>=7.6.0",
+]
+journald = ["systemd-python>=235"]
+
+[project.urls]
+Homepage = "https://github.com/habitio/envoxy"
+
+[project.scripts]
+envoxy-alembic = "envoxy.tools.alembic.cli:main"
+
 [tool.ruff]
 # But use a different line length.
 line-length = 180
+
+[tool.vendors.envoxyd]
+name = "envoxyd"
+version = "0.4.0"
+description = "Customized uWSGI server for Envoxy"
+requires-python = ">=3.12"
+dependencies = ["envoxy>=0.5.0", "flask-cors==6.0.1", "isort==7.0.0"]
+author = "Matheus Santos"
+author-email = "vorj.dux@gmail.com"
+url = "https://github.com/habitio/envoxy"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["--verbose", "--strict-markers", "--strict-config", "--tb=short"]
+markers = [
+    "unit: Unit tests (fast, isolated, no external dependencies)",
+    "integration: Integration tests (database, external services)",
+    "slow: Slow-running tests",
+    "postgresql: Tests requiring PostgreSQL",
+    "redis: Tests requiring Redis",
+    "couchdb: Tests requiring CouchDB",
+    "mqtt: Tests requiring MQTT broker",
+    "celery: Tests requiring Celery worker",
+]
+
+[tool.coverage.run]
+source = ["src/envoxy"]
+omit = ["*/tests/*", "*/test_*.py", "*/__pycache__/*", "*/site-packages/*"]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+skip_empty = true
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.bandit]
+exclude_dirs = ["tests", "vendors"]
+skips = ["B101", "B601"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["vendors/", "tests/"]
