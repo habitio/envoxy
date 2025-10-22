@@ -1,0 +1,131 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+*.egg
+dist/
+build/
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+envoxy/
+venv/
+ENV/
+env/
+
+# Version control
+.git/
+.github/
+.gitignore
+.gitmodules
+.gitattributes
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation (keep README.md for context)
+docs/
+*.md
+!README.md
+
+# Tests and examples (exclude from production images)
+tests/
+examples/
+.pytest_cache/
+
+# Development scripts and tools (but keep tools/build.sh and Makefile for Docker builds)
+scripts/
+tools/*
+!tools/build.sh
+.build
+debian/
+version_bump.sh
+
+# Environment files
+.env
+.env.*
+*.env
+.env.local
+.env.production
+
+# Vendor build artifacts
+vendors/build/
+vendors/dist/
+vendors/src/
+vendors/__pycache__/
+vendors/*.pyc
+
+# Build outputs
+*.tar.gz
+*.whl
+*.deb
+
+# Temporary files
+*.tmp
+*.log
+*.pid
+*.sock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python version manager
+.python-version
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Pytest
+.pytest_cache/
+.cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Editor backup files
+*~
+*.swp
+*.swo
+*.bak
+
+# Local configuration
+local_settings.py
+instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite3
+
+# Ignore large binary files
+*.so
+*.dylib
+*.dll

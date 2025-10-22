@@ -1,0 +1,45 @@
+## Multi-stage Dockerfile that uses your builder image as the build stage.
+##
+## Usage examples:
+##  Build a dev/builder image (keeps the builder as final stage):
+##    docker build --target builder -t envoxy-builder:local .
+##
+##  Build the small runtime image (default):
+##    docker build -t envoxy:runtime .
+
+### Builder stage: reuse your envoxy builder image (must be built first)
+FROM envoxy-ubuntu:24.04 AS builder
+
+# Ensure /usr/envoxy exists and copy source. The builder image is expected to
+# provide build dependencies (compilers, libpq-dev, swig, python etc.).
+WORKDIR /usr/envoxy
+COPY . /usr/envoxy
+
+# Run your install / build steps inside the builder. This mirrors what you
+# do interactively when mounting the repo into the builder image.
+RUN make install
+
+### Runtime stage: small image with only runtime deps and installed package
+FROM python:3.12-slim
+
+# Install only runtime system packages (e.g. libpq)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application files (or installed artifacts) from the builder
+COPY --from=builder /usr/envoxy /usr/envoxy
+
+# Create non-root runtime user and set permissions
+RUN useradd -m -s /bin/bash envoxy || true \
+    && chown -R envoxy:envoxy /usr/envoxy
+
+USER envoxy
+WORKDIR /usr/envoxy
+
+# Expose port (single entry)
+EXPOSE 8080
+
+# Default command — adjust to the actual runtime entrypoint your package
+# installs (envoxyd, uwsgi, or a gunicorn/wrapper script).
+CMD ["envoxyd", "run"]

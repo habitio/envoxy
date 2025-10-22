@@ -1,0 +1,129 @@
+services:
+  # Builder service - for creating packages
+  builder:
+    build:
+      context: ../..
+      dockerfile: docker/runtime/Dockerfile
+      target: builder
+    volumes:
+      - ../../:/usr/envoxy
+      - envoxy-dist:/usr/envoxy/dist
+      - envoxyd-dist:/usr/envoxy/vendors/dist
+      # Mount PyPI credentials for publishing
+      - ~/.pypirc:/root/.pypirc:ro
+    working_dir: /usr/envoxy
+    command: 
+      - /bin/bash
+      - -c
+      - "echo 'Builder ready. Use: docker compose run --rm builder make packages'"
+    profiles:
+      - tools
+
+  # Development runtime service (basic framework test)
+  envoxy:
+    build:
+      context: ../..
+      dockerfile: docker/runtime/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      # PostgreSQL connection
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=envoxy
+      - POSTGRES_USER=envoxy
+      - POSTGRES_PASSWORD=dev_password
+      
+      # Redis connection
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # Application settings
+      - FLASK_ENV=development
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount source code for development
+      - ../../src:/usr/envoxy/src
+      - ../../vendors:/usr/envoxy/vendors
+      - ./uwsgi.ini:/etc/uwsgi/uwsgi.ini
+      - ./envoxy.json:/etc/envoxy/envoxy.json
+    command: envoxyd /etc/uwsgi/uwsgi.ini
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: envoxy
+      POSTGRES_USER: envoxy
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envoxy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # Optional: Redis Commander for Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    profiles:
+      - tools
+
+  # Optional: pgAdmin for PostgreSQL GUI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@envoxy.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  envoxy-dist:
+    driver: local
+  envoxyd-dist:
+    driver: local

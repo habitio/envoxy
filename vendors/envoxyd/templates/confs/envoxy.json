@@ -1,67 +1,58 @@
 {
-    "log": {
-        "level": "9"
-    },
-    "modules": [
-        "${app_file}"
-    ],
-    "plugins": {},
-    "zmq_servers": {
-        "$server_key": {
-            "host": "127.0.0.1",
-            "auto_discovery": {
-                "file": "${ports_file}",
-                "refresh": "*/1 * * * *"   // crontab format
-            }
-        },
-        "$server_key2": {
-            "host": "127.0.0.1",
-            "port": "1020:1030"
-        }
-    },
-    "psql_servers": {
-        "$server_key": {
-            "host": "127.0.0.1",
-            "port": "5432",
-            "db": "test",
-            "max_conn": "10",
-            "passwd": "test",
-            "user": "test"
-        }
-    },
-    "couchdb_servers": {
-        "$server_key": {
-            "bind": "http://127.0.0.1:5986",
-            "db": "test",
-            "user": "",
-            "passwd": ""
-        }
-    },
-    "redis_servers": {
-        "$server_key": {
-            "bind": "127.0.0.1:6379",
-            "db": "${redis_db}",
-            "ttl": "${ttl_seconds}"
-        }
-    },
-    "mqtt_servers": {
-        "muzzley": {
-            "bind": "mqtts://localhost:8000",
-            "cert_path": "ca-certificates.crt"
-        }
-    },
-    "credentials": {
-        "client_id": "xxx",
-        "client_secret": "xxx",
-        "response_type": "client_credentials",
-        "scope": "container",
-        "server": "https://localhost/"
-    },
-    "cache": {
-        "backend": "redis",
-        "bind": "${host:port}",
-        "db": "${redis_db}",
-        "key_prefix": "${cache_prefix}"
-    },
-    "debug": "False"
+  "log": {
+    "level": "9"
+  },
+  "modules": ["${app_file}"],
+  "plugins": {},
+  "zmq_servers": {
+    "muzzley-platform": {
+      "host": "127.0.0.1",
+      "port": "51997"
+    }
+  },
+  "psql_servers": {
+    "$server_key": {
+      "host": "127.0.0.1",
+      "port": "5432",
+      "db": "test",
+      "max_conn": "10",
+      "passwd": "test",
+      "user": "test"
+    }
+  },
+  "couchdb_servers": {
+    "$server_key": {
+      "bind": "http://127.0.0.1:5986",
+      "db": "test",
+      "user": "",
+      "passwd": ""
+    }
+  },
+  "redis_servers": {
+    "$server_key": {
+      "bind": "127.0.0.1:6379",
+      "db": "${redis_db}",
+      "ttl": "${ttl_seconds}"
+    }
+  },
+  "mqtt_servers": {
+    "muzzley": {
+      "bind": "mqtts://localhost:8000",
+      "cert_path": "ca-certificates.crt"
+    }
+  },
+  "credentials": {
+    "client_id": "xxx",
+    "client_secret": "xxx",
+    "response_type": "client_credentials",
+    "scope": "container",
+    "server": "https://localhost/"
+  },
+  "cache": {
+    "backend": "redis",
+    "bind": "${host:port}",
+    "db": "${redis_db}",
+    "key_prefix": "${cache_prefix}"
+  },
+  "debug": "False"
 }

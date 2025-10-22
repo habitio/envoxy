@@ -1,0 +1,174 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    name: Ruff Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff check
+        run: ruff check src/ --output-format=github
+
+      - name: Run Ruff format check
+        run: ruff format --check src/
+
+  pylint:
+    name: Pylint Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pylint
+          pip install -e .
+
+      - name: Run Pylint
+        run: |
+          pylint src/envoxy/ --output-format=text --reports=y --score=y --fail-under=8.0
+        continue-on-error: true
+
+  mypy:
+    name: Type Checking (MyPy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install mypy types-requests types-redis
+          pip install -e .
+
+      - name: Run MyPy
+        run: |
+          mypy src/envoxy/ --ignore-missing-imports --show-error-codes
+        continue-on-error: true
+
+  complexity:
+    name: Code Complexity Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: |
+          pip install radon xenon
+
+      - name: Run Radon (Cyclomatic Complexity)
+        run: |
+          echo "## Cyclomatic Complexity" >> $GITHUB_STEP_SUMMARY
+          radon cc src/envoxy/ -a -s >> $GITHUB_STEP_SUMMARY
+
+      - name: Run Radon (Maintainability Index)
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Maintainability Index" >> $GITHUB_STEP_SUMMARY
+          radon mi src/envoxy/ -s >> $GITHUB_STEP_SUMMARY
+
+      - name: Run Xenon (Complexity Check)
+        run: |
+          xenon --max-absolute B --max-modules B --max-average A src/envoxy/
+        continue-on-error: true
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pydocstyle interrogate
+
+      - name: Run pydocstyle
+        run: |
+          pydocstyle src/envoxy/ --count
+        continue-on-error: true
+
+      - name: Run interrogate (docstring coverage)
+        run: |
+          interrogate -v src/envoxy/ --fail-under=50
+        continue-on-error: true
+
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=habitio_envoxy
+            -Dsonar.organization=habitio
+            -Dsonar.python.version=3.12
+            -Dsonar.sources=src/envoxy
+            -Dsonar.tests=tests
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+        continue-on-error: true
+
+  summary:
+    name: Quality Summary
+    needs: [ruff, pylint, mypy, complexity, documentation]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Create quality summary
+        run: |
+          echo "## Code Quality Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Ruff: ${{ needs.ruff.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Pylint: ${{ needs.pylint.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- MyPy: ${{ needs.mypy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Complexity: ${{ needs.complexity.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Documentation: ${{ needs.documentation.result }}" >> $GITHUB_STEP_SUMMARY
