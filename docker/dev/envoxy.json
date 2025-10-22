@@ -1,0 +1,31 @@
+{
+  "log": {
+    "level": "9"
+  },
+  "modules": [],
+  "plugins": {},
+  "psql_servers": {
+    "default": {
+      "host": "postgres",
+      "port": "5432",
+      "db": "envoxy",
+      "max_conn": "10",
+      "passwd": "dev_password",
+      "user": "envoxy"
+    }
+  },
+  "redis_servers": {
+    "default": {
+      "bind": "redis:6379",
+      "db": "0",
+      "ttl": "3600"
+    }
+  },
+  "credentials": {
+    "client_id": "dev",
+    "client_secret": "dev_secret",
+    "response_type": "client_credentials",
+    "scope": "container",
+    "server": "http://localhost:8080/"
+  }
+}

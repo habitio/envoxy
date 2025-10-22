@@ -45,11 +45,11 @@ tests/
 examples/
 .pytest_cache/
 
-# Development scripts and tools
+# Development scripts and tools (but keep tools/build.sh and Makefile for Docker builds)
 scripts/
-tools/
+tools/*
+!tools/build.sh
 .build
-Makefile
 debian/
 version_bump.sh
 

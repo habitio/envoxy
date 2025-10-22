@@ -1,6 +1,25 @@
-version: '3.8'
-
 services:
+  # Builder service - for creating packages
+  builder:
+    build:
+      context: ../..
+      dockerfile: docker/runtime/Dockerfile
+      target: builder
+    volumes:
+      - ../../:/usr/envoxy
+      - envoxy-dist:/usr/envoxy/dist
+      - envoxyd-dist:/usr/envoxy/vendors/dist
+      # Mount PyPI credentials for publishing
+      - ~/.pypirc:/root/.pypirc:ro
+    working_dir: /usr/envoxy
+    command: 
+      - /bin/bash
+      - -c
+      - "echo 'Builder ready. Use: docker compose run --rm builder make packages'"
+    profiles:
+      - tools
+
+  # Development runtime service (basic framework test)
   envoxy:
     build:
       context: ../..
@@ -28,9 +47,12 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Mount application code for development
-      - ../../src:/app/src
-    command: python -m envoxyd.run
+      # Mount source code for development
+      - ../../src:/usr/envoxy/src
+      - ../../vendors:/usr/envoxy/vendors
+      - ./uwsgi.ini:/etc/uwsgi/uwsgi.ini
+      - ./envoxy.json:/etc/envoxy/envoxy.json
+    command: envoxyd /etc/uwsgi/uwsgi.ini
     restart: unless-stopped
 
   postgres:
@@ -100,4 +122,8 @@ volumes:
   redis_data:
     driver: local
   pgadmin_data:
+    driver: local
+  envoxy-dist:
+    driver: local
+  envoxyd-dist:
     driver: local

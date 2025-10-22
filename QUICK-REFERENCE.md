@@ -14,7 +14,7 @@ pip install -e .[dev]
 pre-commit install
 
 # Start development environment
-cd docker/dev && docker-compose up -d
+cd docker/dev && docker compose up -d
 ```
 
 ## 📦 Common Commands
@@ -65,9 +65,9 @@ git commit                # Hooks run automatically
 ```bash
 # Development environment
 cd docker/dev
-docker-compose up -d      # Start all services
-docker-compose down       # Stop all services
-docker-compose logs -f    # View logs
+docker compose up -d      # Start all services
+docker compose down       # Stop all services
+docker compose logs -f    # View logs
 
 # Build images
 make docker-build         # Build all images
@@ -267,9 +267,9 @@ pip install -e .[dev,test] --force-reinstall
 
 ```bash
 # Rebuild images
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 
 # Clean Docker system
 docker system prune -a
@@ -293,7 +293,7 @@ pre-commit install
 3. **Use test markers** to run specific test categories
 4. **Check `make help`** for all available targets
 5. **Read error messages** from pre-commit hooks - they're helpful!
-6. **Use docker-compose** for consistent dev environment
+6. **Use docker compose** for consistent dev environment
 7. **Keep dependencies updated** via Dependabot PRs
 
 ## 🔗 Quick Links

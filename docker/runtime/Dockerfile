@@ -11,20 +11,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /usr/envoxy
 COPY . /usr/envoxy
 
-# Build wheels into /wheels
-RUN python3.12 -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip setuptools wheel && \
-    /opt/venv/bin/pip wheel . -w /wheels
+# Build and install packages in venv (this compiles uwsgi via InstallCommand)
+# Using /opt/envoxy to match the project's standard workflow
+RUN python3.12 -m venv /opt/envoxy \
+    && /opt/envoxy/bin/pip install --upgrade pip setuptools wheel \
+    && bash tools/build.sh envoxyd \
+    && /opt/envoxy/bin/pip install . \
+    && cd vendors && /opt/envoxy/bin/python setup.py install && cd ..
 
 ### Runtime stage
-FROM python:3.12-slim
+FROM ubuntu:24.04
 
-RUN apt-get update && apt-get install -y --no-install-recommends libpq5 && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python 3.12 and runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 libpython3.12 libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/envoxy
 
-# Copy wheels from builder and install without cache
-COPY --from=builder /wheels /wheels
-RUN pip install --no-cache-dir /wheels/*
+# Copy the entire venv from builder (includes compiled uwsgi)
+COPY --from=builder /opt/envoxy /opt/envoxy
+
+# Add venv to PATH
+ENV PATH="/opt/envoxy/bin:$PATH"
 
 # Copy the project (optional, if you need source in the runtime)
 COPY . /usr/envoxy
