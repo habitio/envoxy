@@ -39,7 +39,9 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pip install --upgrade pip setuptools wheel build twine
+          python -m pip install --upgrade pip setuptools wheel build twine
+          # Install cysystemd if available to avoid building legacy systemd-python
+          python -m pip install cysystemd || true
 
       - name: Build envoxy packages
         run: |

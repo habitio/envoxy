@@ -164,7 +164,7 @@ cd vendors && twine upload --repository testpypi dist/*
 
 Use Docker for isolated development:
 
-```bash
+````bash
 # Quick start with docker-compose
 make docker-dev
 
@@ -174,9 +174,35 @@ cd docker/dev && docker-compose logs -f
 # Stop
 make docker-dev-down
 
+## Notes on systemd Python bindings
+
+Envoxy integrates with systemd for journald and watchdog support. There are multiple ways
+to provide the Python bindings:
+
+- Prefer `cysystemd` (binary wheels) in pip-based environments: it usually ships prebuilt
+  wheels for common Python versions and avoids building from source. Example:
+
+```bash
+python -m pip install cysystemd
+````
+
+- Alternatively, use OS-packages in system images to avoid pip building native extensions:
+
+```bash
+sudo apt-get install -y python3-systemd libsystemd-dev
+```
+
+- If you must build bindings from source (rare), ensure `libsystemd-dev` is installed and
+  that your build environment upgrades pip/setuptools/wheel before running pip.
+
+This project prefers `cysystemd` where possible. The code also falls back to the
+systemd module if `cysystemd` is not present.
+
 # Or build and run interactively
+
 make docker-build-builder
 docker run -it -v $(pwd):/usr/envoxy envoxy-ubuntu:24.04
+
 ```
 
 ## Build Outputs
@@ -184,14 +210,16 @@ docker run -it -v $(pwd):/usr/envoxy envoxy-ubuntu:24.04
 ### Directory Structure After Build
 
 ```
+
 envoxy/
-├── build/           # Temporary build artifacts
-├── dist/            # Envoxy distribution packages
+├── build/ # Temporary build artifacts
+├── dist/ # Envoxy distribution packages
 ├── vendors/
-│   ├── dist/        # Envoxyd distribution packages
-│   └── src/         # Built envoxyd sources
+│ ├── dist/ # Envoxyd distribution packages
+│ └── src/ # Built envoxyd sources
 └── envoxy.egg-info/ # Package metadata
-```
+
+````
 
 ### Distribution Packages
 
@@ -236,7 +264,7 @@ Envoxyd is built from customized uWSGI sources.
 # 1. Copy vendors/uwsgi/* to vendors/src/envoxyd/
 # 2. Apply envoxyd customizations from vendors/envoxyd/templates/
 # 3. Inject run.py into the embedded environment
-```
+````
 
 ### Manual Build (Advanced)
 

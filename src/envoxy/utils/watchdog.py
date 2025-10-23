@@ -34,7 +34,13 @@ class Watchdog:
 
     def send_notification(self):
         try:
-            from systemd.daemon import notify
+            # Prefer cysystemd (binary wheels available). Fall back to systemd if
+            # cysystemd is not installed. If neither is available, operate
+            # without systemd notifications (graceful degradation).
+            try:
+                from cysystemd.daemon import notify
+            except Exception:
+                from systemd.daemon import notify
             event = threading.Event()
 
             while not event.wait(self.interval - 1):
