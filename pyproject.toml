@@ -22,6 +22,11 @@ authors = [
     { name = "Laoska Guadamuz", email = "laoska@benyasca.com" },
 ]
 
+# SPDX license information — prefer an explicit license text/expression so
+# setuptools/pypa tooling emits a standard License/MIT metadata field and
+# avoids generating a non-standard license-file metadata entry.
+license = { text = "MIT" }
+
 # Top-level (runtime) dependencies. Keep this file as the source-of-truth and
 # generate a pinned requirements.txt for Docker/CI using pip-tools (pip-compile).
 dependencies = [

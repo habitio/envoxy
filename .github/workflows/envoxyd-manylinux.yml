@@ -19,6 +19,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Make CI helpers executable
+        run: |
+          if [ -f .github/ci/patch_uwsgi.sh ]; then
+            chmod +x .github/ci/patch_uwsgi.sh || true
+            echo "CI: made .github/ci/patch_uwsgi.sh executable"
+          else
+            echo "CI: .github/ci/patch_uwsgi.sh not present"
+          fi
+
       - name: Prepare package-dir (ensure pyproject.toml in vendors/envoxyd)
         run: |
           PKG_ROOT="vendors/envoxyd"
