@@ -42,7 +42,9 @@ jobs:
           python -m pip install --upgrade pip build setuptools wheel
 
       - name: Build manylinux wheels with cibuildwheel (cp312)
-        uses: pypa/cibuildwheel@v3
+        # Use a resolvable ref for the action. Using `main` unblocks validation
+        # while we pin to a specific release tag (recommended) later.
+        uses: pypa/cibuildwheel@main
         with:
           # Where to place produced wheels inside the runner
           output-dir: wheelhouse
