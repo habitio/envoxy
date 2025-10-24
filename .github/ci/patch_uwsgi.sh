@@ -42,30 +42,52 @@ if [ -f /project/pyproject.toml ]; then
 
 fi
 
-# Locate the uWSGI source directory robustly. cibuildwheel sets the working
-            # directory according to {package} and that may vary; handle several common
-            # layouts and fall back to searching under /project.
-            TARGET=""
-            # If current dir already looks like the uwsgi source
-            if [ -f "./uwsgiconfig.py" ]; then
-                TARGET="$(pwd)"
-            fi
-            # Prefer the vendors/uwsgi path if present
-            if [ -z "$TARGET" ] && [ -d "/project/vendors/uwsgi" ]; then
-                TARGET="/project/vendors/uwsgi"
-            fi
-            # Fallback: search for a directory named 'uwsgi' under /project
-            if [ -z "$TARGET" ]; then
-                found=$(find /project -maxdepth 4 -type d -name uwsgi 2>/dev/null | head -n1 || true)
-                if [ -n "$found" ]; then
-                    TARGET="$found"
-                fi
-            fi
+# --- CI debug: show pyproject and vendor layout to help diagnose builds ---
+echo "CI: top-level /project/pyproject.toml (first 200 lines):"
+sed -n '1,200p' /project/pyproject.toml || echo "CI: /project/pyproject.toml not found"
 
-            if [ -z "$TARGET" ]; then
-                echo "CI: no uwsgi directory found under /project; skipping patch"
-                exit 0
-            fi
+echo "CI: listing /project/vendors and each vendor directory (for debug)"
+ls -lah /project/vendors || echo "CI: /project/vendors not present"
+for v in /project/vendors/*; do
+    if [ -e "$v" ]; then
+        echo "---- vendor: $v ----"
+        ls -lah "$v" || true
+        if [ -f "$v/pyproject.toml" ]; then
+            echo "CI: $v/pyproject.toml (first 100 lines):"
+            sed -n '1,100p' "$v/pyproject.toml" || true
+        fi
+    fi
+done
+
+echo "CI: listing native source files under /project/vendors (c, cpp, h, a, so, uwsgi Python plugin files)"
+find /project/vendors -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.a' -o -name '*.so' -o -name 'uwsgiconfig.py' -o -name 'uwsgiplugin.py' \) -ls || true
+
+# end debug section
+
+# Locate the uWSGI source directory robustly. cibuildwheel sets the working
+# directory according to {package} and that may vary; handle several common
+# layouts and fall back to searching under /project.
+TARGET=""
+# If current dir already looks like the uwsgi source
+if [ -f "./uwsgiconfig.py" ]; then
+    TARGET="$(pwd)"
+fi
+# Prefer the vendors/uwsgi path if present
+if [ -z "$TARGET" ] && [ -d "/project/vendors/uwsgi" ]; then
+    TARGET="/project/vendors/uwsgi"
+fi
+# Fallback: search for a directory named 'uwsgi' under /project
+if [ -z "$TARGET" ]; then
+    found=$(find /project -maxdepth 4 -type d -name uwsgi 2>/dev/null | head -n1 || true)
+    if [ -n "$found" ]; then
+        TARGET="$found"
+    fi
+fi
+
+if [ -z "$TARGET" ]; then
+    echo "CI: no uwsgi directory found under /project; skipping patch"
+    exit 0
+fi
 
 cd "$TARGET"
 

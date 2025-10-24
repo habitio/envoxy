@@ -1,0 +1,83 @@
+name: Build and publish envoxy (pure Python)
+
+on:
+  push:
+    branches: [main, feature/python3_12]
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    name: Build sdist & wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: python -m pip install --upgrade build
+
+      - name: Build artifacts
+        run: python -m build -o dist
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: envoxy-dist
+          path: dist/
+
+  publish-testpypi:
+    name: Publish to TestPyPI (automatic on tag)
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TEST_PYPI_API_TOKEN != '' }}
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxy-dist
+
+      - name: List dist
+        run: ls -lah dist || ls -lah || true
+
+      - name: Publish to TestPyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          python -m twine upload --repository testpypi dist/*
+
+  publish-pypi:
+    name: Publish to PyPI (manual)
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && secrets.PYPI_API_TOKEN != '' }}
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxy-dist
+
+      - name: List dist
+        run: ls -lah dist || ls -lah || true
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          python -m twine upload dist/*

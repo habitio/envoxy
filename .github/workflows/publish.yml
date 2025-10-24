@@ -4,10 +4,12 @@ permissions:
   id-token: write
   contents: read
 
+# Automatic tag pushes are disabled for this monolithic publish workflow to
+# avoid duplicating publishes that are handled by per-package workflows
+# (`envoxyd-manylinux.yml` and `envoxy-publish.yml`). Run this manually from
+# the Actions UI when you want a consolidated runner-based publish (choose
+# the `publish_to` option below).
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
     inputs:
       publish_to:

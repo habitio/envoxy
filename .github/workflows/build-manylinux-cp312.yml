@@ -1,11 +1,10 @@
-name: Build manylinux wheels (cp312)
+name: Build manylinux wheels (cp312) (disabled automatic triggers)
 
+# This workflow was disabled for automatic tag/branch triggers to avoid
+# duplicating the new per-package `envoxyd-manylinux.yml` workflow.
+# It can still be run manually from the Actions UI via `workflow_dispatch`.
 on:
-  push:
-    branches: [main, feature/python3_12]
-    tags: ["v*"]
-  pull_request:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   build-wheels:
