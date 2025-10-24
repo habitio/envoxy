@@ -1,3 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+# Default to building cp312-only in CI unless overridden. Individual runs
+# and local dev can override CIBW_BUILD environment variable.
+build = ["cp312-*"]
+
+# Minimal centralized pyproject so CI and isolated PEP 517 builds see the
+# build backend when building from the repo root. Individual package
+# directories will be populated with this file at CI-time so sdist/wheel
+# building inside containers doesn't fail due to a missing pyproject.toml.
 [project]
 name = "envoxy"
 version = "0.5.3"
