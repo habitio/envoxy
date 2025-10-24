@@ -74,7 +74,6 @@ setup(
     include_package_data=True,
     package_data={
         "envoxy": [
-            find_file("LICENSE"),
             # include packaged tools assets
             "tools/*",
             "tools/alembic/*",
@@ -82,5 +81,4 @@ setup(
         ]
     },
     python_requires=_py_requires,
-    data_files=[("envoxy", ["LICENSE"])],
 )

@@ -51,8 +51,8 @@ jobs:
           package-dir: vendors
           output-dir: wheelhouse
         env:
-          # run our in-repo patch helper inside the manylinux container
-          CIBW_BEFORE_BUILD: "/project/.github/ci/patch_uwsgi.sh"
+          # run our in-repo patch helper inside the manylinux container (use sh for robustness)
+          CIBW_BEFORE_BUILD: "sh /project/.github/ci/patch_uwsgi.sh"
           # only build CPython 3.12 manylinux wheels
           CIBW_BUILD: "cp312-*"
           # use the supported 'linux' platform (cibuildwheel v3 expects 'linux')

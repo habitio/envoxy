@@ -111,6 +111,22 @@ cmdclass = {"install": InstallCommand}
 if _HAS_WHEEL:
     cmdclass["bdist_wheel"] = NonPureWheel
 
+# Conditionally include the uWSGI binary in data_files only if it exists.
+# During cibuildwheel, CIBW_BEFORE_BUILD should have built and placed the binary.
+# For local dev builds, the InstallCommand will build it before install_data runs.
+_data_files = [
+    ("bin", ["envoxyd/tools/envoxy-cli"]),
+]
+_envoxyd_binary_path = "src/envoxyd/envoxyd"
+if os.path.exists(_envoxyd_binary_path):
+    _data_files.insert(0, ("bin", [_envoxyd_binary_path]))
+else:
+    # When CIBUILDWHEEL is set, the binary should exist (built by CIBW_BEFORE_BUILD).
+    # If it doesn't, log a warning but continue (the install step will handle it).
+    if os.environ.get('CIBUILDWHEEL'):
+        print(f"WARNING: {_envoxyd_binary_path} not found but CIBUILDWHEEL is set. "
+              "Ensure CIBW_BEFORE_BUILD built the binary.")
+
 setup(
     name=_name,
     version=_version,
@@ -135,11 +151,7 @@ setup(
             "templates/confs/__init__.py",
         ]
     },
-    data_files=[
-        ("bin", ["src/envoxyd/envoxyd"]),
-        ("bin", ["envoxyd/tools/envoxy-cli"]),
-        ("envoxyd", ["LICENSE.txt"]),
-    ],
+    data_files=_data_files,
     cmdclass=cmdclass,
     python_requires=_requires_python,
     include_package_data=True,

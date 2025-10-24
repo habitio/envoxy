@@ -172,7 +172,10 @@ if [ ! -f "$DEST_BIN" ]; then
     echo "CI: $DEST_BIN not present; attempting build in $TARGET"
     if [ -f "./uwsgiconfig.py" ]; then
         echo "CI: running uwsgiconfig.py --build flask"
-        "${PY_BIN}" uwsgiconfig.py --build flask || echo "CI: uwsgiconfig build failed (continuing)"
+        "${PY_BIN}" uwsgiconfig.py --build flask || {
+            echo "ERROR: uwsgiconfig build failed!"
+            exit 1
+        }
 
         # common output names
         for cand in uwsgi uwsgi-core uwsgi.bin; do
@@ -194,11 +197,13 @@ if [ ! -f "$DEST_BIN" ]; then
                 chmod +x "$DEST_BIN" || true
                 echo "CI: copied found $foundbin to $DEST_BIN"
             else
-                echo "CI: no uwsgi binary found after build"
+                echo "ERROR: no uwsgi binary found after build!"
+                exit 1
             fi
         fi
     else
-        echo "CI: no uwsgiconfig.py in $TARGET; skipping build"
+        echo "ERROR: no uwsgiconfig.py in $TARGET; cannot build!"
+        exit 1
     fi
 else
     echo "CI: $DEST_BIN already present; skipping build"
