@@ -29,6 +29,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure pyproject.toml is present in packages
+        # Copy the centralized pyproject.toml into vendors so sdists/wheels built
+        # during CI include it and PEP 517 isolation can find the build backend.
+        run: |
+          if [ -f pyproject.toml ]; then
+            echo "Copying pyproject.toml into vendors/ and vendors/envoxyd/"
+            cp pyproject.toml vendors/ || true
+            cp pyproject.toml vendors/envoxyd/ || true
+          else
+            echo "Top-level pyproject.toml not found; continuing"
+          fi
+
       - name: Set up Python for helper steps
         uses: actions/setup-python@v4
         with:
