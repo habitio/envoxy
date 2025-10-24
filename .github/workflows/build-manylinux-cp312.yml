@@ -3,16 +3,14 @@ name: Build manylinux wheels (cp312)
 on:
   push:
     branches: [ main, feature/python3_12 ]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
 jobs:
   build-wheels:
     name: Build wheels (manylinux, cp312)
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
+    runs-on: ubuntu-24.04
     env:
       # Force cibuildwheel to only build CPython 3.12 wheels by default.
       # This can be overridden in the workflow call or by setting an env var
@@ -29,17 +27,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure pyproject.toml is present in packages
-        # Copy the centralized pyproject.toml into vendors so sdists/wheels built
-        # during CI include it and PEP 517 isolation can find the build backend.
-        run: |
-          if [ -f pyproject.toml ]; then
-            echo "Copying pyproject.toml into vendors/ and vendors/envoxyd/"
-            cp pyproject.toml vendors/ || true
-            cp pyproject.toml vendors/envoxyd/ || true
-          else
-            echo "Top-level pyproject.toml not found; continuing"
-          fi
+      # Note: pyproject.toml is copied into package directories inside the
+      # manylinux container by .github/ci/patch_uwsgi.sh (CIBW_BEFORE_BUILD). We
+      # do NOT copy it on the runner here because cibuildwheel mounts the repo
+      # inside a container and the runner-side copy would not be visible there.
 
       - name: Set up Python for helper steps
         uses: actions/setup-python@v4
@@ -65,8 +56,8 @@ jobs:
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
         with:
-          # Make artifact name unique per runner so we can collect them later
-          name: manylinux-cp312-wheels-${{ matrix.os }}
+          # Upload the manylinux wheels produced by cibuildwheel
+          name: manylinux-cp312-wheels
           path: wheelhouse/
 
       - name: Optional: Show produced wheels
@@ -83,6 +74,11 @@ jobs:
         # without a name this downloads all artifacts uploaded by previous jobs
         with:
           path: wheelhouse
+
+      - name: List downloaded wheel files
+        run: |
+          echo "Files in wheelhouse:";
+          ls -lah wheelhouse || true
 
       - name: Set up Python
         uses: actions/setup-python@v4

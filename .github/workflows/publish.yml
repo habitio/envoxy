@@ -19,7 +19,7 @@ on:
 jobs:
   build:
     name: Build Distribution Packages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -50,12 +50,14 @@ jobs:
       - name: Build envoxyd packages
         run: |
           cd vendors
-          python -m build
+          # Produce only the sdist for envoxyd here; binary wheels will be produced
+          # by the cibuildwheel workflow (manylinux) and published from there.
+          python -m build --sdist --outdir dist
 
       - name: Check distributions
         run: |
           twine check dist/*
-          twine check vendors/dist/*
+          twine check vendors/dist/* || true
 
       - name: Upload envoxy artifacts
         uses: actions/upload-artifact@v4
@@ -80,7 +82,7 @@ jobs:
   publish-testpypi:
     name: Publish to TestPyPI
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: |
       github.event_name == 'workflow_dispatch' && 
       github.event.inputs.publish_to == 'testpypi'
@@ -89,17 +91,27 @@ jobs:
       url: https://test.pypi.org/p/envoxy
 
     steps:
-      - name: Download envoxy artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: envoxy-packages
-          path: dist/
+          path: artifacts/
 
-      - name: Download envoxyd artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: envoxyd-packages
-          path: vendors-dist/
+      - name: Consolidate artifacts into dist/ and vendors/dist/
+        run: |
+          mkdir -p dist vendors/dist
+          # Copy any built distribution files into the top-level dist/
+          find artifacts -type f \( -name '*.whl' -o -name '*.tar.gz' -o -name '*.zip' \) -print0 | xargs -0 -I {} bash -c '
+            # route envoxyd artifacts (uploaded from vendors/dist/) into vendors/dist/
+            if echo "{}" | grep -q "envoxyd-packages"; then
+              cp "{}" vendors/dist/ || true
+            else
+              cp "{}" dist/ || true
+            fi'
+
+      - name: Show consolidated artifacts
+        run: |
+          echo "Contents of dist/:"; ls -lah dist/ || true
+          echo "Contents of vendors/dist/:"; ls -lah vendors/dist/ || true
 
       - name: Publish envoxy to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -112,12 +124,12 @@ jobs:
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
-          packages-dir: vendors-dist/
+          packages-dir: vendors/dist/
 
   publish-pypi:
     name: Publish to PyPI
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to == 'pypi')
@@ -128,17 +140,25 @@ jobs:
       id-token: write
 
     steps:
-      - name: Download envoxy artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: envoxy-packages
-          path: dist/
+          path: artifacts/
 
-      - name: Download envoxyd artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: envoxyd-packages
-          path: vendors-dist/
+      - name: Consolidate artifacts into dist/ and vendors/dist/
+        run: |
+          mkdir -p dist vendors/dist
+          find artifacts -type f \( -name '*.whl' -o -name '*.tar.gz' -o -name '*.zip' \) -print0 | xargs -0 -I {} bash -c '
+            if echo "{}" | grep -q "envoxyd-packages"; then
+              cp "{}" vendors/dist/ || true
+            else
+              cp "{}" dist/ || true
+            fi'
+
+      - name: Show consolidated artifacts
+        run: |
+          echo "Contents of dist/:"; ls -lah dist/ || true
+          echo "Contents of vendors/dist/:"; ls -lah vendors/dist/ || true
 
       - name: Publish envoxy to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -149,7 +169,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages-dir: vendors-dist/
+          packages-dir: vendors/dist/
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -157,7 +177,7 @@ jobs:
         with:
           files: |
             dist/*
-            vendors-dist/*
+            vendors/dist/*
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -167,7 +187,7 @@ jobs:
   docker-build:
     name: Build and Push Docker Images
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:

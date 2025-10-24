@@ -23,6 +23,16 @@ if [ -f /project/pyproject.toml ]; then
     else
         echo "CI: ${PKG_ROOT}/pyproject.toml already present"
     fi
+    # Also copy pyproject.toml into any package directories under /project/vendors
+    # so that sdists produced inside the manylinux container include the file.
+    for d in /project/vendors/*; do
+        if [ -d "$d" ]; then
+            if [ ! -f "$d/pyproject.toml" ]; then
+                echo "CI: copying pyproject.toml into $d"
+                cp /project/pyproject.toml "$d/pyproject.toml" || true
+            fi
+        fi
+    done
 fi
 
 cd /project/vendors/uwsgi
