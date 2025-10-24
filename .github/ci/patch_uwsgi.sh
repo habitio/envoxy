@@ -33,11 +33,39 @@ if [ -f /project/pyproject.toml ]; then
             fi
         fi
     done
+
 fi
 
-cd /project/vendors/uwsgi
+# Locate the uWSGI source directory robustly. cibuildwheel sets the working
+            # directory according to {package} and that may vary; handle several common
+            # layouts and fall back to searching under /project.
+            TARGET=""
+            # If current dir already looks like the uwsgi source
+            if [ -f "./uwsgiconfig.py" ]; then
+                TARGET="$(pwd)"
+            fi
+            # Prefer the vendors/uwsgi path if present
+            if [ -z "$TARGET" ] && [ -d "/project/vendors/uwsgi" ]; then
+                TARGET="/project/vendors/uwsgi"
+            fi
+            # Fallback: search for a directory named 'uwsgi' under /project
+            if [ -z "$TARGET" ]; then
+                found=$(find /project -maxdepth 4 -type d -name uwsgi 2>/dev/null | head -n1 || true)
+                if [ -n "$found" ]; then
+                    TARGET="$found"
+                fi
+            fi
+
+            if [ -z "$TARGET" ]; then
+                echo "CI: no uwsgi directory found under /project; skipping patch"
+                exit 0
+            fi
+
+cd "$TARGET"
 
 echo "CI: working in $(pwd)"
+echo "CI: listing current directory for debug"
+ls -lah || true
 
 echo "CI: remove literal -lpython* occurrences from uwsgiconfig.py (if any)"
 cp -a uwsgiconfig.py uwsgiconfig.py.ci-orig || true
@@ -93,7 +121,7 @@ else
 fi
 
 echo "CI: diagnostics: sysconfig variables (LDLIBRARY, LIBDIR)"
-${PY_BIN} - <<'PY'
+"${PY_BIN}" - <<'PY'
 import sysconfig, pprint
 info = {k: sysconfig.get_config_var(k) for k in ('LDLIBRARY','LIBDIR','LIBPL')}
 pprint.pprint(info)
