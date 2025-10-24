@@ -2,8 +2,8 @@ name: Build manylinux wheels (cp312)
 
 on:
   push:
-    branches: [ main, feature/python3_12 ]
-    tags: ['v*']
+    branches: [main, feature/python3_12]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ jobs:
       # Run your in-repo pre-build script inside the manylinux container so
       # the uWSGI source can be patched there (the path /project points to the
       # checked-out repository inside the manylinux container).
-      CIBW_BEFORE_BUILD: 'cd {package}/uwsgi && /bin/sh /project/docker/dev/patch_and_build.sh'
+      CIBW_BEFORE_BUILD: "cd {package}/uwsgi && /bin/sh /project/docker/dev/patch_and_build.sh"
       # Choose Linux platform (manylinux) — cibuildwheel will pick an appropriate manylinux image
       CIBW_PLATFORM: linux
 
@@ -35,7 +35,7 @@ jobs:
       - name: Set up Python for helper steps
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install build tooling (local helper)
         run: |
@@ -51,7 +51,7 @@ jobs:
         env:
           # Run in-repo pre-build script inside manylinux container. The repo is mounted
           # at /project inside the manylinux image, so point to the CI script we just added.
-          CIBW_BEFORE_BUILD: 'cd {package}/uwsgi && /bin/sh /project/.github/ci/patch_uwsgi.sh'
+          CIBW_BEFORE_BUILD: "cd {package}/uwsgi && /bin/sh /project/.github/ci/patch_uwsgi.sh"
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
@@ -60,7 +60,7 @@ jobs:
           name: manylinux-cp312-wheels
           path: wheelhouse/
 
-      - name: Optional: Show produced wheels
+      - name: "Optional: Show produced wheels"
         run: ls -lah wheelhouse || true
 
   publish-testpypi:
@@ -83,7 +83,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install twine
         run: python -m pip install --upgrade pip twine
@@ -97,4 +97,3 @@ jobs:
             exit 1;
           fi
           python -m twine upload --non-interactive --repository-url https://test.pypi.org/legacy/ -u __token__ -p "${TEST_PYPI_TOKEN}" wheelhouse/*.whl
-
