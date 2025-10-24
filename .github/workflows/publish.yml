@@ -1,5 +1,9 @@
 name: Build and Publish
 
+permissions:
+  id-token: write
+  contents: read
+
 on:
   push:
     tags:
@@ -83,6 +87,8 @@ jobs:
     name: Publish to TestPyPI
     needs: build
     runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
     if: |
       github.event_name == 'workflow_dispatch' && 
       github.event.inputs.publish_to == 'testpypi'
