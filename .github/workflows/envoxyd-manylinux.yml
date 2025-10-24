@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run cibuildwheel (manylinux)
-        uses: pypa/cibuildwheel@v3
+        uses: pypa/cibuildwheel@main
         with:
           package-dir: vendors/envoxyd
           output-dir: wheelhouse
@@ -43,7 +43,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # only run this job automatically for tag pushes; require the secret at runtime (checked in first step)
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    # if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ github.event_name == 'push' }}
     env:
       TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
     steps:

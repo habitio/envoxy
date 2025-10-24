@@ -40,7 +40,8 @@ jobs:
     name: Publish to TestPyPI (automatic on tag)
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    # if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ github.event_name == 'push' }}
     env:
       TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
     steps:
