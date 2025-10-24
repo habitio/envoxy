@@ -28,9 +28,9 @@ jobs:
             echo "CI: .github/ci/patch_uwsgi.sh not present"
           fi
 
-      - name: Prepare package-dir (ensure pyproject.toml in vendors/envoxyd)
+      - name: Prepare package-dir (ensure pyproject.toml in vendors/)
         run: |
-          PKG_ROOT="vendors/envoxyd"
+          PKG_ROOT="vendors"
           if [ -f pyproject.toml ] && [ -d "$PKG_ROOT" ]; then
             if [ ! -f "$PKG_ROOT/pyproject.toml" ]; then
               echo "CI: copying top-level pyproject.toml into $PKG_ROOT"
@@ -45,7 +45,10 @@ jobs:
       - name: Run cibuildwheel (manylinux)
         uses: pypa/cibuildwheel@v3.2.1
         with:
-          package-dir: vendors/envoxyd
+          # the vendor build is driven by vendors/setup.py which reads
+          # top-level pyproject.toml [tool.vendors.envoxyd]; point cibuildwheel
+          # at `vendors/` so setuptools/setup.py is discovered correctly.
+          package-dir: vendors
           output-dir: wheelhouse
         env:
           # run our in-repo patch helper inside the manylinux container
