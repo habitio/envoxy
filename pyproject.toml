@@ -13,7 +13,7 @@ build = ["cp312-*"]
 # building inside containers doesn't fail due to a missing pyproject.toml.
 [project]
 name = "envoxy"
-version = "0.5.4"
+version = "0.5.5"
 description = "Envoxy Platform Framework"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -90,10 +90,10 @@ line-length = 180
 
 [tool.vendors.envoxyd]
 name = "envoxyd"
-version = "0.4.4"
+version = "0.4.5"
 description = "Customized uWSGI server for Envoxy"
 requires-python = ">=3.12"
-dependencies = ["envoxy>=0.5.4", "flask-cors==6.0.1", "isort==7.0.0"]
+dependencies = ["envoxy>=0.5.5", "flask-cors==6.0.1", "isort==7.0.0"]
 author = "Matheus Santos"
 author-email = "vorj.dux@gmail.com"
 url = "https://github.com/habitio/envoxy"
