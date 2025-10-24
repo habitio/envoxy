@@ -1,6 +1,6 @@
 [project]
 name = "envoxy"
-version = "0.5.1"
+version = "0.5.3"
 description = "Envoxy Platform Framework"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -77,10 +77,10 @@ line-length = 180
 
 [tool.vendors.envoxyd]
 name = "envoxyd"
-version = "0.4.1"
+version = "0.4.3"
 description = "Customized uWSGI server for Envoxy"
 requires-python = ">=3.12"
-dependencies = ["envoxy>=0.5.1", "flask-cors==6.0.1", "isort==7.0.0"]
+dependencies = ["envoxy>=0.5.3", "flask-cors==6.0.1", "isort==7.0.0"]
 author = "Matheus Santos"
 author-email = "vorj.dux@gmail.com"
 url = "https://github.com/habitio/envoxy"

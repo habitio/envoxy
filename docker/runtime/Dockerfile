@@ -6,7 +6,10 @@ FROM ubuntu:24.04 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3.12 python3.12-venv python3.12-dev python3-pip \
-    libpq-dev swig make git ca-certificates && rm -rf /var/lib/apt/lists/*
+    libpq-dev swig make git ca-certificates \
+    # Install docker CLI so cibuildwheel can invoke Docker from inside the builder
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/envoxy
 COPY . /usr/envoxy
@@ -24,9 +27,11 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.12 and runtime dependencies
+# Install Python 3.12 runtime dependencies but avoid pulling the system
+# libpython package: we prefer the libpython copied into the venv to avoid
+# ABI mismatches with compiled extensions.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 libpython3.12 libpq5 \
+    python3.12 libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/envoxy
@@ -36,6 +41,7 @@ COPY --from=builder /opt/envoxy /opt/envoxy
 
 # Add venv to PATH
 ENV PATH="/opt/envoxy/bin:$PATH"
+ENV LD_LIBRARY_PATH="/opt/envoxy/lib:${LD_LIBRARY_PATH}"
 
 # Copy the project (optional, if you need source in the runtime)
 COPY . /usr/envoxy

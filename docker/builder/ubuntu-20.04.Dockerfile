@@ -24,6 +24,7 @@ RUN groupadd -g ${GID} ${USER} || true \
 # Create venv for packaging and testing
 RUN python3.12 -m venv /opt/envoxy && \
     /opt/envoxy/bin/pip install --upgrade pip setuptools wheel twine
+RUN /opt/envoxy/bin/pip install auditwheel
 
 # Create working dir and ensure permissions
 WORKDIR /usr/envoxy

@@ -2,6 +2,11 @@
 
 import os
 from setuptools import setup, find_packages
+try:
+    from wheel.bdist_wheel import bdist_wheel
+    _HAS_WHEEL = True
+except Exception:
+    _HAS_WHEEL = False
 from setuptools.command.install import install
 
 from subprocess import check_call
@@ -19,9 +24,27 @@ class InstallCommand(install):
     description = "install envoxyd"
 
     def run(self):
-        import sys
-        python_executable = sys.executable
-        check_call([python_executable, "uwsgiconfig.py", "--build", "flask"], cwd="src/envoxyd")
+        """Build uWSGI and install package."""
+        # Get the directory where this setup.py lives
+        setup_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(setup_dir, "src", "envoxyd")
+        envoxyd_binary = os.path.join(data_dir, "envoxyd")
+        
+        # Skip uWSGI compilation if binary already exists (e.g., pre-built by Dockerfile)
+        # OR if running under cibuildwheel (which will compile in CIBW_BEFORE_BUILD)
+        skip_compilation = os.path.exists(envoxyd_binary) or os.environ.get('CIBUILDWHEEL', '0') == '1'
+        
+        if not skip_compilation:
+            print("Compiling uWSGI...")
+            python_executable = sys.executable
+            uwsgi_dir = os.path.join(setup_dir, "src", "envoxyd")
+            check_call([python_executable, "uwsgiconfig.py", "--build", "flask"], cwd=uwsgi_dir)
+        else:
+            if os.environ.get('CIBUILDWHEEL'):
+                print("Skipping uWSGI compilation (will be built by CIBW_BEFORE_BUILD)")
+            else:
+                print(f"Skipping uWSGI compilation (binary exists at {envoxyd_binary})")
+        
         install.run(self)
 
 
@@ -61,6 +84,19 @@ _author_email = _vendor_table.get("author-email")
 _url = _vendor_table.get("url")
 _requires_python = _vendor_table["requires-python"]
 _dependencies = _vendor_table["dependencies"]
+if _HAS_WHEEL:
+    class NonPureWheel(bdist_wheel):
+        def finalize_options(self):
+            bdist_wheel.finalize_options(self)
+            # Force wheel metadata to indicate non-pure since this package
+            # installs compiled/native files into data_files.
+            self.root_is_pure = False
+
+# Prepare cmdclass ensuring 'install' is preserved and optionally
+# register the NonPureWheel for bdist_wheel when wheel is available.
+cmdclass = {"install": InstallCommand}
+if _HAS_WHEEL:
+    cmdclass["bdist_wheel"] = NonPureWheel
 
 setup(
     name=_name,
@@ -90,7 +126,7 @@ setup(
         ("bin", ["envoxyd/tools/envoxy-cli"]),
         ("envoxyd", ["LICENSE.txt"]),
     ],
-    cmdclass={"install": InstallCommand},
+    cmdclass=cmdclass,
     python_requires=_requires_python,
     include_package_data=True,
 )
