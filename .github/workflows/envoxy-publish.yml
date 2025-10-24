@@ -40,8 +40,17 @@ jobs:
     name: Publish to TestPyPI (automatic on tag)
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TEST_PYPI_API_TOKEN != '' }}
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    env:
+      TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
     steps:
+      - name: Verify TestPyPI token present
+        run: |
+          if [ -z "${TEST_PYPI_API_TOKEN}" ]; then
+            echo "ERROR: TEST_PYPI_API_TOKEN secret is not set. Add it to repository secrets to enable automatic TestPyPI publishing."
+            exit 1
+          fi
+
       - name: Download dist
         uses: actions/download-artifact@v4
         with:
@@ -63,8 +72,17 @@ jobs:
     name: Publish to PyPI (manual)
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && secrets.PYPI_API_TOKEN != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:
+      - name: Verify PyPI token present
+        run: |
+          if [ -z "${PYPI_API_TOKEN}" ]; then
+            echo "ERROR: PYPI_API_TOKEN secret is not set. Add it to repository secrets or provide via OIDC to enable PyPI publishing."
+            exit 1
+          fi
+
       - name: Download dist
         uses: actions/download-artifact@v4
         with:
