@@ -53,6 +53,12 @@ jobs:
 
       - name: Build envoxyd packages
         run: |
+          # Ensure the centralized pyproject.toml is available inside vendors
+          # so that building an sdist includes it and PEP 517 metadata generation succeeds.
+          if [ -f pyproject.toml ]; then
+            echo "Copying root pyproject.toml into vendors/"
+            cp pyproject.toml vendors/pyproject.toml || true
+          fi
           cd vendors
           # Produce only the sdist for envoxyd here; binary wheels will be produced
           # by the cibuildwheel workflow (manylinux) and published from there.

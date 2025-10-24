@@ -1,2 +1,3 @@
 recursive-include src *
 recursive-exclude uwsgi *
+include pyproject.toml
