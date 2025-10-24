@@ -61,6 +61,31 @@ jobs:
       - name: List dist
         run: ls -lah dist || ls -lah || true
 
+      - name: Check distribution metadata (twine check) and dump PKG-INFO/METADATA
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          echo "== twine check output =="
+          python -m twine check dist/* || true
+          echo "== raw metadata dump =="
+          for f in dist/*; do
+            echo "---- $f ----"
+            case "${f}" in
+              *.whl)
+                # extract METADATA from the wheel
+                unzip -p "$f" "*/METADATA" || echo "(no METADATA)"
+                ;;
+              *.tar.gz|*.zip)
+                # try PKG-INFO in sdist
+                tar tzf "$f" | sed -n '1,200p' || true
+                tar -xOzf "$f" "*/PKG-INFO" 2>/dev/null || tar -xOf "$f" PKG-INFO 2>/dev/null || echo "(no PKG-INFO)"
+                ;;
+              *)
+                echo "(unknown archive type)"
+                ;;
+            esac
+          done
+
       - name: Publish to TestPyPI
         env:
           TWINE_USERNAME: __token__
@@ -93,6 +118,29 @@ jobs:
 
       - name: List dist
         run: ls -lah dist || ls -lah || true
+
+      - name: Check distribution metadata (twine check) and dump PKG-INFO/METADATA
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          echo "== twine check output =="
+          python -m twine check dist/* || true
+          echo "== raw metadata dump =="
+          for f in dist/*; do
+            echo "---- $f ----"
+            case "${f}" in
+              *.whl)
+                unzip -p "$f" "*/METADATA" || echo "(no METADATA)"
+                ;;
+              *.tar.gz|*.zip)
+                tar tzf "$f" | sed -n '1,200p' || true
+                tar -xOzf "$f" "*/PKG-INFO" 2>/dev/null || tar -xOf "$f" PKG-INFO 2>/dev/null || echo "(no PKG-INFO)"
+                ;;
+              *)
+                echo "(unknown archive type)"
+                ;;
+            esac
+          done
 
       - name: Publish to PyPI
         env:

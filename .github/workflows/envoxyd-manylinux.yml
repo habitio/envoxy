@@ -19,6 +19,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare package-dir (ensure pyproject.toml in vendors/envoxyd)
+        run: |
+          PKG_ROOT="vendors/envoxyd"
+          if [ -f pyproject.toml ] && [ -d "$PKG_ROOT" ]; then
+            if [ ! -f "$PKG_ROOT/pyproject.toml" ]; then
+              echo "CI: copying top-level pyproject.toml into $PKG_ROOT"
+              cp pyproject.toml "$PKG_ROOT/pyproject.toml"
+            else
+              echo "CI: $PKG_ROOT/pyproject.toml already present"
+            fi
+          else
+            echo "CI: pyproject.toml or $PKG_ROOT missing; skipping copy"
+          fi
+
       - name: Run cibuildwheel (manylinux)
         uses: pypa/cibuildwheel@v3.2.1
         with:
