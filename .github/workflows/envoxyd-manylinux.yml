@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run cibuildwheel (manylinux)
-        uses: pypa/cibuildwheel@main
+        uses: pypa/cibuildwheel@v3.2.1
         with:
           package-dir: vendors/envoxyd
           output-dir: wheelhouse
@@ -29,7 +29,8 @@ jobs:
           CIBW_BEFORE_BUILD: "/project/.github/ci/patch_uwsgi.sh"
           # only build CPython 3.12 manylinux wheels
           CIBW_BUILD: "cp312-*"
-          CIBW_PLATFORM: "manylinux"
+          # use the supported 'linux' platform (cibuildwheel v3 expects 'linux')
+          CIBW_PLATFORM: "linux"
           CIBW_BUILD_VERBOSITY: "1"
 
       - name: Upload wheelhouse

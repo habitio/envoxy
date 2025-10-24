@@ -56,6 +56,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: envoxy-dist
+          path: dist
 
       - name: List dist
         run: ls -lah dist || ls -lah || true
@@ -88,6 +89,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: envoxy-dist
+          path: dist
 
       - name: List dist
         run: ls -lah dist || ls -lah || true
