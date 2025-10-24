@@ -19,7 +19,7 @@ jobs:
       # Run your in-repo pre-build script inside the manylinux container so
       # the uWSGI source can be patched there (the path /project points to the
       # checked-out repository inside the manylinux container).
-      CIBW_BEFORE_BUILD: "cd {package}/uwsgi && /bin/sh /project/docker/dev/patch_and_build.sh"
+      CIBW_BEFORE_BUILD: "/bin/sh /project/.github/ci/patch_uwsgi.sh"
       # Choose Linux platform (manylinux) — cibuildwheel will pick an appropriate manylinux image
       CIBW_PLATFORM: linux
 
@@ -48,12 +48,10 @@ jobs:
         with:
           # Where to place produced wheels inside the runner
           output-dir: wheelhouse
-          platform: linux
-          build: cp312-*
         env:
           # Run in-repo pre-build script inside manylinux container. The repo is mounted
           # at /project inside the manylinux image, so point to the CI script we just added.
-          CIBW_BEFORE_BUILD: "cd {package}/uwsgi && /bin/sh /project/.github/ci/patch_uwsgi.sh"
+          CIBW_BEFORE_BUILD: "/bin/sh /project/.github/ci/patch_uwsgi.sh"
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4

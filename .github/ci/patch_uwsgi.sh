@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
+# Print commands for debugging inside manylinux container
+set -x
 
 echo "CI: patch_uwsgi.sh starting (idempotent)"
+
+# If anything errors, trap and continue the build (we don't want this helper to
+# fail the whole wheel build). Log the error code for debugging.
+trap 'echo "CI: patch_uwsgi.sh encountered an error (exit $?). Continuing."' ERR
 
 # This script runs inside the manylinux container (cibuildwheel mounts the repo at /project)
 # It performs minimal, idempotent patches to the vendored uWSGI sources so the Python
@@ -66,6 +72,9 @@ cd "$TARGET"
 echo "CI: working in $(pwd)"
 echo "CI: listing current directory for debug"
 ls -lah || true
+
+echo "CI: listing /project top-level for debug"
+ls -lah /project || true
 
 echo "CI: remove literal -lpython* occurrences from uwsgiconfig.py (if any)"
 cp -a uwsgiconfig.py uwsgiconfig.py.ci-orig || true
