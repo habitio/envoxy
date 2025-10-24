@@ -118,6 +118,13 @@ jobs:
         run: |
           echo "Contents of dist/:"; ls -lah dist/ || true
           echo "Contents of vendors/dist/:"; ls -lah vendors/dist/ || true
+      - name: Ensure TestPyPI token is present
+        run: |
+          if [ -z "${{ secrets.TEST_PYPI_API_TOKEN || '' }}" ]; then
+            echo "ERROR: TEST_PYPI_API_TOKEN secret is not set."
+            echo "Create a TestPyPI API token at https://test.pypi.org/manage/account/token/ and add it to this repository as the secret TEST_PYPI_API_TOKEN."
+            exit 1
+          fi
 
       - name: Publish envoxy to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -165,6 +172,13 @@ jobs:
         run: |
           echo "Contents of dist/:"; ls -lah dist/ || true
           echo "Contents of vendors/dist/:"; ls -lah vendors/dist/ || true
+      - name: Ensure PyPI token is present
+        run: |
+          if [ -z "${{ secrets.PYPI_API_TOKEN || '' }}" ]; then
+            echo "ERROR: PYPI_API_TOKEN secret is not set."
+            echo "Create a PyPI API token at https://pypi.org/manage/account/token/ and add it to this repository as the secret PYPI_API_TOKEN."
+            exit 1
+          fi
 
       - name: Publish envoxy to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
