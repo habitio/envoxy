@@ -16,6 +16,11 @@ trap 'echo "CI: patch_uwsgi.sh encountered an error (exit $?). Continuing."' ERR
 
 PY_BIN=${1:-python}
 
+# Upgrade pip, setuptools, and wheel inside the manylinux container to ensure modern
+# packaging tools are used (avoids legacy License-File metadata generation).
+echo "CI: upgrading pip, setuptools, wheel in manylinux container"
+${PY_BIN} -m pip install --upgrade pip setuptools wheel || echo "CI: pip upgrade failed (non-fatal)"
+
 # Ensure the project directory being built (e.g. /project/vendors) has a pyproject.toml
 # by copying the centralized /project/pyproject.toml into it when missing. This allows
 # PEP 517 isolated builds inside the manylinux container to discover the build backend.
@@ -159,5 +164,44 @@ pprint.pprint(info)
 import sys
 print('python:', sys.version)
 PY
+
+echo "CI: attempt to build uWSGI binary if the vendor expects it"
+# The vendor package expects a binary at vendors/src/envoxyd/envoxyd
+DEST_BIN="/project/vendors/src/envoxyd/envoxyd"
+if [ ! -f "$DEST_BIN" ]; then
+    echo "CI: $DEST_BIN not present; attempting build in $TARGET"
+    if [ -f "./uwsgiconfig.py" ]; then
+        echo "CI: running uwsgiconfig.py --build flask"
+        "${PY_BIN}" uwsgiconfig.py --build flask || echo "CI: uwsgiconfig build failed (continuing)"
+
+        # common output names
+        for cand in uwsgi uwsgi-core uwsgi.bin; do
+            if [ -f "$cand" ]; then
+                mkdir -p "$(dirname "$DEST_BIN")"
+                cp "$cand" "$DEST_BIN" || true
+                chmod +x "$DEST_BIN" || true
+                echo "CI: copied built $cand to $DEST_BIN"
+                break
+            fi
+        done
+
+        # fallback: search for any executable named uwsgi* in the tree
+        if [ ! -f "$DEST_BIN" ]; then
+            foundbin=$(find . -maxdepth 3 -type f -executable -name 'uwsgi*' -print -quit || true)
+            if [ -n "$foundbin" ]; then
+                mkdir -p "$(dirname "$DEST_BIN")"
+                cp "$foundbin" "$DEST_BIN" || true
+                chmod +x "$DEST_BIN" || true
+                echo "CI: copied found $foundbin to $DEST_BIN"
+            else
+                echo "CI: no uwsgi binary found after build"
+            fi
+        fi
+    else
+        echo "CI: no uwsgiconfig.py in $TARGET; skipping build"
+    fi
+else
+    echo "CI: $DEST_BIN already present; skipping build"
+fi
 
 echo "CI: patch_uwsgi.sh complete"

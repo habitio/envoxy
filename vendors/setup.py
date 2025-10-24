@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 from setuptools import setup, find_packages
 try:
     from wheel.bdist_wheel import bdist_wheel
@@ -84,6 +85,18 @@ _author_email = _vendor_table.get("author-email")
 _url = _vendor_table.get("url")
 _requires_python = _vendor_table["requires-python"]
 _dependencies = _vendor_table["dependencies"]
+
+# Prefer an explicit license text from the top-level [project] table so that
+# setuptools will write a standard License field into METADATA instead of
+# emitting a non-standard License-File entry. Fall back to MIT if missing.
+_project_license = None
+_proj_lic_meta = _pdata.get('project', {}).get('license')
+if isinstance(_proj_lic_meta, dict):
+    _project_license = _proj_lic_meta.get('text') or _proj_lic_meta.get('file')
+elif isinstance(_proj_lic_meta, str):
+    _project_license = _proj_lic_meta
+if not _project_license:
+    _project_license = "MIT"
 if _HAS_WHEEL:
     class NonPureWheel(bdist_wheel):
         def finalize_options(self):
@@ -105,6 +118,7 @@ setup(
     author=_author,
     author_email=_author_email,
     url=_url,
+    license=_project_license,
     packages=packages,
     install_requires=_dependencies,
     package_dir={
