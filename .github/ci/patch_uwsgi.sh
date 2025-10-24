@@ -171,11 +171,24 @@ DEST_BIN="/project/vendors/src/envoxyd/envoxyd"
 if [ ! -f "$DEST_BIN" ]; then
     echo "CI: $DEST_BIN not present; attempting build in $TARGET"
     if [ -f "./uwsgiconfig.py" ]; then
-        echo "CI: running uwsgiconfig.py --build flask"
-        "${PY_BIN}" uwsgiconfig.py --build flask || {
-            echo "ERROR: uwsgiconfig build failed!"
+        echo "CI: running uwsgiconfig.py --build flask (with verbose output)"
+        echo "CI: listing current directory before build:"
+        ls -lah . | head -20
+        
+        # Run the build with full output visible
+        "${PY_BIN}" uwsgiconfig.py --build flask 2>&1 | tee /tmp/uwsgi-build.log || {
+            echo "ERROR: uwsgiconfig build failed! Last 50 lines of output:"
+            tail -50 /tmp/uwsgi-build.log || true
             exit 1
         }
+        
+        echo "CI: build command completed. Listing directory after build:"
+        ls -lah . | head -30
+        echo "CI: build command completed. Listing directory after build:"
+        ls -lah . | head -30
+        
+        echo "CI: searching for any files named uwsgi* or containing 'uwsgi' in name:"
+        find . -maxdepth 2 -type f -iname '*uwsgi*' -ls || true
 
         # common output names
         for cand in uwsgi uwsgi-core uwsgi.bin; do
