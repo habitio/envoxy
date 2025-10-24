@@ -20,6 +20,8 @@ jobs:
       # the uWSGI source can be patched there (the path /project points to the
       # checked-out repository inside the manylinux container).
       CIBW_BEFORE_BUILD: "/bin/sh /project/.github/ci/patch_uwsgi.sh"
+      # Enable verbose backend logs to help diagnose why builds produce pure-Python wheels
+      CIBW_BUILD_VERBOSITY: "1"
       # Choose Linux platform (manylinux) — cibuildwheel will pick an appropriate manylinux image
       CIBW_PLATFORM: linux
 
@@ -46,6 +48,8 @@ jobs:
         # while we pin to a specific release tag (recommended) later.
         uses: pypa/cibuildwheel@main
         with:
+          # Build the envoxyd package located under vendors/envoxyd inside the repo
+          package-dir: vendors/envoxyd
           # Where to place produced wheels inside the runner
           output-dir: wheelhouse
         env:
