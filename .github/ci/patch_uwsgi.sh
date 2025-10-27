@@ -47,23 +47,23 @@ if [ -n "${PKG_MGR}" ]; then
         apt-get)
             apt-get update || true
             DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-                build-essential gcc make pkg-config python3-dev libpython3-dev \ 
+                build-essential gcc make pkg-config python3-dev libpython3-dev \
                 libsystemd-dev libssl-dev zlib1g-dev libpq-dev || true
             ;;
         yum|dnf)
-            ${PKG_MGR} install -y gcc make pkgconfig python3-devel redhat-rpm-config \ 
+            ${PKG_MGR} install -y gcc make pkgconfig python3-devel redhat-rpm-config \
                 systemd-devel openssl-devel zlib-devel postgresql-devel || true
             ;;
         microdnf)
-            microdnf install -y gcc make pkg-config python3-devel systemd-devel \ 
+            microdnf install -y gcc make pkg-config python3-devel systemd-devel \
                 openssl-devel zlib-devel postgresql-devel || true
             ;;
         zypper)
-            zypper --non-interactive install -y gcc make pkg-config python3-devel \ 
+            zypper --non-interactive install -y gcc make pkg-config python3-devel \
                 libsystemd-devel libopenssl-devel zlib-devel postgresql-devel || true
             ;;
         apk)
-            apk add --no-cache build-base pkgconfig python3-dev libressl-dev zlib-dev \ 
+            apk add --no-cache build-base pkgconfig python3-dev libressl-dev zlib-dev \
                 postgresql-dev linux-headers || true
             ;;
         *)
