@@ -33,15 +33,8 @@ _author_email = _authors[0].get("email") if _authors else None
 _urls = _pyproject_data.get("urls", {})
 _homepage = _urls.get("Homepage")
 
-# Extract license (PEP 621 `license` can be a table or string). Prefer license.text
-# so setuptools writes a standard License/METADATA field instead of a legacy
-# License-File entry.
-_license_meta = _pyproject_data.get("license")
-_license = None
-if isinstance(_license_meta, dict):
-    _license = _license_meta.get("text") or _license_meta.get("file")
-elif isinstance(_license_meta, str):
-    _license = _license_meta
+# Extract license - now a simple string per setuptools requirements
+_license = _pyproject_data.get("license")
 
 # systemd-python is optional (journald / watchdog integration). Kept as extra.
 

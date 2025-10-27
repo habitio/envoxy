@@ -86,17 +86,11 @@ _url = _vendor_table.get("url")
 _requires_python = _vendor_table["requires-python"]
 _dependencies = _vendor_table["dependencies"]
 
-# Prefer an explicit license text from the top-level [project] table so that
-# setuptools will write a standard License field into METADATA instead of
-# emitting a non-standard License-File entry. Fall back to MIT if missing.
-_project_license = None
-_proj_lic_meta = _pdata.get('project', {}).get('license')
-if isinstance(_proj_lic_meta, dict):
-    _project_license = _proj_lic_meta.get('text') or _proj_lic_meta.get('file')
-elif isinstance(_proj_lic_meta, str):
-    _project_license = _proj_lic_meta
-if not _project_license:
-    _project_license = "MIT"
+# Extract license as a simple string from the top-level [project] table.
+# The license-files = [] setting in [tool.setuptools] prevents setuptools
+# from auto-including LICENSE and generating legacy License-File metadata.
+_project_license = _pdata.get('project', {}).get('license', 'MIT')
+
 if _HAS_WHEEL:
     class NonPureWheel(bdist_wheel):
         def finalize_options(self):
