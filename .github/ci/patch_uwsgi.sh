@@ -247,6 +247,17 @@ DEST_BIN="/project/vendors/src/envoxyd/envoxyd"
 if [ ! -f "$DEST_BIN" ]; then
     echo "CI: $DEST_BIN not present; attempting build in $TARGET"
     if [ -f "./uwsgiconfig.py" ]; then
+        # Copy buildconf and embed directories from envoxyd templates into uwsgi source
+        echo "CI: copying buildconf and embed from envoxyd templates"
+        if [ -d "/project/vendors/envoxyd/templates/uwsgi/buildconf" ]; then
+            cp -r /project/vendors/envoxyd/templates/uwsgi/buildconf . || true
+            echo "CI: copied buildconf directory"
+        fi
+        if [ -d "/project/vendors/envoxyd/templates/uwsgi/embed" ]; then
+            cp -r /project/vendors/envoxyd/templates/uwsgi/embed . || true
+            echo "CI: copied embed directory"
+        fi
+        
         echo "CI: running uwsgiconfig.py --build flask (with verbose output)"
         echo "CI: listing current directory before build:"
         ls -lah . | head -20
