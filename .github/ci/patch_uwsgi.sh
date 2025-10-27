@@ -184,81 +184,93 @@ else
     echo "CI: ${UWSGI_CFG_SRC} not found; skipping uwsgiconfig sed patch"
 fi
 
-echo "CI: ensure plugins/python/uwsgiplugin.py has idempotent append-to-LIBS logic"
-PLUGIN_FILE="$TARGET/plugins/python/uwsgiplugin.py"
-if [ -f "${PLUGIN_FILE}" ]; then
-    if ! grep -q "# ci: replace dynamic python lib with static" "${PLUGIN_FILE}"; then
-        cp -a "${PLUGIN_FILE}" "${PLUGIN_FILE}.ci-orig" || true
-        cat >> "${PLUGIN_FILE}" <<'PYAPP'
-# ci: replace dynamic python lib with static
-try:
-    import sysconfig, os, sys
-    _ldlib = sysconfig.get_config_var('LDLIBRARY') or ''
-    _libdir = sysconfig.get_config_var('LIBDIR') or ''
-    
-    # Remove any -lpythonX.Y entries from LIBS
-    _orig_count = len(LIBS)
-    LIBS[:] = [lib for lib in LIBS if not (isinstance(lib, str) and lib.startswith('-lpython'))]
-    _removed = _orig_count - len(LIBS)
-    if _removed > 0:
-        sys.stderr.write(f"CI: Removed {_removed} dynamic Python library refs from LIBS\n")
-        sys.stderr.flush()
-    
-    # Find static library path
-    candidates = []
-    if _ldlib and _libdir:
-        candidates.append(os.path.join(_libdir, _ldlib))
-    # include /opt/_internal (manylinux layout)
-    if _ldlib:
-        for base in ['/opt/_internal/cpython-3.12.12', '/opt/_internal']:
-            candidates.append(os.path.join(base, 'lib', _ldlib))
-    # Hardcoded fallback
-    candidates.extend([
-        '/opt/_internal/cpython-3.12.12/lib/libpython3.12.a',
-        '/opt/_internal/lib/libpython3.12.a',
-    ])
-    
-    # Add the static library - CRITICAL: must be at the END of LIBS for proper linking order
-    static_lib_added = False
-    for _c in candidates:
-        try:
-            if _c and os.path.exists(_c):
-                if _c not in LIBS:
-                    LIBS.append(_c)
-                    sys.stderr.write(f"CI: Added static Python library to LIBS: {_c}\n")
-                    sys.stderr.flush()
-                    static_lib_added = True
-                    # Verify
-                    if _c in LIBS:
-                        sys.stderr.write(f"CI: VERIFIED static library is in LIBS array\n")
-                        sys.stderr.flush()
+echo "CI: Patch uwsgiconfig.py to inject static Python library before linking"
+UWSGI_CONFIG="$TARGET/uwsgiconfig.py"
+if [ -f "${UWSGI_CONFIG}" ]; then
+    if ! grep -q "# CI: Inject static Python library" "${UWSGI_CONFIG}"; then
+        cp -a "${UWSGI_CONFIG}" "${UWSGI_CONFIG}.ci-orig" || true
+        
+        # Find the line with '*** uWSGI linking ***' and inject our code before it
+        python3 <<'PYPATCH'
+import sys
+import os
+
+uwsgi_config = os.environ.get('UWSGI_CONFIG', 'vendors/uwsgi/uwsgiconfig.py')
+with open(uwsgi_config, 'r') as f:
+    lines = f.readlines()
+
+# Find the line with 'print("*** uWSGI linking ***")'
+inject_index = None
+for i, line in enumerate(lines):
+    if '*** uWSGI linking ***' in line and 'print' in line:
+        inject_index = i
+        break
+
+if inject_index is None:
+    print("ERROR: Could not find linking section in uwsgiconfig.py", file=sys.stderr)
+    sys.exit(1)
+
+# Inject our static library code just before the linking print statement
+injection = '''    # CI: Inject static Python library before linking
+    import sysconfig
+    try:
+        # Remove dynamic Python library references
+        libs[:] = [l for l in libs if not (isinstance(l, str) and l.startswith('-lpython'))]
+        print("CI: Removed dynamic -lpython* from libs", file=sys.stderr)
+        
+        # Find and add static Python library
+        _ldlib = sysconfig.get_config_var('LDLIBRARY') or ''
+        _libdir = sysconfig.get_config_var('LIBDIR') or ''
+        
+        candidates = []
+        if _ldlib and _libdir:
+            candidates.append(os.path.join(_libdir, _ldlib))
+        candidates.extend([
+            '/opt/_internal/cpython-3.12.12/lib/libpython3.12.a',
+            '/opt/_internal/lib/libpython3.12.a',
+        ])
+        
+        static_lib = None
+        for c in candidates:
+            if c and os.path.exists(c):
+                static_lib = c
                 break
-        except Exception as ex:
-            sys.stderr.write(f"CI: Error checking {_c}: {ex}\n")
-            sys.stderr.flush()
+        
+        if static_lib and static_lib not in libs:
+            libs.append(static_lib)
+            print(f"CI: Added static Python library: {static_lib}", file=sys.stderr)
+        elif not static_lib:
+            print(f"CI: WARNING - Static Python library not found! Searched: {candidates}", file=sys.stderr)
+        
+        print(f"CI: Total libs count: {len(libs)}", file=sys.stderr)
+        print(f"CI: Python-related libs: {[l for l in libs if 'python' in str(l).lower() or str(l).endswith('.a')]}", file=sys.stderr)
+    except Exception as ex:
+        import traceback
+        print(f"CI: Error injecting static library: {ex}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
     
-    if not static_lib_added:
-        sys.stderr.write(f"CI: ERROR - No static Python library found! Searched: {candidates}\n")
-        sys.stderr.flush()
-    
-    # Debug: show final Python-related libs
-    _py_libs = [str(l) for l in LIBS if 'python' in str(l).lower() or str(l).endswith('.a')]
-    sys.stderr.write(f"CI: Final LIBS Python-related entries ({len(_py_libs)}): {_py_libs}\n")
-    sys.stderr.write(f"CI: Total LIBS count: {len(LIBS)}\n")
-    sys.stderr.flush()
-            
-except Exception as e:
-    import traceback
-    sys.stderr.write(f"CI: Error patching LIBS: {e}\n")
-    traceback.print_exc(file=sys.stderr)
-    sys.stderr.flush()
-PYAPP
-        echo "CI: patched ${PLUGIN_FILE}"
+'''
+
+lines.insert(inject_index, injection)
+
+with open(uwsgi_config, 'w') as f:
+    f.writelines(lines)
+
+print(f"Successfully patched {uwsgi_config}")
+PYPATCH
+        
+        if [ $? -eq 0 ]; then
+            echo "CI: Successfully patched ${UWSGI_CONFIG}"
+        else
+            echo "ERROR: Failed to patch ${UWSGI_CONFIG}"
+            exit 1
+        fi
     else
-        echo "CI: ${PLUGIN_FILE} already patched"
+        echo "CI: ${UWSGI_CONFIG} already patched"
     fi
 else
-    echo "CI: ${PLUGIN_FILE} not found; skipping plugin patch"
+    echo "CI: ${UWSGI_CONFIG} not found; cannot patch"
+    exit 1
 fi
 
 echo "CI: diagnostics: sysconfig variables (LDLIBRARY, LIBDIR)"
