@@ -33,8 +33,9 @@ _author_email = _authors[0].get("email") if _authors else None
 _urls = _pyproject_data.get("urls", {})
 _homepage = _urls.get("Homepage")
 
-# Extract license - now a simple string per setuptools requirements
-_license = _pyproject_data.get("license")
+# Set license directly to avoid setuptools generating non-standard metadata.
+# The license is declared via classifiers in pyproject.toml.
+_license = "MIT"
 
 # systemd-python is optional (journald / watchdog integration). Kept as extra.
 

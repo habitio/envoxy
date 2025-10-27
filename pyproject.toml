@@ -22,10 +22,10 @@ authors = [
     { name = "Laoska Guadamuz", email = "laoska@benyasca.com" },
 ]
 
-# License as a simple string (setuptools compatibility). The license-files = []
-# setting below prevents setuptools from auto-including LICENSE and generating
-# the legacy License-File metadata field that TestPyPI/PyPI reject.
-license = "MIT"
+# License specified via classifier to avoid setuptools generating non-standard
+# License-File or License-Expression metadata fields that TestPyPI/PyPI reject.
+# The actual license text is in setup.py and the LICENSE file in the repo.
+classifiers = ["License :: OSI Approved :: MIT License"]
 
 # Top-level (runtime) dependencies. Keep this file as the source-of-truth and
 # generate a pinned requirements.txt for Docker/CI using pip-tools (pip-compile).
