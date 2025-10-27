@@ -1,157 +1,311 @@
-# Envoxy Development Environment
+# Envoxy Local Development Environment# Envoxy Development Environment
 
-Complete Docker-based development environment for building, testing, and publishing envoxy packages.
 
-## Quick Start
 
-```bash
-# Start development services
+Docker-based local development environment for testing envoxy applications.Complete Docker-based development environment for building, testing, and publishing envoxy packages.
+
+
+
+## Quick Start## Quick Start
+
+
+
+```bash```bash
+
+cd docker/dev# Start development services
+
 cd docker/dev
+
+# Start all servicesdocker compose up -d
+
 docker compose up -d
 
 # Load helper functions
-source dev.sh
-```
 
-## Services
+# View logssource dev.sh
 
-- **envoxy** - Runtime environment with uwsgi (http://localhost:8080)
+docker compose logs -f envoxy```
+
+
+
+# Stop services## Services
+
+docker compose down
+
+```- **envoxy** - Runtime environment with uwsgi (http://localhost:8080)
+
 - **postgres** - PostgreSQL database (localhost:5432)
-- **redis** - Redis cache (localhost:6379)
+
+## Services- **redis** - Redis cache (localhost:6379)
+
 - **builder** - Package building environment (on-demand)
+
+### Core Services
 
 Optional tools (use `--profile tools`):
 
-- **pgadmin** - PostgreSQL GUI (http://localhost:5050)
+- **envoxy** - Runtime environment with uwsgi (http://localhost:8080)
+
+- **postgres** - PostgreSQL database (localhost:5432)- **pgadmin** - PostgreSQL GUI (http://localhost:5050)
+
+- **redis** - Redis cache (localhost:6379)- **redis-commander** - Redis GUI (http://localhost:8081)
+
+
+
+### Optional Tools (use `--profile tools`)## Development Workflow
+
+
+
+- **pgadmin** - PostgreSQL GUI (http://localhost:5050)### 1. Build Packages
+
+  - Email: `admin@envoxy.local`
+
+  - Password: `admin`Build envoxy and envoxyd wheel packages:
+
 - **redis-commander** - Redis GUI (http://localhost:8081)
 
-## Development Workflow
-
-### 1. Build Packages
-
-Build envoxy and envoxyd wheel packages:
-
 ```bash
-envoxy-build
-# or
-docker compose run --rm --profile tools builder make packages
-```
 
-This creates:
+Start with tools:envoxy-build
 
-- `dist/envoxy-*.whl` - Envoxy framework package
+```bash# or
+
+docker compose --profile tools up -ddocker compose run --rm --profile tools builder make packages
+
+``````
+
+
+
+## ConfigurationThis creates:
+
+
+
+### Application Configuration- `dist/envoxy-*.whl` - Envoxy framework package
+
 - `vendors/dist/envoxyd-*.whl` - Envoxyd daemon package
+
+Edit `envoxy.json` to configure your application:
 
 ### 2. Test Locally
 
-Install to local /opt/envoxy environment:
+```json
 
-```bash
-envoxy-install-local
-# or
-docker compose run --rm --profile tools builder make install
-```
+{Install to local /opt/envoxy environment:
 
-### 3. Export Packages
+  "modules": ["/path/to/your/views.py"],
 
-Export built packages to your host machine:
+  "psql_servers": {```bash
 
-```bash
-envoxy-export ./my-packages
-```
+    "default": {envoxy-install-local
 
-### 4. Publish to PyPI
+      "host": "postgres",# or
 
-Publish to test PyPI (for testing):
+      "port": "5432",docker compose run --rm --profile tools builder make install
 
-```bash
+      "db": "envoxy",```
+
+      "user": "envoxy",
+
+      "passwd": "dev_password"### 3. Export Packages
+
+    }
+
+  },Export built packages to your host machine:
+
+  "redis_servers": {
+
+    "default": {```bash
+
+      "bind": "redis:6379",envoxy-export ./my-packages
+
+      "db": "0"```
+
+    }
+
+  }### 4. Publish to PyPI
+
+}
+
+```Publish to test PyPI (for testing):
+
+
+
+### Mount Your Application```bash
+
 envoxy-publish testpypi
-```
 
-Publish to production PyPI:
+To develop your own application, mount your code in `docker-compose.yml`:```
 
-```bash
-envoxy-publish pypi
+
+
+```yamlPublish to production PyPI:
+
+envoxy:
+
+  volumes:```bash
+
+    - ../../src:/usr/envoxy/srcenvoxy-publish pypi
+
+    - /path/to/your/app:/usr/envoxy/app```
+
 ```
 
 **Note**: Requires PyPI credentials configured in `~/.pypirc`
 
+### Database Access
+
 ## Helper Commands
 
-Load the helper functions:
+PostgreSQL credentials:
 
-```bash
-source dev.sh
-```
+- Host: `localhost` (or `postgres` from within containers)Load the helper functions:
 
-Available commands:
+- Port: `5432`
 
-- `envoxy-build` - Build packages
-- `envoxy-install-local` - Install to /opt/envoxy
-- `envoxy-publish [repo]` - Publish to PyPI
+- Database: `envoxy````bash
+
+- User: `envoxy`source dev.sh
+
+- Password: `dev_password````
+
+
+
+### Redis AccessAvailable commands:
+
+
+
+Redis connection:- `envoxy-build` - Build packages
+
+- Host: `localhost` (or `redis` from within containers)- `envoxy-install-local` - Install to /opt/envoxy
+
+- Port: `6379`- `envoxy-publish [repo]` - Publish to PyPI
+
 - `envoxy-export [dir]` - Export packages
-- `envoxy-clean` - Clean build artifacts
+
+## Building & Publishing Packages- `envoxy-clean` - Clean build artifacts
+
 - `envoxy-test` - Run tests
-- `envoxy-shell` - Interactive shell
-- `envoxy-help` - Show help
+
+Package building and publishing is handled by GitHub Actions. See `.github/workflows/` for:- `envoxy-shell` - Interactive shell
+
+- `envoxy-publish.yml` - Publishes envoxy package to PyPI- `envoxy-help` - Show help
+
+- `envoxyd-manylinux.yml` - Builds and publishes envoxyd manylinux wheels
 
 ## Manual Docker Commands
 
-### Build Packages
+To trigger a release, create and push a git tag:
 
-```bash
-docker compose run --rm --profile tools builder bash -c "
+```bash### Build Packages
+
+git tag v0.5.10
+
+git push origin v0.5.10```bash
+
+```docker compose run --rm --profile tools builder bash -c "
+
     make packages
-"
+
+## Troubleshooting"
+
 ```
+
+### Service won't start
 
 ### Install Locally
 
-```bash
-docker compose run --rm --profile tools builder bash -c "
-    make install
+Check logs:
+
+```bash```bash
+
+docker compose logs envoxydocker compose run --rm --profile tools builder bash -c "
+
+```    make install
+
 "
-```
 
-### Publish to PyPI
+### Database connection issues```
+
+
+
+Ensure postgres is healthy:### Publish to PyPI
 
 ```bash
-docker compose run --rm --profile tools builder bash -c "
+
+docker compose ps postgres```bash
+
+```docker compose run --rm --profile tools builder bash -c "
+
     pip install twine &&
-    twine upload --repository testpypi dist/* &&
-    cd vendors && twine upload --repository testpypi dist/*
-"
+
+Reset database:    twine upload --repository testpypi dist/* &&
+
+```bash    cd vendors && twine upload --repository testpypi dist/*
+
+docker compose down -v"
+
+docker compose up -d```
+
 ```
 
 ### Interactive Development
 
-```bash
-# Open shell in builder
-docker compose run --rm --profile tools builder /bin/bash
+### Port conflicts
 
-# Inside container:
-source /opt/envoxy/bin/activate
-make packages
+```bash
+
+If ports 5432, 6379, or 8080 are already in use, modify them in `docker-compose.yml`:# Open shell in builder
+
+```yamldocker compose run --rm --profile tools builder /bin/bash
+
+postgres:
+
+  ports:# Inside container:
+
+    - "15432:5432"  # Use different host portsource /opt/envoxy/bin/activate
+
+```make packages
+
 ```
+
+## Development Workflow
 
 ## Configuration
 
-### PyPI Credentials
+1. Start services: `docker compose up -d`
 
-Create `~/.pypirc` in your home directory:
+2. Make code changes in your local editor### PyPI Credentials
+
+3. Changes are reflected immediately (volumes are mounted)
+
+4. View logs: `docker compose logs -f envoxy`Create `~/.pypirc` in your home directory:
+
+5. Stop services: `docker compose down`
 
 ```ini
-[distutils]
+
+## Cleaning Up[distutils]
+
 index-servers =
-    pypi
-    testpypi
 
-[pypi]
+Remove all containers and volumes:    pypi
+
+```bash    testpypi
+
+docker compose down -v
+
+```[pypi]
+
 username = __token__
-password = pypi-your-token-here
 
-[testpypi]
-repository = https://test.pypi.org/legacy/
+Remove images:password = pypi-your-token-here
+
+```bash
+
+docker compose down --rmi all[testpypi]
+
+```repository = https://test.pypi.org/legacy/
+
 username = __token__
 password = pypi-your-test-token-here
 ```
