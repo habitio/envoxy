@@ -184,22 +184,83 @@ else
     echo "CI: ${UWSGI_CFG_SRC} not found; skipping uwsgiconfig sed patch"
 fi
 
-echo "CI: Patch uwsgiconfig.py to inject static Python library before linking"
+echo "CI: Build static Python library for portable uWSGI embedding"
 
-# Debug: Check for static library files before patching
-echo "CI: Checking for static Python libraries in filesystem:"
-echo "CI: Searching /opt/_internal for libpython*.a:"
-find /opt/_internal -name 'libpython*.a' 2>/dev/null || echo "CI: No libpython*.a found in /opt/_internal"
-echo "CI: Searching /opt/python for libpython*.a:"
-find /opt/python -name 'libpython*.a' 2>/dev/null || echo "CI: No libpython*.a found in /opt/python"
-echo "CI: Searching entire /opt for libpython*.a:"
-find /opt -name 'libpython*.a' 2>/dev/null | head -10 || echo "CI: No libpython*.a found in /opt"
-echo "CI: Python executable location:"
-which python3
-echo "CI: Python sysconfig LIBDIR:"
-python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
-echo "CI: Checking if LIBDIR path exists:"
-ls -la /opt/_internal/cpython-3.12.12/lib/ 2>/dev/null | head -20 || echo "CI: LIBDIR directory does not exist"
+# Get Python version from running interpreter
+PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+PYTHON_SHORT_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "CI: Detected Python version: $PYTHON_VERSION (short: $PYTHON_SHORT_VERSION)"
+
+# Set build paths
+STATIC_PYTHON_PREFIX="/tmp/python-static-${PYTHON_VERSION}"
+STATIC_LIB_PATH="${STATIC_PYTHON_PREFIX}/lib/libpython${PYTHON_SHORT_VERSION}.a"
+
+# Check if static library already exists (from cache or previous run)
+if [ -f "${STATIC_LIB_PATH}" ]; then
+    echo "CI: Static Python library already exists at ${STATIC_LIB_PATH}"
+else
+    echo "CI: Building static Python ${PYTHON_VERSION} from source..."
+    
+    # Download Python source
+    PYTHON_TAR_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
+    PYTHON_SRC_DIR="/tmp/Python-${PYTHON_VERSION}"
+    
+    echo "CI: Downloading Python source from ${PYTHON_TAR_URL}"
+    curl -L -o "/tmp/Python-${PYTHON_VERSION}.tgz" "${PYTHON_TAR_URL}" || {
+        echo "CI: ERROR - Failed to download Python source"
+        exit 1
+    }
+    
+    echo "CI: Extracting Python source..."
+    tar -xzf "/tmp/Python-${PYTHON_VERSION}.tgz" -C /tmp || {
+        echo "CI: ERROR - Failed to extract Python source"
+        exit 1
+    }
+    
+    cd "${PYTHON_SRC_DIR}" || {
+        echo "CI: ERROR - Failed to cd to Python source directory"
+        exit 1
+    }
+    
+    echo "CI: Configuring Python with --enable-static..."
+    ./configure \
+        --prefix="${STATIC_PYTHON_PREFIX}" \
+        --enable-static \
+        --disable-shared \
+        --enable-optimizations \
+        --with-lto 2>&1 | tail -50 || {
+        echo "CI: ERROR - Python configure failed"
+        exit 1
+    }
+    
+    echo "CI: Building Python (this may take several minutes)..."
+    make -j$(nproc) 2>&1 | tail -100 || {
+        echo "CI: ERROR - Python build failed"
+        exit 1
+    }
+    
+    echo "CI: Installing Python to ${STATIC_PYTHON_PREFIX}..."
+    make install 2>&1 | tail -50 || {
+        echo "CI: ERROR - Python install failed"
+        exit 1
+    }
+    
+    # Return to original directory
+    cd "${TARGET}" || exit 1
+    
+    # Verify static library was created
+    if [ -f "${STATIC_LIB_PATH}" ]; then
+        echo "CI: SUCCESS - Static library created at ${STATIC_LIB_PATH}"
+        ls -lh "${STATIC_LIB_PATH}"
+    else
+        echo "CI: ERROR - Static library not found at ${STATIC_LIB_PATH}"
+        echo "CI: Contents of ${STATIC_PYTHON_PREFIX}/lib:"
+        ls -la "${STATIC_PYTHON_PREFIX}/lib/" 2>/dev/null || echo "Directory does not exist"
+        exit 1
+    fi
+fi
+
+echo "CI: Patch uwsgiconfig.py to inject static Python library before linking"
 
 UWSGI_CONFIG="$TARGET/uwsgiconfig.py"
 if [ -f "${UWSGI_CONFIG}" ]; then
@@ -207,13 +268,16 @@ if [ -f "${UWSGI_CONFIG}" ]; then
         cp -a "${UWSGI_CONFIG}" "${UWSGI_CONFIG}.ci-orig" || true
         
         # Find the line with '*** uWSGI linking ***' and inject our code before it
-        # Export UWSGI_CONFIG so Python can access it
+        # Export environment variables for Python script
         export UWSGI_CONFIG
+        export STATIC_LIB_PATH
         python3 <<'PYPATCH'
 import sys
 import os
 
 uwsgi_config = os.environ['UWSGI_CONFIG']
+static_lib_path = os.environ.get('STATIC_LIB_PATH', '')
+
 with open(uwsgi_config, 'r') as f:
     lines = f.readlines()
 
@@ -230,49 +294,29 @@ if inject_index is None:
 
 # Inject our static library code just before the linking print statement
 injection = '''    # CI: Inject static Python library before linking
-    import sysconfig
-    import glob
+    import os
     try:
         # Remove dynamic Python library references
         libs[:] = [l for l in libs if not (isinstance(l, str) and l.startswith('-lpython'))]
         print("CI: Removed dynamic -lpython* from libs", file=sys.stderr)
         
-        # Find static Python library - search common manylinux locations
-        print(f"CI: Python executable: {sys.executable}", file=sys.stderr)
-        print(f"CI: LDLIBRARY={sysconfig.get_config_var('LDLIBRARY')}", file=sys.stderr)
-        print(f"CI: LIBDIR={sysconfig.get_config_var('LIBDIR')}", file=sys.stderr)
+        # Use the static library built in CI
+        static_lib = os.environ.get('STATIC_LIB_PATH', '')
         
-        # Search for libpython*.a in common locations
-        search_paths = [
-            '/opt/_internal/*/lib/libpython*.a',
-            '/opt/_internal/lib/libpython*.a',
-            '/usr/local/lib/libpython*.a',
-        ]
-        
-        _libdir = sysconfig.get_config_var('LIBDIR') or ''
-        if _libdir:
-            search_paths.insert(0, os.path.join(_libdir, 'libpython*.a'))
-        
-        candidates = []
-        for pattern in search_paths:
-            candidates.extend(glob.glob(pattern))
-        
-        print(f"CI: Found static library candidates: {candidates}", file=sys.stderr)
-        
-        # Use the first one found (should be the Python version we're using)
-        static_lib = candidates[0] if candidates else None
-        
-        if static_lib and static_lib not in libs:
-            libs.append(static_lib)
-            print(f"CI: Added static Python library: {static_lib}", file=sys.stderr)
-        elif not static_lib:
-            print(f"CI: WARNING - No static Python library found! Searched patterns: {search_paths}", file=sys.stderr)
+        if static_lib and os.path.isfile(static_lib):
+            print(f"CI: Using CI-built static library: {static_lib}", file=sys.stderr)
+            if static_lib not in libs:
+                libs.append(static_lib)
+                print(f"CI: Added static library to libs", file=sys.stderr)
+        else:
+            print(f"CI: ERROR - Static library not found at: {static_lib}", file=sys.stderr)
+            print("CI: Attempting to continue anyway, but linking will likely fail", file=sys.stderr)
         
         print(f"CI: Total libs count: {len(libs)}", file=sys.stderr)
-        print(f"CI: Python-related libs: {[l for l in libs if 'python' in str(l).lower() or str(l).endswith('.a')]}", file=sys.stderr)
+        print(f"CI: Python-related libs: {[l for l in libs if 'python' in str(l).lower()]}", file=sys.stderr)
     except Exception as ex:
         import traceback
-        print(f"CI: Error injecting static library: {ex}", file=sys.stderr)
+        print(f"CI: Error injecting Python library: {ex}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
     
 '''
