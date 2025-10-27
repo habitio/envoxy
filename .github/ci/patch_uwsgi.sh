@@ -188,10 +188,18 @@ echo "CI: Patch uwsgiconfig.py to inject static Python library before linking"
 
 # Debug: Check for static library files before patching
 echo "CI: Checking for static Python libraries in filesystem:"
-find /opt/_internal -name "libpython*.a" 2>/dev/null || echo "CI: No libpython*.a found in /opt/_internal"
-ls -la /opt/_internal/cpython-3.12.12/lib/libpython*.a 2>/dev/null || echo "CI: Direct path check failed"
+echo "CI: Searching /opt/_internal for libpython*.a:"
+find /opt/_internal -name 'libpython*.a' 2>/dev/null || echo "CI: No libpython*.a found in /opt/_internal"
+echo "CI: Searching /opt/python for libpython*.a:"
+find /opt/python -name 'libpython*.a' 2>/dev/null || echo "CI: No libpython*.a found in /opt/python"
+echo "CI: Searching entire /opt for libpython*.a:"
+find /opt -name 'libpython*.a' 2>/dev/null | head -10 || echo "CI: No libpython*.a found in /opt"
+echo "CI: Python executable location:"
+which python3
 echo "CI: Python sysconfig LIBDIR:"
 python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
+echo "CI: Checking if LIBDIR path exists:"
+ls -la /opt/_internal/cpython-3.12.12/lib/ 2>/dev/null | head -20 || echo "CI: LIBDIR directory does not exist"
 
 UWSGI_CONFIG="$TARGET/uwsgiconfig.py"
 if [ -f "${UWSGI_CONFIG}" ]; then
