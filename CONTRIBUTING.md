@@ -232,11 +232,13 @@ See [docker/dev/README.md](docker/dev/README.md) for detailed instructions.
 ### Building Packages
 
 **Package building and publishing is handled by GitHub Actions.** The CI/CD workflows automatically:
+
 - Build envoxy and envoxyd packages
 - Run all tests and quality checks
 - Publish to PyPI on tagged releases
 
 See `.github/workflows/` for the automation:
+
 - `envoxy-publish.yml` - Builds and publishes envoxy to PyPI
 - `envoxyd-manylinux.yml` - Builds manylinux wheels for envoxyd
 
@@ -366,16 +368,18 @@ We follow [Semantic Versioning](https://semver.org/):
 Releases are automated via GitHub Actions:
 
 1. **Update version numbers** using the version bump script:
+
    ```bash
    # Bump patch version for both packages
    ./scripts/version_bump.sh patch
-   
+
    # Or specify which package(s) to bump
    ./scripts/version_bump.sh patch envoxy    # Only envoxy
    ./scripts/version_bump.sh minor envoxyd   # Only envoxyd
    ```
 
 2. **Commit and push** the version changes:
+
    ```bash
    git add pyproject.toml vendors/pyproject.toml src/envoxy/__init__.py
    git commit -m "chore: bump version to X.Y.Z"
@@ -385,6 +389,7 @@ Releases are automated via GitHub Actions:
 3. **Create a pull request** and merge to main after review
 
 4. **Tag the release** after merging to main:
+
    ```bash
    git checkout main
    git pull
