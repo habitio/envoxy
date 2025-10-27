@@ -64,26 +64,28 @@ envoxy/
 │   ├── auth/            # Authentication backends
 │   ├── cache/           # Redis cache utilities
 │   ├── couchdb/         # CouchDB client
-│   ├── db/              # Database dispatcher
+│   ├── db/              # Database utilities and ORM
+│   │   └── orm/        # SQLAlchemy ORM extensions
 │   ├── http/            # HTTP dispatcher
 │   ├── mqtt/            # MQTT dispatcher
 │   ├── postgresql/      # PostgreSQL client
 │   ├── redis/           # Redis client
+│   ├── tests/           # Package-level tests
+│   ├── tools/           # CLI tools (alembic, validation)
 │   ├── utils/           # Utility functions
 │   ├── views/           # View helpers
 │   └── zeromq/          # ZeroMQ integration
 ├── tests/               # Test suite
-│   ├── unit/           # Unit tests
-│   ├── integration/    # Integration tests
-│   ├── fixtures/       # Test fixtures
-│   └── data/           # Test data files
+│   └── unit/           # Unit tests
+├── vendors/             # envoxyd package (uWSGI integration)
 ├── docker/              # Docker configurations
-│   ├── builder/        # Build environments
-│   ├── runtime/        # Production images
-│   └── dev/            # Development stack
+│   ├── dev/            # Local development environment
+│   └── runtime/        # Runtime Dockerfile
+├── .github/             # GitHub Actions workflows
+│   └── workflows/      # CI/CD pipelines
 ├── docs/                # Documentation
-├── tools/               # Build and utility scripts
-└── vendors/             # Third-party packages
+├── scripts/             # Utility scripts
+└── pyproject.toml       # Package metadata and dependencies
 ```
 
 ## Running Tests
@@ -206,32 +208,50 @@ This will run:
 - Security scanning (Bandit)
 - Tests (pytest)
 
-## Building Docker Images
+## Building and Local Development
 
-See [docker/README.md](docker/README.md) for comprehensive Docker build instructions.
+### Local Development with Docker
 
-### Quick Build
-
-```bash
-# Build with the unified build script
-./tools/build.sh
-
-# Or use Make targets
-make docker-build          # Build all images
-make docker-build-builder  # Build only builder images
-make docker-build-runtime  # Build only runtime image
-```
-
-### Development Environment
-
-Start the full development stack (Envoxy + PostgreSQL + Redis + GUI tools):
+For local development and testing, use the Docker development environment:
 
 ```bash
 cd docker/dev
-docker-compose up -d
+
+# Start all services (postgres, redis, envoxy runtime)
+docker compose up -d
+
+# View logs
+docker compose logs -f envoxy
+
+# Stop services
+docker compose down
 ```
 
-See [docker/dev/README.md](docker/dev/README.md) for details.
+See [docker/dev/README.md](docker/dev/README.md) for detailed instructions.
+
+### Building Packages
+
+**Package building and publishing is handled by GitHub Actions.** The CI/CD workflows automatically:
+
+- Build envoxy and envoxyd packages
+- Run all tests and quality checks
+- Publish to PyPI on tagged releases
+
+See `.github/workflows/` for the automation:
+
+- `envoxy-publish.yml` - Builds and publishes envoxy to PyPI
+- `envoxyd-manylinux.yml` - Builds manylinux wheels for envoxyd
+
+To test package builds locally:
+
+```bash
+# Build envoxy
+python -m build
+
+# Build envoxyd
+cd vendors
+python -m build
+```
 
 ## Submitting Changes
 
@@ -343,20 +363,47 @@ We follow [Semantic Versioning](https://semver.org/):
 - **MINOR**: New functionality (backwards-compatible)
 - **PATCH**: Bug fixes (backwards-compatible)
 
-### Creating a Release
+## Release Process
 
-1. Update version in `pyproject.toml`
-2. Update `CHANGELOG` with release notes
-3. Commit changes: `git commit -m "chore: bump version to X.Y.Z"`
-4. Tag the release: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-5. Push: `git push && git push --tags`
+Releases are automated via GitHub Actions:
 
-The CI/CD pipeline will automatically:
+1. **Update version numbers** using the version bump script:
 
-- Run all tests
-- Build the package
-- Publish to PyPI
-- Build and push Docker images
+   ```bash
+   # Bump patch version for both packages
+   ./scripts/version_bump.sh patch
+
+   # Or specify which package(s) to bump
+   ./scripts/version_bump.sh patch envoxy    # Only envoxy
+   ./scripts/version_bump.sh minor envoxyd   # Only envoxyd
+   ```
+
+2. **Commit and push** the version changes:
+
+   ```bash
+   git add pyproject.toml vendors/pyproject.toml src/envoxy/__init__.py
+   git commit -m "chore: bump version to X.Y.Z"
+   git push origin feature/your-branch
+   ```
+
+3. **Create a pull request** and merge to main after review
+
+4. **Tag the release** after merging to main:
+
+   ```bash
+   git checkout main
+   git pull
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+5. **GitHub Actions automatically**:
+   - Builds envoxy and envoxyd packages
+   - Runs all tests and quality checks
+   - Publishes to PyPI
+   - Creates GitHub release
+
+See `.github/workflows/` for the automation details.
 
 ## Getting Help
 
