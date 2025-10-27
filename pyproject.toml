@@ -26,6 +26,9 @@ authors = [
 # setuptools/pypa tooling emits a standard License/MIT metadata field and
 # avoids generating a non-standard license-file metadata entry.
 license = { text = "MIT" }
+# Explicitly disable license file inclusion to prevent setuptools from
+# auto-adding License-File metadata (which TestPyPI/PyPI reject as malformed).
+license-files = []
 
 # Top-level (runtime) dependencies. Keep this file as the source-of-truth and
 # generate a pinned requirements.txt for Docker/CI using pip-tools (pip-compile).
@@ -153,3 +156,8 @@ warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
 exclude = ["vendors/", "tests/"]
+
+[tool.setuptools]
+# Explicitly disable automatic license file inclusion to prevent setuptools
+# from emitting legacy License-File metadata that TestPyPI/PyPI reject.
+license-files = []
