@@ -208,19 +208,36 @@ try:
         for base in ['/opt/_internal/cpython-3.12.12', '/opt/_internal']:
             candidates.append(os.path.join(base, 'lib', _ldlib))
     
-    # Add the static library
+    # Add the static library - ensure it's at the END of LIBS for proper linking
+    static_lib_added = False
     for _c in candidates:
         try:
             if _c and os.path.exists(_c):
                 if _c not in LIBS:
                     LIBS.append(_c)
-                    print(f"CI: Added static Python library: {_c}")
+                    print(f"CI: Added static Python library to LIBS: {_c}")
+                    static_lib_added = True
                 break
         except Exception:
             pass
+    
+    # Also add to GCC_LIST if it exists to ensure it's in the linker command
+    if static_lib_added:
+        try:
+            if 'GCC_LIST' in dir():
+                for _c in candidates:
+                    if _c and os.path.exists(_c):
+                        if _c not in GCC_LIST:
+                            GCC_LIST.append(_c)
+                            print(f"CI: Added static Python library to GCC_LIST: {_c}")
+                        break
+        except Exception as e:
+            print(f"CI: Could not add to GCC_LIST: {e}")
+            
 except Exception as e:
     print(f"CI: Error patching LIBS: {e}")
-    pass
+    import traceback
+    traceback.print_exc()
 PYAPP
         echo "CI: patched ${PLUGIN_FILE}"
     else
