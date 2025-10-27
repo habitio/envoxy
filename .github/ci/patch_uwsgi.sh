@@ -458,9 +458,11 @@ if [ -f "$DEST_BIN" ]; then
     # Set RPATH to allow auditwheel to properly bundle libraries
     echo "CI: Setting RPATH for auditwheel compatibility"
     if command -v patchelf >/dev/null 2>&1; then
-        # Set RPATH to $ORIGIN so the binary can find bundled .so files in the same directory
-        # and also in the wheel's .libs directory where auditwheel places them
-        patchelf --set-rpath '$ORIGIN:$ORIGIN/../envoxyd.libs' "$DEST_BIN" || {
+        # Set RPATH to find bundled .so files
+        # Binary will be in: {prefix}/bin/envoxyd
+        # Libs will be in: {prefix}/lib/python3.12/site-packages/envoxyd.libs/
+        # Relative path from bin/ to libs: ../lib/python3.12/site-packages/envoxyd.libs
+        patchelf --set-rpath '$ORIGIN/../lib/python3.12/site-packages/envoxyd.libs' "$DEST_BIN" || {
             echo "WARNING: patchelf failed to set RPATH, continuing anyway"
         }
         echo "CI: RPATH set for $DEST_BIN"
