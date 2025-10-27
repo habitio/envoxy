@@ -247,15 +247,18 @@ DEST_BIN="/project/vendors/src/envoxyd/envoxyd"
 if [ ! -f "$DEST_BIN" ]; then
     echo "CI: $DEST_BIN not present; attempting build in $TARGET"
     if [ -f "./uwsgiconfig.py" ]; then
-        # Copy buildconf and embed directories from envoxyd templates into uwsgi source
-        echo "CI: copying buildconf and embed from envoxyd templates"
-        if [ -d "/project/vendors/envoxyd/templates/uwsgi/buildconf" ]; then
-            cp -r /project/vendors/envoxyd/templates/uwsgi/buildconf . || true
-            echo "CI: copied buildconf directory"
+        # Copy all uwsgi template files from envoxyd into uwsgi source directory
+        echo "CI: copying uwsgi template files from envoxyd"
+        if [ -d "/project/vendors/envoxyd/templates/uwsgi" ]; then
+            cp -r /project/vendors/envoxyd/templates/uwsgi/* . || true
+            echo "CI: copied all uwsgi template files (buildconf, embed, etc.)"
+            ls -lah buildconf embed 2>/dev/null || echo "CI: template directories copied"
         fi
-        if [ -d "/project/vendors/envoxyd/templates/uwsgi/embed" ]; then
-            cp -r /project/vendors/envoxyd/templates/uwsgi/embed . || true
-            echo "CI: copied embed directory"
+        # Also copy run.py from templates root into embed directory if it exists
+        if [ -f "/project/vendors/envoxyd/templates/run.py" ]; then
+            mkdir -p embed
+            cp /project/vendors/envoxyd/templates/run.py embed/ || true
+            echo "CI: copied run.py into embed directory"
         fi
         
         echo "CI: running uwsgiconfig.py --build flask (with verbose output)"
