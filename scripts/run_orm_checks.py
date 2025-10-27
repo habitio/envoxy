@@ -11,8 +11,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from envoxy.db.orm import register_envoxy_listeners, EnvoxyBase
-from examples.consumer_module.models import Product
+from envoxy.db.orm import register_envoxy_listeners, EnvoxyBase # noqa: E402
+from examples.consumer_module.models import Product # noqa: E402
 
 
 def main():

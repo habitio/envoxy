@@ -1,7 +1,7 @@
 import threading
 import time
 
-from envoxy.postgresql.client import SemaphoreThreadedConnectionPool, Client
+from envoxy.postgresql.client import SemaphoreThreadedConnectionPool
 
 
 class DummyConn:
@@ -34,7 +34,7 @@ def test_semaphore_limits_and_timeouts():
     def worker(i):
         try:
             conn = pool.getconn(timeout=1)
-        except Exception as e:
+        except Exception:
             with lock:
                 acquired.append(('timeout', i))
             return

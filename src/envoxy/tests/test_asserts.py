@@ -1,6 +1,5 @@
 # ruff: noqa: F403,F405,F811,E711
 from ..asserts import *
-from .fixtures import test_payload
 import pytest
 import datetime
 from ..exceptions import ValidationException
@@ -246,7 +245,7 @@ def test_assertz_array_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
         assertz_array([])
-    assert str(e.value) == f"Invalid value type: []"
+    assert str(e.value) == "Invalid value type: []"
 
 ##### assertz_array_even_empty #####
 
@@ -297,7 +296,7 @@ def test_assertz_uuid_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
         assertz_uuid([])
-    assert str(e.value) == f"Invalid value type: []"
+    assert str(e.value) == "Invalid value type: []"
 
 ##### assertz_utf8 #####
 
@@ -459,7 +458,7 @@ def test_assertz_unauthorized_ok(test_payload):
 def test_assertz_unauthorized_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
-        assertz_unauthorized(test_payload["active"] == False, "inactive")
+        assertz_unauthorized(test_payload["active"] is False, "inactive")
     assert str(e.value) == "inactive"
 
     with pytest.raises(ValidationException) as e:

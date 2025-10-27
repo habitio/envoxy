@@ -4,7 +4,6 @@ from flask import Response as FlaskResponse
 
 from ..constants import SERVER_NAME
 from ..utils.encoders import envoxy_json_dumps
-from ..utils.logs import Log
 
 
 class Response(FlaskResponse):

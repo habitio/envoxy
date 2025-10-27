@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 sys.path.append("${app_path}")
 
 from views.view import CardsCollection, CardsDocument

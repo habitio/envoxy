@@ -1,6 +1,4 @@
 import json
-from pathlib import Path
-import tempfile
 
 from envoxy.tools.validate_models import validate_model_file
 

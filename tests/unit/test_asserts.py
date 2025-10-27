@@ -1,5 +1,4 @@
-from envoxy.asserts import *
-from tests.fixtures.fixtures import test_payload
+from envoxy.asserts import assertz, assertz_array, assertz_array_even_empty, assertz_ascii, assertz_boolean, assertz_complex, assertz_dict, assertz_email, assertz_float, assertz_hash, assertz_integer, assertz_json, assertz_location, assertz_mandatory, assertz_mandatory_reply, assertz_phone, assertz_string, assertz_timestamp, assertz_unauthorized, assertz_url, assertz_uuid, assertz_utf8
 import pytest
 import datetime
 from envoxy.exceptions import ValidationException
@@ -8,8 +7,8 @@ from envoxy.exceptions import ValidationException
 
 def test_assertz_ok(test_payload):
 
-    assert assertz(True, "Error", 0, 500) == None
-    assert assertz(test_payload["username"] == "", "Error", 0, 500) == None
+    assert assertz(True, "Error", 0, 500) is None
+    assert assertz(test_payload["username"] == "", "Error", 0, 500) is None
 
 def test_assertz_nok(test_payload):
 
@@ -23,8 +22,8 @@ def test_assertz_nok(test_payload):
 
 def test_assertz_mandatory_ok(test_payload):
 
-    assert assertz_mandatory(test_payload, "password") == None
-    assert assertz_mandatory(test_payload["application_ids"], 1) == None
+    assert assertz_mandatory(test_payload, "password") is None
+    assert assertz_mandatory(test_payload["application_ids"], 1) is None
 
 
 def test_assertz_mandatory_nok(test_payload):
@@ -62,10 +61,10 @@ def test_assertz_mandatory_nok(test_payload):
 
 def test_assertz_string_ok(test_payload):
 
-    assert assertz_string(test_payload["user"]["name"]) == None
-    assert assertz_string(u"random unicode string") == None
-    assert assertz_string(None) == None
-    assert assertz_string(test_payload, "password") == None
+    assert assertz_string(test_payload["user"]["name"]) is None
+    assert assertz_string(u"random unicode string") is None
+    assert assertz_string(None) is None
+    assert assertz_string(test_payload, "password") is None
 
 def test_assertz_string_nok(test_payload):
 
@@ -81,9 +80,9 @@ def test_assertz_string_nok(test_payload):
 
 def test_assertz_integer_ok(test_payload):
 
-    assert assertz_integer(test_payload["age"]) == None
-    assert assertz_integer(-40000) == None
-    assert assertz_integer(None) == None
+    assert assertz_integer(test_payload["age"]) is None
+    assert assertz_integer(-40000) is None
+    assert assertz_integer(None) is None
 
 def test_assertz_integer_nok(test_payload):
 
@@ -99,9 +98,9 @@ def test_assertz_integer_nok(test_payload):
 
 def test_assertz_float_ok(test_payload):
 
-    assert assertz_float(test_payload["value"]) == None
-    assert assertz_float(3.14159265359) == None
-    assert assertz_float(None) == None
+    assert assertz_float(test_payload["value"]) is None
+    assert assertz_float(3.14159265359) is None
+    assert assertz_float(None) is None
 
 
 def test_assertz_float_nok(test_payload):
@@ -118,10 +117,10 @@ def test_assertz_float_nok(test_payload):
 
 def test_assertz_timestamp_ok(test_payload):
 
-    assert assertz_timestamp(test_payload["created"]) == None
-    assert assertz_timestamp(datetime.datetime.now()) == None
-    assert assertz_timestamp(datetime.date.today()) == None
-    assert assertz_timestamp(None) == None
+    assert assertz_timestamp(test_payload["created"]) is None
+    assert assertz_timestamp(datetime.datetime.now()) is None
+    assert assertz_timestamp(datetime.date.today()) is None
+    assert assertz_timestamp(None) is None
 
 
 def test_assertz_timestamp_nok(test_payload):
@@ -138,9 +137,9 @@ def test_assertz_timestamp_nok(test_payload):
 
 def test_assertz_boolean_ok(test_payload):
 
-    assert assertz_boolean(test_payload["active"]) == None
-    assert assertz_boolean(False) == None
-    assert assertz_boolean(None) == None
+    assert assertz_boolean(test_payload["active"]) is None
+    assert assertz_boolean(False) is None
+    assert assertz_boolean(None) is None
 
 
 def test_assertz_boolean_nok(test_payload):
@@ -158,10 +157,10 @@ def test_assertz_boolean_nok(test_payload):
 
 def test_assertz_complex_ok(test_payload):
 
-    assert assertz_complex(test_payload, "user") == None
-    assert assertz_complex(test_payload["application_ids"]) == None
-    assert assertz_complex('{"key": "value", "key1": {"key2": "value"}}') == None
-    assert assertz_complex(None) == None
+    assert assertz_complex(test_payload, "user") is None
+    assert assertz_complex(test_payload["application_ids"]) is None
+    assert assertz_complex('{"key": "value", "key1": {"key2": "value"}}') is None
+    assert assertz_complex(None) is None
 
 
 def test_assertz_complex_nok(test_payload):
@@ -182,9 +181,9 @@ def test_assertz_complex_nok(test_payload):
 
 def test_assertz_dict_ok(test_payload):
 
-    assert assertz_dict(test_payload, "user") == None
-    assert assertz_dict({"key": "value", "key1": {"key2": "value"}}) == None
-    assert assertz_dict(None) == None
+    assert assertz_dict(test_payload, "user") is None
+    assert assertz_dict({"key": "value", "key1": {"key2": "value"}}) is None
+    assert assertz_dict(None) is None
 
 
 def test_assertz_dict_nok(test_payload):
@@ -205,9 +204,9 @@ def test_assertz_dict_nok(test_payload):
 
 def test_assertz_json_ok(test_payload):
 
-    assert assertz_json(test_payload, "headers") == None
-    assert assertz_json('{"key": "value", "key1": {"key2": "value"}}') == None
-    assert assertz_json(None) == None
+    assert assertz_json(test_payload, "headers") is None
+    assert assertz_json('{"key": "value", "key1": {"key2": "value"}}') is None
+    assert assertz_json(None) is None
 
 
 def test_assertz_json_nok(test_payload):
@@ -228,9 +227,9 @@ def test_assertz_json_nok(test_payload):
 
 def test_assertz_array_ok(test_payload):
 
-    assert assertz_array(test_payload, "application_ids") == None
-    assert assertz_array(["a", "b", "c"]) == None
-    assert assertz_array(None) == None
+    assert assertz_array(test_payload, "application_ids") is None
+    assert assertz_array(["a", "b", "c"]) is None
+    assert assertz_array(None) is None
 
 
 def test_assertz_array_nok(test_payload):
@@ -245,16 +244,16 @@ def test_assertz_array_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
         assertz_array([])
-    assert str(e.value) == f"Invalid value type: []"
+    assert str(e.value) == "Invalid value type: []"
 
 ##### assertz_array_even_empty #####
 
 def test_assertz_array_even_empty_ok(test_payload):
 
-    assert assertz_array_even_empty(test_payload, "application_ids") == None
-    assert assertz_array_even_empty(["a", "b", "c"]) == None
-    assert assertz_array_even_empty(None) == None
-    assert assertz_array_even_empty([]) == None
+    assert assertz_array_even_empty(test_payload, "application_ids") is None
+    assert assertz_array_even_empty(["a", "b", "c"]) is None
+    assert assertz_array_even_empty(None) is None
+    assert assertz_array_even_empty([]) is None
 
 
 def test_assertz_array_even_empty_nok(test_payload):
@@ -271,9 +270,9 @@ def test_assertz_array_even_empty_nok(test_payload):
 
 def test_assertz_uuid_ok(test_payload):
 
-    assert assertz_uuid(test_payload, "unique_id") == None
-    assert assertz_uuid("6912574d-988a-4b34-98c4-424c61d37fef") == None
-    assert assertz_uuid(None) == None
+    assert assertz_uuid(test_payload, "unique_id") is None
+    assert assertz_uuid("6912574d-988a-4b34-98c4-424c61d37fef") is None
+    assert assertz_uuid(None) is None
 
 
 def test_assertz_uuid_nok(test_payload):
@@ -296,14 +295,14 @@ def test_assertz_uuid_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
         assertz_uuid([])
-    assert str(e.value) == f"Invalid value type: []"
+    assert str(e.value) == "Invalid value type: []"
 
 ##### assertz_utf8 #####
 
 def test_assertz_utf8_ok(test_payload):
 
-    assert assertz_utf8(test_payload["user"], "alias") == None
-    assert assertz_utf8(None) == None
+    assert assertz_utf8(test_payload["user"], "alias") is None
+    assert assertz_utf8(None) is None
 
 def test_assertz_utf8_nok(test_payload):
 
@@ -324,9 +323,9 @@ def test_assertz_utf8_nok(test_payload):
 
 def test_assertz_ascii_ok(test_payload):
 
-    assert assertz_ascii(test_payload["user"], "name") == None
-    assert assertz_ascii(test_payload["regex"]) == None
-    assert assertz_ascii(None) == None
+    assert assertz_ascii(test_payload["user"], "name") is None
+    assert assertz_ascii(test_payload["regex"]) is None
+    assert assertz_ascii(None) is None
 
 def test_assertz_ascii_nok(test_payload):
 
@@ -346,9 +345,9 @@ def test_assertz_ascii_nok(test_payload):
 
 def test_assertz_hash_ok(test_payload):
 
-    assert assertz_hash(test_payload, "hash") == None
-    assert assertz_hash("zc6kj0xrb27rs0mthfn9j4m8m8pchy0q8sewh7x0c9o9g") == None
-    assert assertz_hash(None) == None
+    assert assertz_hash(test_payload, "hash") is None
+    assert assertz_hash("zc6kj0xrb27rs0mthfn9j4m8m8pchy0q8sewh7x0c9o9g") is None
+    assert assertz_hash(None) is None
 
 def test_assertz_hash_nok(test_payload):
 
@@ -369,9 +368,9 @@ def test_assertz_hash_nok(test_payload):
 
 def test_assertz_url_ok(test_payload):
 
-    assert assertz_url(test_payload, "website") == None
-    assert assertz_url(test_payload["sample_uri"]) == None
-    assert assertz_url(None) == None
+    assert assertz_url(test_payload, "website") is None
+    assert assertz_url(test_payload["sample_uri"]) is None
+    assert assertz_url(None) is None
 
 def test_assertz_url_nok(test_payload):
 
@@ -391,8 +390,8 @@ def test_assertz_url_nok(test_payload):
 
 def test_assertz_email_ok(test_payload):
 
-    assert assertz_email(test_payload["user"], "email") == None
-    assert assertz_email(None) == None
+    assert assertz_email(test_payload["user"], "email") is None
+    assert assertz_email(None) is None
 
 def test_assertz_email_nok(test_payload):
 
@@ -408,9 +407,9 @@ def test_assertz_email_nok(test_payload):
 
 def test_assertz_location_ok(test_payload):
 
-    assert assertz_location(test_payload["user"], "home") == None
-    assert assertz_location(test_payload["user"]["work"]) == None
-    assert assertz_location(None) == None
+    assert assertz_location(test_payload["user"], "home") is None
+    assert assertz_location(test_payload["user"]["work"]) is None
+    assert assertz_location(None) is None
 
 def test_assertz_location_nok(test_payload):
 
@@ -431,8 +430,8 @@ def test_assertz_location_nok(test_payload):
 
 def test_assertz_phone_ok(test_payload):
 
-    assert assertz_phone(test_payload["user"], "phone") == None
-    assert assertz_phone(None) == None
+    assert assertz_phone(test_payload["user"], "phone") is None
+    assert assertz_phone(None) is None
 
 def test_assertz_phone_nok(test_payload):
 
@@ -453,12 +452,12 @@ def test_assertz_phone_nok(test_payload):
 
 def test_assertz_unauthorized_ok(test_payload):
 
-    assert assertz_unauthorized(test_payload["age"] > 18, "invalid age") == None
+    assert assertz_unauthorized(test_payload["age"] > 18, "invalid age") is None
 
 def test_assertz_unauthorized_nok(test_payload):
 
     with pytest.raises(ValidationException) as e:
-        assertz_unauthorized(test_payload["active"] == False, "inactive")
+        assertz_unauthorized(test_payload["active"] is False, "inactive")
     assert str(e.value) == "inactive"
 
     with pytest.raises(ValidationException) as e:
