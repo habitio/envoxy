@@ -11,13 +11,13 @@ Base = declarative_base()
 
 
 class MyModel(EnvoxyMixin, Base):
-    __tablename__ = 'mymodel'
+    __tablename__ = "mymodel"
     pk = Column(Integer, primary_key=True)
 
 
 def test_listeners_populate_fields():
     register_envoxy_listeners()
-    engine = create_engine('sqlite:///:memory:')
+    engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     s = Session()
@@ -30,7 +30,7 @@ def test_listeners_populate_fields():
     assert isinstance(m.id, str)
     assert m.created is not None
     assert m.updated is not None
-    assert m.href.endswith('/' + m.id)
+    assert m.href.endswith("/" + m.id)
 
     # update and check updated changes
     prev = m.updated

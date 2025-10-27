@@ -1,6 +1,7 @@
 import re
 from sqlalchemy.sql.expression import text
 
+
 def to_sa_text(psycopg2_sql: str):
     """Convert a psycopg2-style SQL string with named placeholders
     (e.g. %(name)s) into a SQLAlchemy `text()` object using :name params.

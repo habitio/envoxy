@@ -20,14 +20,14 @@ class Singleton(object):
     @classmethod
     def instance(cls, *args, **kwargs):
         # fast-path without lock
-        if not getattr(cls, '_instance', None):
+        if not getattr(cls, "_instance", None):
             # ensure a per-class lock exists
-            if not getattr(cls, '_instance_lock', None):
+            if not getattr(cls, "_instance_lock", None):
                 # benign race: first writer wins
                 cls._instance_lock = threading.Lock()
 
             with cls._instance_lock:
-                if not getattr(cls, '_instance', None):
+                if not getattr(cls, "_instance", None):
                     cls._instance = cls(*args, **kwargs)
 
         return cls._instance
@@ -51,7 +51,7 @@ class SingletonPerThread(object):
 
     @classmethod
     def _get_thread_local(cls) -> threading.local:
-        if not getattr(cls, '_thread_local', None):
+        if not getattr(cls, "_thread_local", None):
             # benign race: first writer wins
             cls._thread_local = threading.local()
         return cls._thread_local
@@ -59,7 +59,7 @@ class SingletonPerThread(object):
     @classmethod
     def instance(cls, *args, **kwargs):
         tl = cls._get_thread_local()
-        inst = getattr(tl, 'instance', None)
+        inst = getattr(tl, "instance", None)
         if inst is None:
             inst = cls(*args, **kwargs)
             tl.instance = inst

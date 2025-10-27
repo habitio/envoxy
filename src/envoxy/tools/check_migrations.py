@@ -4,6 +4,7 @@
 This script verifies that a migrations versions directory exists and contains files.
 It's intentionally small: the deeper framework checks can be added later.
 """
+
 import sys
 from pathlib import Path
 
@@ -25,5 +26,5 @@ def main(argv=None):
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

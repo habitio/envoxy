@@ -1,13 +1,13 @@
 import enum
 
 # HTTP methods
-GET = 'get'
-POST = 'post'
-PUT = 'put'
-PATCH = 'patch'
-DELETE = 'delete'
+GET = "get"
+POST = "post"
+PUT = "put"
+PATCH = "patch"
+DELETE = "delete"
 
-SERVER_NAME = 'Envoxy Server'
+SERVER_NAME = "Envoxy Server"
 
 ZEROMQ_POLLIN_TIMEOUT = 5 * 1000
 ZEROMQ_RETRY_TIMEOUT = 2
@@ -15,6 +15,7 @@ ZEROMQ_POLLER_RETRIES = 5
 ZEROMQ_MAX_WORKERS = 50
 ZEROMQ_MAX_WORKERS_PER_THREAD = 20
 ZEROMQ_CONTEXT = 1
+
 
 class Performative(enum.IntEnum):
     GET = 0
@@ -30,6 +31,7 @@ class Performative(enum.IntEnum):
     TRACE = 10
     CONNECT = 11
 
+
 # DB
 MIN_CONN = 1
 MAX_CONN = 20
@@ -38,14 +40,14 @@ DEFAULT_CHUNK_SIZE = 10000
 DEFAULT_OFFSET_LIMIT = 0
 
 # CACHE
-CACHE_DEFAULT_TTL = 60 * 60 # ttl in seconds (1hr)
+CACHE_DEFAULT_TTL = 60 * 60  # ttl in seconds (1hr)
 
 # REDIS
-REDIS_BACKEND = 'redis'
+REDIS_BACKEND = "redis"
 REDIS_DEFAULT_DB = 1
 REDIS_DEFAULT_TTL = CACHE_DEFAULT_TTL
-REDIS_DEFAULT_HOST = '127.0.0.1'
-REDIS_DEFAULT_PORT = '6379'
+REDIS_DEFAULT_HOST = "127.0.0.1"
+REDIS_DEFAULT_PORT = "6379"
 
 # ASSERTS
 
@@ -57,10 +59,12 @@ TOKEN_LENGHT = 128
 TOKEN_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789"
 TOKEN_REGEX: str = r"[a-z0-9]{128}"
 
-URL_REGEX: str = r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):" \
-            "([^?#]*)" \
-            "(?:\\?([^#]*))?" \
-            "(?:#(.*))?"
+URL_REGEX: str = (
+    r"([@>]{0,1})([a-zA-Z][a-zA-Z0-9+.-]+):"
+    "([^?#]*)"
+    "(?:\\?([^#]*))?"
+    "(?:#(.*))?"
+)
 
 URI_REGEX: str = r"([^?#]*)(?:\\?([^#]*))?(?:#(.*))?"
 

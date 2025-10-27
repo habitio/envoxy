@@ -19,4 +19,5 @@ class EnvoxyBase(EnvoxyMixin, _DeclarativeBase):
         __abstract__ (bool): Indicates that this class is abstract and should not
             be mapped to a database table.
     """
+
     __abstract__ = True

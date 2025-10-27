@@ -12,6 +12,7 @@ from ..couchdb.client import Client as CouchDBClient
 from ..redis.client import Client as RedisDBClient
 from ..db.orm import get_manager, session_scope, transactional, get_default_server_key
 
+
 class Connector(Singleton):
     """
     Connector is a singleton class responsible for managing database connections to PostgreSQL, CouchDB, and Redis.
@@ -21,6 +22,7 @@ class Connector(Singleton):
         couchdb (CouchDBClient): Property to access the CouchDB client instance.
         redis (RedisDBClient): Property to access the Redis client instance.
     """
+
     @property
     def postgres(self):
         """
@@ -64,10 +66,10 @@ class Connector(Singleton):
 
         # find postgres configuration and start client
 
-        self._psql_confs = Config.get('psql_servers')
+        self._psql_confs = Config.get("psql_servers")
 
         if not self._psql_confs:
-            raise Exception('Error to find PSQL Servers config')
+            raise Exception("Error to find PSQL Servers config")
 
         self.pgsql_client = PgClient(self._psql_confs)
 
@@ -83,10 +85,10 @@ class Connector(Singleton):
             Exception: If CouchDB server configurations are not found.
         """
 
-        self._couchdb_confs = Config.get('couchdb_servers')
+        self._couchdb_confs = Config.get("couchdb_servers")
 
         if not self._couchdb_confs:
-            raise Exception('Error to find COUCHDB Servers config')
+            raise Exception("Error to find COUCHDB Servers config")
 
         self.couchdb_client = CouchDBClient(self._couchdb_confs)
 
@@ -101,9 +103,9 @@ class Connector(Singleton):
 
         # find redis configuration and start client
 
-        self._redis_confs = Config.get('redis_servers')
+        self._redis_confs = Config.get("redis_servers")
         if not self._redis_confs:
-            raise Exception('Error to find REDIS Servers config')
+            raise Exception("Error to find REDIS Servers config")
 
         self.redis_client = RedisDBClient(self._redis_confs)
 
@@ -155,6 +157,7 @@ class PgDispatcher:
     PgDispatcher provides a static interface for interacting with PostgreSQL databases,
     including direct queries, inserts, transaction management, and SQLAlchemy integration.
     """
+
     @staticmethod
     def query(server_key=None, sql=None, params=None):
         """
@@ -237,7 +240,7 @@ class PgDispatcher:
         """
         Decorator to wrap a function in a SQLAlchemy transactional context.
         Args:
-            server_key (str, optional): The key identifying the database server. 
+            server_key (str, optional): The key identifying the database server.
                 If not provided, the default server key is used.
         Returns:
             function: A decorator that applies a transactional context using the specified server key.
@@ -246,7 +249,7 @@ class PgDispatcher:
         return transactional(key)
 
 
-class CouchDBDispatcher():
+class CouchDBDispatcher:
     """
     CouchDBDispatcher provides static methods to interact with a CouchDB database via a CouchConnector instance.
     """
@@ -267,9 +270,8 @@ class CouchDBDispatcher():
 
         return CouchConnector.instance().couchdb.find(db, fields, params)
 
-
     @staticmethod
-    def get(id:str, db=None):
+    def get(id: str, db=None):
         """
         Retrieve a document from the CouchDB database by its ID.
 
@@ -301,7 +303,8 @@ class CouchDBDispatcher():
 
         return CouchConnector.instance().couchdb.post(db, payload)
 
-class RedisDBDispatcher():
+
+class RedisDBDispatcher:
     """
     RedisDBDispatcher provides static methods to interact with Redis through a RedisConnector instance.
     """

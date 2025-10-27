@@ -4,6 +4,7 @@
 This performs a lightweight JSON file scan under the provided directory and ensures
 any object with a `fields` key includes `id`, `created`, `updated`, `href`.
 """
+
 import sys
 import json
 from pathlib import Path
@@ -35,11 +36,11 @@ def main(argv=None):
         print(f"Models directory not found: {root}")
         return 2
     ok = True
-    for p in root.rglob('*.json'):
+    for p in root.rglob("*.json"):
         if not check_file(p):
             ok = False
     return 0 if ok else 3
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

@@ -10,9 +10,7 @@ from .utils.logs import Log
 
 
 def on(**kwargs):
-
     def _decorate(klass):
-
         class Meta:
             pass
 
@@ -27,12 +25,10 @@ def on(**kwargs):
 
 
 class auth_required(object):
-
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def __call__(self, func):
-
         @wraps(func)
         def wrapped_func(view, request, *args, **kwargs):
             if self.kwargs:
@@ -43,26 +39,24 @@ class auth_required(object):
                 kwargs.update(**headers)
 
             return func(view, request, *args, **kwargs)
+
         return wrapped_func
 
 
 class cache(object):
-
     def __init__(self, ttl=CACHE_DEFAULT_TTL):
         self.ttl = ttl
         self.cache = Cache().get_backend()
 
     def __call__(self, func):
-
         @wraps(func)
         def wrapped_func(view, request, *args, **kwargs):
-
             _endpoint = request.full_path
             _method = func.__name__
             _params = request.get_json() if _method != GET else {}
             result = self.cache.get(_endpoint, _method, _params)
 
-            Log.verbose(f'cached method {_endpoint} {_method}')
+            Log.verbose(f"cached method {_endpoint} {_method}")
 
             if result:
                 return view.cached_response(result)
@@ -70,8 +64,9 @@ class cache(object):
             response = func(view, request, *args, **kwargs)
 
             if response and not result and response.status_code == requests.codes.ok:
-                self.cache.set(_endpoint, _method, _params,
-                               response.get_json(), ttl=self.ttl)
+                self.cache.set(
+                    _endpoint, _method, _params, response.get_json(), ttl=self.ttl
+                )
 
             return response
 
@@ -79,16 +74,14 @@ class cache(object):
 
 
 class log_event(object):
-
     def __init__(self, func):
         self.func = func
 
     def __call__(self, client, userdata, msg, **kwargs):
-
-        _message = '{} [{}] {}'.format(
-            Log.style.apply('< ON_EVENT', Log.style.BOLD),
-            Log.style.apply('MQTT', Log.style.GREEN_FG),
-            Log.style.apply('{}'.format(msg.topic), Log.style.BLUE_FG)
+        _message = "{} [{}] {}".format(
+            Log.style.apply("< ON_EVENT", Log.style.BOLD),
+            Log.style.apply("MQTT", Log.style.GREEN_FG),
+            Log.style.apply("{}".format(msg.topic), Log.style.BLUE_FG),
         )
 
         Log.trace(_message)
@@ -96,8 +89,7 @@ class log_event(object):
         _data = envoxy_json_loads(msg.payload)
 
         if Log.is_gte_log_level(Log.VERBOSE):
-
-            _message = '{} | Message{}'.format(_message, _data)
+            _message = "{} | Message{}".format(_message, _data)
 
             Log.verbose(_message)
 
@@ -105,12 +97,10 @@ class log_event(object):
 
 
 class auth_anonymous_allowed(object):
-
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def __call__(self, func):
-
         @wraps(func)
         def wrapped_func(view, request, *args, **kwargs):
             if self.kwargs:
@@ -121,4 +111,5 @@ class auth_anonymous_allowed(object):
                 kwargs.update(**headers)
 
             return func(view, request, *args, **kwargs)
+
         return wrapped_func
