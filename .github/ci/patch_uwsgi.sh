@@ -236,6 +236,13 @@ else
         exit 1
     }
     
+    echo "CI: Explicitly disabling SSL module in Modules/Setup.local..."
+    # Python's configure still tries to build SSL if OpenSSL is found,
+    # so we explicitly disable it in the Setup file
+    echo "*disabled*" >> Modules/Setup.local
+    echo "_ssl" >> Modules/Setup.local
+    echo "_hashlib" >> Modules/Setup.local
+    
     echo "CI: Building Python (this may take several minutes)..."
     make -j$(nproc) 2>&1 | tail -100 || {
         echo "CI: ERROR - Python build failed"
