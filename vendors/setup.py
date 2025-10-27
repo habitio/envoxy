@@ -52,44 +52,53 @@ class InstallCommand(install):
 packages = find_packages(include=["envoxyd", "envoxyd.*"], exclude=["tests", "uwsgi.build"])
 
 """
-Resolve package version for envoxyd from top-level pyproject.toml.
+Resolve package metadata for envoxyd from local pyproject.toml.
 
-Reads metadata from [tool.vendors.envoxyd] in the repository root pyproject.toml.
-If the file or section is missing, the build will fail.
+Reads metadata from [project] section in vendors/pyproject.toml.
 """
 
-# Read vendor metadata from top-level pyproject.toml
-_top_ppath = os.path.normpath(os.path.join(data_dir, '..', 'pyproject.toml'))
+# Read metadata from local pyproject.toml (in same directory as this setup.py)
+_local_ppath = os.path.join(data_dir, 'pyproject.toml')
 
 try:
     import tomllib as _toml  # Python 3.11+
 except ImportError:
     import tomli as _toml  # type: ignore
 
-with open(_top_ppath, 'rb') as _f:
-    _pdata = _toml.load(_f)
-    _vendor_table = _pdata.get('tool', {}).get('vendors', {}).get('envoxyd', {})
-
-if not _vendor_table:
+if not os.path.exists(_local_ppath):
     raise ValueError(
-        f"Missing [tool.vendors.envoxyd] section in {_top_ppath}. "
+        f"Missing pyproject.toml in {data_dir}. "
+        "This file is required to build envoxyd."
+    )
+
+with open(_local_ppath, 'rb') as _f:
+    _pdata = _toml.load(_f)
+    _project_table = _pdata.get('project', {})
+
+if not _project_table:
+    raise ValueError(
+        f"Missing [project] section in {_local_ppath}. "
         "This section is required to build envoxyd."
     )
 
-# Extract metadata from vendor_table (no fallbacks)
-_name = _vendor_table["name"]
-_version = _vendor_table["version"]
-_description = _vendor_table["description"]
-_author = _vendor_table.get("author")
-_author_email = _vendor_table.get("author-email")
-_url = _vendor_table.get("url")
-_requires_python = _vendor_table["requires-python"]
-_dependencies = _vendor_table["dependencies"]
+# Extract metadata from project table
+_name = _project_table["name"]
+_version = _project_table["version"]
+_description = _project_table["description"]
+_requires_python = _project_table["requires-python"]
+_dependencies = _project_table["dependencies"]
 
-# Extract license as a simple string from the top-level [project] table.
-# The license-files = [] setting in [tool.setuptools] prevents setuptools
-# from auto-including LICENSE and generating legacy License-File metadata.
-_project_license = _pdata.get('project', {}).get('license', 'MIT')
+# Extract author info from authors array
+_authors = _project_table.get("authors", [])
+_author = _authors[0].get("name") if _authors else None
+_author_email = _authors[0].get("email") if _authors else None
+
+# Extract URL from project.urls
+_urls = _project_table.get("urls", {})
+_url = _urls.get("Homepage")
+
+# License from classifiers
+_project_license = "MIT"
 
 if _HAS_WHEEL:
     class NonPureWheel(bdist_wheel):
