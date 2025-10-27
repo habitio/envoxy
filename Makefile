@@ -1,29 +1,50 @@
+# Development environment setup
 help:
-	@./tools/build.sh help
+	@echo ""
+	@echo "ENVOXY DEVELOPMENT"
+	@echo "=================="
+	@echo ""
+	@echo "Development Commands:"
+	@echo "  make install-dev     Install envoxy in development mode"
+	@echo "  make shell           Interactive Python shell"
+	@echo ""
+	@echo "Testing Commands:"
+	@echo "  make test            Run all tests"
+	@echo "  make test-unit       Run unit tests only"
+	@echo "  make test-integration Run integration tests only"
+	@echo "  make test-cov        Run tests with coverage"
+	@echo "  make test-fast       Run unit tests with fail-fast"
+	@echo ""
+	@echo "Quality Commands:"
+	@echo "  make lint            Run linting checks"
+	@echo "  make format          Format code with ruff"
+	@echo "  make type-check      Run type checking with mypy"
+	@echo "  make quality-check   Run all quality checks"
+	@echo "  make security-check  Run security checks"
+	@echo ""
+	@echo "Docker Commands:"
+	@echo "  make docker-dev      Start development environment"
+	@echo "  make docker-dev-down Stop development environment"
+	@echo ""
+	@echo "Note: Package building is handled by GitHub Actions"
+	@echo "See .github/workflows/ for CI/CD configuration"
+	@echo ""
+
+# Development setup
+install-dev:
+	@echo "Installing envoxy in development mode..."
+	@pip install -e .[dev,test]
+	@echo "Development environment ready!"
 
 clean:
-	@./tools/build.sh clean
-
-envoxyd:
-	@./tools/build.sh envoxyd
-
-install:
-	@./tools/build.sh install
-
-develop:
-	@./tools/build.sh develop
-
-packages:
-	@./tools/build.sh packages
-
-info:
-	@./tools/build.sh info
-
-prompt:
-	python scripts/prompt.py
+	@echo "Cleaning build artifacts..."
+	@rm -rf build/ dist/ *.egg-info vendors/dist vendors/build
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete
+	@echo "Clean complete!"
 
 shell:
-	python scripts/prompt.py
+	@python scripts/prompt.py
 
 # Test targets
 test:
@@ -46,19 +67,15 @@ test-watch:
 
 # Docker targets
 docker-dev:
-	cd docker/dev && docker-compose up -d
+	@cd docker/dev && docker compose up -d
 
 docker-dev-down:
-	cd docker/dev && docker-compose down
+	@cd docker/dev && docker compose down
 
 docker-build-runtime:
-	docker build -t envoxy:runtime -f docker/runtime/Dockerfile .
+	@docker build -t envoxy:runtime -f docker/runtime/Dockerfile .
 
-docker-build-builder:
-	docker build --build-arg UID=$$(id -u) --build-arg GID=$$(id -g) \
-		-t envoxy-ubuntu:24.04 -f docker/builder/ubuntu-24.04.Dockerfile .
-
-# CI/CD targets
+# Quality & CI targets
 pre-commit-install:
 	@pip install pre-commit
 	@pre-commit install
@@ -92,8 +109,8 @@ ci-local:
 	@make test-unit
 	@make security-check
 
-.PHONY: help clean envoxyd install develop packages info prompt shell \
+.PHONY: help install-dev clean shell \
         test test-unit test-integration test-cov test-fast test-watch \
-        docker-dev docker-dev-down docker-build-runtime docker-build-builder \
+        docker-dev docker-dev-down docker-build-runtime \
         pre-commit-install pre-commit-run lint format type-check \
         security-check deps-check quality-check ci-local
