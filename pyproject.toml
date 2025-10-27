@@ -37,7 +37,7 @@ dependencies = [
     "redis==6.4.0",
     "flask_cors==6.0.1",
     "isort==7.0.0",
-    "orjson==3.11.4",
+    "orjson==3.11.3",
     "celery==5.5.3",
     "amqp==5.3.1",
     "celerybeat-mongo==0.2.0",
