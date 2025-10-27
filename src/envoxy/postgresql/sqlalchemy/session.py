@@ -11,6 +11,7 @@ Design goals:
 - Reasonable engine defaults (pool_pre_ping=True, future=True) but accepts
   a pre-built Engine for advanced setups.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,10 +57,16 @@ class EnvoxySessionManager:
             engine_kwargs.setdefault("future", True)
             # default pool sizing (small sensible defaults — override via engine_kwargs)
             engine_kwargs.setdefault("pool_size", engine_kwargs.get("pool_size", 20))
-            engine_kwargs.setdefault("max_overflow", engine_kwargs.get("max_overflow", 10))
-            engine_kwargs.setdefault("pool_timeout", engine_kwargs.get("pool_timeout", 30))
+            engine_kwargs.setdefault(
+                "max_overflow", engine_kwargs.get("max_overflow", 10)
+            )
+            engine_kwargs.setdefault(
+                "pool_timeout", engine_kwargs.get("pool_timeout", 30)
+            )
             # recycle connections periodically to avoid stale connections
-            engine_kwargs.setdefault("pool_recycle", engine_kwargs.get("pool_recycle", 1800))
+            engine_kwargs.setdefault(
+                "pool_recycle", engine_kwargs.get("pool_recycle", 1800)
+            )
             # create engine with the given options
             self.engine = create_engine(url, **engine_kwargs)
         else:

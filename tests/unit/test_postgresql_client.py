@@ -1,7 +1,6 @@
 import pytest
-from threading import Thread
 
-from envoxy.postgresql.client import Client, SemaphoreThreadedConnectionPool
+from envoxy.postgresql.client import Client
 from envoxy.db.exceptions import DatabaseException
 
 
@@ -10,8 +9,8 @@ class DummyCursor:
         self._closed = False
         self._data = [{'id': 1}]
         self.rowcount = 1
-    self.last_query = None
-    self.last_params = None
+        self.last_query = None
+        self.last_params = None
 
     def execute(self, *args, **kwargs):
         if args and args[0] == "SELECT 1":

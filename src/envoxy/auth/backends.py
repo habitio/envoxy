@@ -7,12 +7,11 @@ import requests
 from ..utils.config import Config
 from ..utils.logs import Log
 
-REGEX_VAR_PATTERN = '{(?P<all>(?P<var>[^:]+):(?P<type>[^}]+))}'
+REGEX_VAR_PATTERN = "{(?P<all>(?P<var>[^:]+):(?P<type>[^}]+))}"
 COMPILED_REGEX_VAR_PATTERN = re.compile(REGEX_VAR_PATTERN)
 
 
 def authenticate_container(credentials):
-
     _auth_url = credentials.get("server")
 
     _data = {
@@ -20,11 +19,10 @@ def authenticate_container(credentials):
         "client_secret": credentials.get("client_secret"),
         "response_type": credentials.get("response_type"),
         "scope": credentials.get("scope"),
-        "state": "active"
+        "state": "active",
     }
 
     if "" not in _data.values() and _auth_url:
-
         try:
             _resp = requests.get(_auth_url, params=_data)
             Log.info("Response >> {}".format(_resp.status_code))
@@ -42,36 +40,35 @@ def authenticate_container(credentials):
 def get_auth_module(module_name=None):
     _plugins = Config.plugins()
 
-    if 'auth' in _plugins.keys():
-
-        if _plugins['auth'] not in sys.path:
-            sys.path.append(_plugins['auth'])
+    if "auth" in _plugins.keys():
+        if _plugins["auth"] not in sys.path:
+            sys.path.append(_plugins["auth"])
 
         if module_name:
             module = importlib.import_module(module_name)
             return module
 
         from auth import Auth
+
         return Auth
     else:
         from ..auth.backends import Auth
+
         return Auth
 
     return None
 
 
 def get_topic(_topic):
-
     for _match in COMPILED_REGEX_VAR_PATTERN.finditer(_topic):
         _groups = _match.groupdict()
-        _var = _groups['var']
-        _topic = _topic.replace(_groups['all'], f"{_var}")
+        _var = _groups["var"]
+        _topic = _topic.replace(_groups["all"], f"{_var}")
 
     return _topic
 
 
 class AuthBackendMixin:
-
     @property
     def AuthorizationException(self):
         AuthBackend = get_auth_module()
@@ -87,7 +84,7 @@ class AuthBackendMixin:
         :return:
         """
 
-        _endpoint = kwargs.get('endpoint', '')
+        _endpoint = kwargs.get("endpoint", "")
         topic = get_topic(_endpoint)
         AuthBackend = get_auth_module()
         return AuthBackend().authenticate(request, topic=topic, **kwargs)
@@ -98,7 +95,7 @@ class AuthBackendMixin:
         :param request:
         :return:
         """
-        _endpoint = kwargs.get('endpoint', '')
+        _endpoint = kwargs.get("endpoint", "")
         topic = get_topic(_endpoint)
         AuthBackend = get_auth_module()
         return AuthBackend().anonymous(request, topic=topic, **kwargs)

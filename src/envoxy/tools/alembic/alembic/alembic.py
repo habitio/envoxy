@@ -8,6 +8,7 @@ packaged `alembic.ini`. Example:
 It avoids shell scripts and guarantees the currently active Python interpreter
 is used (important when working inside virtualenvs).
 """
+
 from __future__ import annotations
 
 import sys
@@ -26,7 +27,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from alembic.config import CommandLine
     except Exception as exc:  # pragma: no cover - env dependent
-        print("ERROR: alembic is not installed in this environment:", exc, file=sys.stderr)
+        print(
+            "ERROR: alembic is not installed in this environment:", exc, file=sys.stderr
+        )
         print("Install with: pip install alembic", file=sys.stderr)
         return 2
 
@@ -36,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
         rc = CommandLine().main(full_argv)
         return int(rc or 0)
     except SystemExit as se:
-        return int(getattr(se, 'code', 0) or 0)
+        return int(getattr(se, "code", 0) or 0)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual

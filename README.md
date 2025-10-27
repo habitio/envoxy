@@ -22,35 +22,49 @@ packaged migration workflow.
 - [Migrations](#migrations-packaged-alembic)
 - [Docker Support](#-docker-support)
 - [Development](#-development)
+- [Publishing Releases](#-publishing-releases)
 - [Documentation](#-documentation)
 - [Contributing](#-contributing)
 
 ## 🚀 Quick Start
 
 ```bash
-# Install Envoxy
-pip install envoxy
+# Install the framework and uWSGI server
+pip install envoxy envoxyd
 
-# Create a new project
-envoxy-cli --create-project --name my-service
+# Create a new project structure
+mkdir my-service && cd my-service
 
-# Start the development environment with Docker
-cd docker/dev && docker-compose up -d
+# Create your application (run.py)
+# See usage examples below
 
-# Run migrations
-envoxy-alembic upgrade head
-
-# Start the service
+# Start the uWSGI server
 envoxyd --http :8080 --set conf=/path/to/envoxy.json
 ```
 
 ## 📦 Installation
 
-### From PyPI
+### Framework Only (Pure Python)
 
 ```bash
 pip install envoxy
 ```
+
+This installs the Envoxy framework with all Python dependencies for building services.
+
+### With uWSGI Server (Manylinux Binary)
+
+```bash
+pip install envoxyd
+```
+
+This installs:
+
+- The `envoxy` framework (as a dependency)
+- A pre-built `envoxyd` binary (uWSGI with embedded Python 3.12.12)
+- All shared libraries bundled for portability
+
+**Note:** `envoxyd` is Linux-only. For development on macOS/Windows, use the framework with your own WSGI server.
 
 ### Development Installation
 
@@ -135,9 +149,11 @@ docs = couchdbc.find(
 doc = couchdbc.get("005r9odyj...", db="server_key.db_name")
 ```
 
-## 🐳 Docker Support
+## 🐳 Docker Support (Development Only)
 
-### Quick Start with Docker Compose
+### Local Development Environment
+
+For local development and testing, a Docker Compose setup is available:
 
 ```bash
 cd docker/dev
@@ -146,23 +162,14 @@ docker-compose up -d
 
 This starts:
 
-- Envoxy service
 - PostgreSQL database
 - Redis cache
 - pgAdmin (PostgreSQL GUI)
 - RedisInsight (Redis GUI)
 
-### Build Production Image
+**Note:** For production deployments, use the `envoxyd` wheel from PyPI instead of Docker images.
 
-```bash
-# Using the unified build script (recommended)
-./tools/build.sh
-
-# Or manually
-docker build -t envoxy:runtime -f docker/runtime/Dockerfile .
-```
-
-See [docker/README.md](docker/README.md) for comprehensive Docker documentation.
+See [docker/dev/README.md](docker/dev/README.md) for development environment documentation.
 
 ## 🔧 Development
 
@@ -206,8 +213,166 @@ cat docs/CI-CD.md
 cat tests/README.md
 ```
 
-## 📚 Documentation
+## 📦 Publishing Releases
 
+### Publishing to TestPyPI (Testing)
+
+TestPyPI is used to test package distribution before publishing to production PyPI.
+
+#### 1. Update Version Numbers
+
+Update the version in both package files:
+
+```bash
+# Edit pyproject.toml for envoxy
+vim pyproject.toml  # Update version = "0.5.10"
+
+# Edit vendors/pyproject.toml for envoxyd
+vim vendors/pyproject.toml  # Update version = "0.4.10"
+```
+
+#### 2. Commit and Push Version Changes
+
+```bash
+git add pyproject.toml vendors/pyproject.toml
+git commit -m "chore: Bump version to 0.5.10 / 0.4.10"
+git push origin main
+```
+
+#### 3. Automatic TestPyPI Publishing
+
+**When you push to `main` branch**, both workflows automatically trigger:
+
+- **envoxy-publish.yml**: Builds pure Python wheel → publishes to TestPyPI
+- **envoxyd-manylinux.yml**: Builds manylinux wheel → publishes to TestPyPI
+
+No manual workflow trigger needed! Every push to `main` automatically publishes to TestPyPI for testing.
+
+#### 4. Test Installation from TestPyPI
+
+```bash
+# Create a fresh virtual environment
+python3.12 -m venv test-env
+source test-env/bin/activate
+
+# Install from TestPyPI (note: --extra-index-url needed for dependencies)
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ envoxy
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ envoxyd
+
+# Verify installation
+python -c "import envoxy; print(envoxy.__version__)"
+envoxyd --version
+
+# Test basic functionality
+python -c "from envoxy.db.orm import EnvoxyBase; print('Import successful')"
+```
+
+### Publishing to PyPI (Production)
+
+Production releases require manual workflow dispatch to prevent accidental publishes.
+
+#### 1. Ensure Version is Updated
+
+Make sure `pyproject.toml` and `vendors/pyproject.toml` have the correct version numbers and are pushed to `main`.
+
+#### 2. Create and Push Git Tag
+
+```bash
+# Create annotated tag (recommended for documentation)
+git tag -a v0.5.10 -m "Release version 0.5.10
+
+- Feature: Description of major features
+- Fix: Description of bug fixes
+- Chore: Infrastructure updates
+"
+
+# Push the tag to GitHub
+git push origin v0.5.10
+```
+
+**Note:** Pushing a tag will trigger the workflows to **build** the packages, but **NOT** publish to production PyPI.
+
+#### 3. Manual Production Publishing
+
+After pushing the tag and verifying the builds succeeded:
+
+**For envoxy (pure Python wheel):**
+
+1. Go to [GitHub Actions](https://github.com/habitio/envoxy/actions)
+2. Select `Build and publish envoxy (pure Python)` workflow
+3. Click "Run workflow"
+4. Select the tag (e.g., `v0.5.10`) from the branch dropdown
+5. Click "Run workflow"
+
+This will publish to production PyPI at `https://pypi.org/project/envoxy/`
+
+**For envoxyd (manylinux binary):**
+
+1. Go to [GitHub Actions](https://github.com/habitio/envoxy/actions)
+2. Select `Build and publish envoxyd (manylinux)` workflow
+3. Click "Run workflow"
+4. Select the tag (e.g., `v0.5.10`) from the branch dropdown
+5. Click "Run workflow"
+
+This will publish to production PyPI at `https://pypi.org/project/envoxyd/`
+
+#### 4. Verify Production Release
+
+```bash
+# Install from production PyPI
+pip install --upgrade envoxy envoxyd
+
+# Verify versions
+pip show envoxy envoxyd
+```
+
+#### 5. Monitor Release
+
+- Check PyPI pages: [envoxy](https://pypi.org/project/envoxy/), [envoxyd](https://pypi.org/project/envoxyd/)
+- Verify GitHub Actions succeeded: [Actions tab](https://github.com/habitio/envoxy/actions)
+- Check workflow logs for any errors
+
+### Versioning Guidelines
+
+Follow [Semantic Versioning](https://semver.org/):
+
+- **Major version** (1.0.0): Breaking changes
+- **Minor version** (0.5.0): New features, backward compatible
+- **Patch version** (0.5.1): Bug fixes, backward compatible
+
+Both `envoxy` and `envoxyd` should be versioned together to maintain compatibility:
+
+```bash
+# Example: Major release
+envoxy: 1.0.0
+envoxyd: 1.0.0
+
+# Example: Feature release
+envoxy: 0.6.0
+envoxyd: 0.5.0  # Only if envoxyd has no changes
+```
+
+### Troubleshooting
+
+**Build fails on GitHub Actions:**
+
+- Check workflow logs in Actions tab
+- Verify all tests pass: `make test`
+- Ensure dependencies are up to date
+
+**TestPyPI/PyPI upload fails:**
+
+- Verify `TEST_PYPI_API_TOKEN` and `PYPI_API_TOKEN` secrets are set in repository settings
+- Check if version already exists (PyPI doesn't allow re-uploading same version)
+- Ensure package name is available
+
+**envoxyd binary doesn't run:**
+
+- Check RPATH is correct: `patchelf --print-rpath $(which envoxyd)`
+- Verify shared libraries are bundled: `auditwheel show wheelhouse/*.whl`
+- Test in clean manylinux container: `docker run -it quay.io/pypa/manylinux_2_28_x86_64 bash`
+
+## 📚 Documentation
 ## Core capabilities
 
 - ZeroMQ / UPnP integration ("Zapata")

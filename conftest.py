@@ -18,7 +18,7 @@ if str(src_path) not in sys.path:
 
 
 # Import fixtures from fixtures module
-from tests.fixtures.fixtures import test_payload  # noqa: F401
+from tests.fixtures.fixtures import test_payload  # noqa: F401,F402,E402
 
 
 @pytest.fixture(scope="session")

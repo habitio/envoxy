@@ -196,7 +196,7 @@ class AppContext(object):
                     except StopIteration:
 
                         envoxy.log.error(
-                            f'There is no default ZMQ Server Backend enabled for V3 endpoints')
+                            'There is no default ZMQ Server Backend enabled for V3 endpoints')
 
                 debug_mode = _conf_content.get('debug', False)
                 envoxy.log.system('[{}] App in debug mode {}!\n'.format(

@@ -1,15 +1,20 @@
+"""Date/time helpers."""
+
+# ruff: noqa: E722
 from datetime import datetime
 import time
 
-class Now:
 
+class Now:
     @staticmethod
     def log_format():
-        return datetime.now().utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        return datetime.now().utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 
     @staticmethod
     def api_format():
-        return '+'.join([datetime.now().utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3], '0000'])
+        return "+".join(
+            [datetime.now().utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], "0000"]
+        )
 
     @staticmethod
     def timestamp():

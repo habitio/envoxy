@@ -20,11 +20,11 @@ _MANAGERS: Dict[str, EnvoxySessionManager] = {}
 
 def _build_url_from_conf(conf: dict) -> str:
     # Expect the same keys used by the psycopg2 client
-    _user = conf.get('user') or ''
-    _passwd = conf.get('passwd') or ''
-    _host = conf.get('host') or 'localhost'
-    _port = conf.get('port') or 5432
-    _dbname = conf.get('db') or ''
+    _user = conf.get("user") or ""
+    _passwd = conf.get("passwd") or ""
+    _host = conf.get("host") or "localhost"
+    _port = conf.get("port") or 5432
+    _dbname = conf.get("db") or ""
 
     # Note: keep it simple and explicit. If credentials are provided elsewhere
     # projects can pre-compose a DSN in the config instead.
@@ -41,28 +41,28 @@ def get_manager(server_key: str) -> EnvoxySessionManager:
     if server_key in _MANAGERS:
         return _MANAGERS[server_key]
 
-    _psql_confs = Config.get('psql_servers')
+    _psql_confs = Config.get("psql_servers")
     if not _psql_confs:
-        raise DatabaseException('No psql_servers configuration found')
+        raise DatabaseException("No psql_servers configuration found")
 
     _conf = _psql_confs.get(server_key)
     if not _conf:
-        raise DatabaseException(f'No psql server config for server_key: {server_key}')
+        raise DatabaseException(f"No psql server config for server_key: {server_key}")
 
     # If the consumer provided a full dsn/url in conf, use it
-    _url = _conf.get('dsn') or _conf.get('url') or _build_url_from_conf(_conf)
+    _url = _conf.get("dsn") or _conf.get("url") or _build_url_from_conf(_conf)
 
     # Extract pool tuning options if provided by the configuration
     _engine_kwargs = {}
-    _pool_size = _conf.get('pool_size')
-    _max_overflow = _conf.get('max_overflow')
-    _pool_timeout = _conf.get('pool_timeout')
+    _pool_size = _conf.get("pool_size")
+    _max_overflow = _conf.get("max_overflow")
+    _pool_timeout = _conf.get("pool_timeout")
     if _pool_size is not None:
-        _engine_kwargs['pool_size'] = int(_pool_size)
+        _engine_kwargs["pool_size"] = int(_pool_size)
     if _max_overflow is not None:
-        _engine_kwargs['max_overflow'] = int(_max_overflow)
+        _engine_kwargs["max_overflow"] = int(_max_overflow)
     if _pool_timeout is not None:
-        _engine_kwargs['pool_timeout'] = int(_pool_timeout)
+        _engine_kwargs["pool_timeout"] = int(_pool_timeout)
 
     _mgr = EnvoxySessionManager(url=_url, engine_kwargs=_engine_kwargs)
     _MANAGERS[server_key] = _mgr
@@ -75,10 +75,10 @@ def get_manager(server_key: str) -> EnvoxySessionManager:
 def get_default_server_key() -> str:
     """Return a sensible default server_key: env var or first configured key."""
 
-    _psql_confs = Config.get('psql_servers') or {}
+    _psql_confs = Config.get("psql_servers") or {}
 
     # prefer configuration 'default' key if set
-    _default = _psql_confs.get('default')
+    _default = _psql_confs.get("default")
     if isinstance(_default, str) and _default in _psql_confs:
         return _default
 
@@ -86,11 +86,11 @@ def get_default_server_key() -> str:
     try:
         return next(iter(_psql_confs.keys()))
     except StopIteration as _exc:
-        raise DatabaseException('No psql_servers configured') from _exc
+        raise DatabaseException("No psql_servers configured") from _exc
 
 
 def validate_server_key(server_key: str) -> bool:
-    _psql_confs = Config.get('psql_servers') or {}
+    _psql_confs = Config.get("psql_servers") or {}
     return server_key in _psql_confs
 
 
@@ -139,6 +139,11 @@ def transactional(server_key: str):
 
 
 __all__ = [
-    'get_manager', 'get_default_server_key', 'validate_server_key',
-    'dispose_manager', 'dispose_all', 'session_scope', 'transactional'
+    "get_manager",
+    "get_default_server_key",
+    "validate_server_key",
+    "dispose_manager",
+    "dispose_all",
+    "session_scope",
+    "transactional",
 ]

@@ -1,3 +1,4 @@
+# ruff: noqa: F401,F841
 import threading
 import time
 
@@ -9,11 +10,15 @@ class DummyConn:
         class Ctx:
             def __enter__(self):
                 return self
+
             def __exit__(self, exc_type, exc, tb):
                 return False
+
             def execute(self, *args, **kwargs):
                 return None
+
         return Ctx()
+
     def close(self):
         return None
 
@@ -21,7 +26,9 @@ class DummyConn:
 def test_semaphore_limits_and_timeouts():
     max_conn = 3
 
-    pool = SemaphoreThreadedConnectionPool(1, max_conn, host='localhost', port=5432, dbname='db', user='u', password='p')
+    pool = SemaphoreThreadedConnectionPool(
+        1, max_conn, host="localhost", port=5432, dbname="db", user="u", password="p"
+    )
 
     # monkeypatch internals: directly insert dummy connections into the internal pool
     conns = [DummyConn() for _ in range(max_conn)]
@@ -36,10 +43,10 @@ def test_semaphore_limits_and_timeouts():
             conn = pool.getconn(timeout=1)
         except Exception as e:
             with lock:
-                acquired.append(('timeout', i))
+                acquired.append(("timeout", i))
             return
         with lock:
-            acquired.append(('ok', i))
+            acquired.append(("ok", i))
         # hold the connection a little while
         time.sleep(0.2)
         pool.putconn(conn)
@@ -51,4 +58,4 @@ def test_semaphore_limits_and_timeouts():
         t.join()
 
     # assert that at least one thread hit timeout since 6 > max_conn and hold time
-    assert any(s == 'timeout' for s, _ in acquired)
+    assert any(s == "timeout" for s, _ in acquired)

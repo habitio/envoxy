@@ -7,17 +7,17 @@ import re
 
 
 def _compute_aux_table_prefix() -> str:
-		"""Derive the managed table prefix from ENVOXY_SERVICE_NAMESPACE.
+    """Derive the managed table prefix from ENVOXY_SERVICE_NAMESPACE.
 
-		- When ENVOXY_SERVICE_NAMESPACE is set, returns "aux_<ns>_".
-		- Otherwise, falls back to plain "aux_" (runtime-safe; Alembic enforces
-			the namespace in migration runs).
-		"""
-		ns = os.getenv("ENVOXY_SERVICE_NAMESPACE", "").strip().lower()
-		if not ns:
-				return "aux_"
-		ns = re.sub(r"[^a-z0-9_]", "_", ns)
-		return f"aux_{ns}_"
+    - When ENVOXY_SERVICE_NAMESPACE is set, returns "aux_<ns>_".
+    - Otherwise, falls back to plain "aux_" (runtime-safe; Alembic enforces
+            the namespace in migration runs).
+    """
+    ns = os.getenv("ENVOXY_SERVICE_NAMESPACE", "").strip().lower()
+    if not ns:
+        return "aux_"
+    ns = re.sub(r"[^a-z0-9_]", "_", ns)
+    return f"aux_{ns}_"
 
 
 # Prefix used for all tables created by the thin data layer. Computed once at

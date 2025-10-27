@@ -3,7 +3,6 @@
 import os
 from setuptools import setup, find_namespace_packages
 
-import sys
 
 # Read project metadata from pyproject.toml (PEP 621) as the single source of truth.
 # If pyproject.toml is missing or invalid, the build will fail.

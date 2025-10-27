@@ -2,7 +2,6 @@ name: Build and publish envoxy (pure Python)
 
 on:
   push:
-    branches: [main, feature/python3_12]
     tags:
       - "v*"
   workflow_dispatch: {}

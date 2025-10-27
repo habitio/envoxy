@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 import math
 import uuid
 import re
@@ -14,11 +15,16 @@ import psycopg2.sql as sql
 from ..db.orm.session import dispose_manager
 from ..db.exceptions import DatabaseException
 from ..utils.logs import Log
-from ..constants import MIN_CONN, MAX_CONN, TIMEOUT_CONN, DEFAULT_OFFSET_LIMIT, DEFAULT_CHUNK_SIZE
+from ..constants import (
+    MIN_CONN,
+    MAX_CONN,
+    TIMEOUT_CONN,
+    DEFAULT_OFFSET_LIMIT,
+    DEFAULT_CHUNK_SIZE,
+)
 
 
 class SemaphoreThreadedConnectionPool(ThreadedConnectionPool):
-    
     def __init__(self, minconn, maxconn, *args, **kwargs):
         # use BoundedSemaphore to detect excessive releases
         self._semaphore = _BoundedSemaphore(maxconn)
@@ -59,7 +65,9 @@ class SemaphoreThreadedConnectionPool(ThreadedConnectionPool):
             try:
                 self._semaphore.release()
             except Exception as release_exc:
-                Log.error(f"Failed to release semaphore after putconn error: {release_exc}")
+                Log.error(
+                    f"Failed to release semaphore after putconn error: {release_exc}"
+                )
             raise
         else:
             try:
@@ -79,17 +87,15 @@ class Client:
     _thread_local_data = local()  # Used for thread-local storage
 
     def __new__(cls, *args, **kwargs):
-        
         with cls._lock:
-                
             if not cls._instance:
                 cls._instance = super(Client, cls).__new__(cls)
-        
+
         return cls._instance
 
     def __init__(self, server_conf):
         # make __init__ idempotent for singleton pattern
-        if getattr(self, '_initialized', False):
+        if getattr(self, "_initialized", False):
             return
         self._initialized = True
 
@@ -98,22 +104,21 @@ class Client:
         for _server_key, _conf in server_conf.items():
             with self._lock:
                 self._instances[_server_key] = {
-                    'server': _server_key,
-                    'conf': _conf,
+                    "server": _server_key,
+                    "conf": _conf,
                 }
 
             self.connect(self._instances[_server_key])
-    
+
     def _retry_on_failure(self, func, retries=3, delay=1):
-        
         """
         Retry a function in case of exceptions.
-        
+
         :param func: Function to be executed.
         :param retries: Number of retries.
         :param delay: Delay between retries.
         """
-        
+
         last_exc = None
         for _attempt in range(retries):
             try:
@@ -123,8 +128,10 @@ class Client:
                 Log.error(f"Error: {repr(e)}. Retrying...")
                 sleep(delay * (math.pow(2, _attempt)))  # exponential backoff
 
-        raise DatabaseException(f"Failed after {retries} attempts: {last_exc}") from last_exc
-                
+        raise DatabaseException(
+            f"Failed after {retries} attempts: {last_exc}"
+        ) from last_exc
+
     def _get_conn(self, server_key, max_retries=3, delay=1):
         """
         Returns a connection from the pool.
@@ -134,23 +141,27 @@ class Client:
         :param delay: Delay between retries.
         :return: Database connection.
         """
-  
-        _instance = self._instances.get(server_key)
-            
-        if not _instance:
-            raise DatabaseException(f"No configuration found for server key: {server_key}")
 
-        if 'conn_pool' not in _instance:
+        _instance = self._instances.get(server_key)
+
+        if not _instance:
+            raise DatabaseException(
+                f"No configuration found for server key: {server_key}"
+            )
+
+        if "conn_pool" not in _instance:
             self.connect(_instance)
 
         # Determine per-connection acquire timeout from config (seconds)
-        _conn_timeout = int(_instance['conf'].get('conn_timeout', TIMEOUT_CONN))
+        _conn_timeout = int(_instance["conf"].get("conn_timeout", TIMEOUT_CONN))
 
         for _attempt in range(max_retries):
             try:
-                _conn = _instance['conn_pool'].getconn(timeout=_conn_timeout)
+                _conn = _instance["conn_pool"].getconn(timeout=_conn_timeout)
             except Exception as e:
-                Log.error(f"[PSQL:{server_key}] Failed to get connection from pool: {e}")
+                Log.error(
+                    f"[PSQL:{server_key}] Failed to get connection from pool: {e}"
+                )
                 sleep(delay * (math.pow(2, _attempt)))
                 continue
 
@@ -159,7 +170,7 @@ class Client:
 
             # Return/close broken connection to the pool
             try:
-                _instance['conn_pool'].putconn(_conn, close=True)
+                _instance["conn_pool"].putconn(_conn, close=True)
             except Exception:
                 try:
                     _conn.close()
@@ -169,10 +180,10 @@ class Client:
             Log.error(f"[PSQL:{server_key}] Connection is not healthy. Retrying...")
 
             sleep(delay * (math.pow(2, _attempt)))  # exponential backoff
-            
+
         # If we reach here, it means we failed to get a healthy connection after max_retries
         raise DatabaseException("Failed to get a healthy connection")
-    
+
     def _is_connection_healthy(self, conn):
         if not conn:
             return False
@@ -206,9 +217,9 @@ class Client:
                 # attempt to close pool if present
                 try:
                     inst = self._instances.pop(rk, None)
-                    if inst and inst.get('conn_pool'):
+                    if inst and inst.get("conn_pool"):
                         try:
-                            inst['conn_pool'].closeall()
+                            inst["conn_pool"].closeall()
                         except Exception:
                             pass
                 except Exception:
@@ -218,26 +229,31 @@ class Client:
                 if _server_key in self._instances:
                     # update conf in-place; do not drop existing pool unless
                     # the configuration specifically changed (simple check).
-                    old = self._instances[_server_key]['conf']
+                    old = self._instances[_server_key]["conf"]
                     if old != _conf:
                         # replace conf and reconnect pool
-                        self._instances[_server_key]['conf'] = _conf
+                        self._instances[_server_key]["conf"] = _conf
                         try:
                             # dispose SQLAlchemy manager so callers get a fresh Engine
                             dispose_manager(_server_key)
                         except Exception:
-                            Log.error(f"Failed to dispose manager for server {_server_key}")
+                            Log.error(
+                                f"Failed to dispose manager for server {_server_key}"
+                            )
                         try:
                             self.connect(self._instances[_server_key])
                         except Exception as e:
                             Log.error(f"Failed to reconnect server {_server_key}: {e}")
                 else:
-                    self._instances[_server_key] = {'server': _server_key, 'conf': _conf}
+                    self._instances[_server_key] = {
+                        "server": _server_key,
+                        "conf": _conf,
+                    }
                     try:
                         self.connect(self._instances[_server_key])
                     except Exception as e:
                         Log.error(f"Failed to connect new server {_server_key}: {e}")
-        
+
     def _get_conf(self, server_key, key):
         """
         Returns a configuration value for the server.
@@ -246,9 +262,9 @@ class Client:
         :param key: Configuration key.
         :return: Configuration value.
         """
-        
-        return self._instances[server_key]['conf'].get(key, None)
-        
+
+        return self._instances[server_key]["conf"].get(key, None)
+
     def connect(self, instance, reconnect_attempts=3, reconnect_delay=1):
         """
         Connects to the database server.
@@ -258,35 +274,35 @@ class Client:
         :param reconnect_delay: Delay between reconnection attempts.
         :return: None
         """
-    
-        _conf = instance['conf']
 
-        _max_conn = int(_conf.get('max_conn', MAX_CONN))
-        _timeout = int(_conf.get('timeout', TIMEOUT_CONN))
-                
+        _conf = instance["conf"]
+
+        _max_conn = int(_conf.get("max_conn", MAX_CONN))
+        _timeout = int(_conf.get("timeout", TIMEOUT_CONN))
+
         _conn_pool = self._retry_on_failure(
             lambda: SemaphoreThreadedConnectionPool(
-                MIN_CONN, 
-                _max_conn, 
-                host=_conf['host'], 
-                port=_conf['port'],
-                dbname=_conf['db'], 
-                user=_conf['user'], 
-                password=_conf['passwd'],
-                connect_timeout=_timeout
+                MIN_CONN,
+                _max_conn,
+                host=_conf["host"],
+                port=_conf["port"],
+                dbname=_conf["db"],
+                user=_conf["user"],
+                password=_conf["passwd"],
+                connect_timeout=_timeout,
             ),
             retries=reconnect_attempts,
-            delay=reconnect_delay
+            delay=reconnect_delay,
         )
 
         with self._lock:
-            instance['conn_pool'] = _conn_pool
+            instance["conn_pool"] = _conn_pool
 
-        Log.trace('>>> Successfully connected to POSTGRES: {}, {}:{}'.format(
-            instance['server'],
-            _conf['host'], 
-            _conf['port']
-        ))
+        Log.trace(
+            ">>> Successfully connected to POSTGRES: {}, {}:{}".format(
+                instance["server"], _conf["host"], _conf["port"]
+            )
+        )
 
     def release_conn(self, server_key, conn):
         """
@@ -307,12 +323,12 @@ class Client:
                 pass
             return
 
-        pool = _instance.get('conn_pool')
+        pool = _instance.get("conn_pool")
 
         # consult per-instance config whether to run health checks on release
         health_check = True
         try:
-            health_check = bool(_instance['conf'].get('health_check_on_release', True))
+            health_check = bool(_instance["conf"].get("health_check_on_release", True))
         except Exception:
             health_check = True
 
@@ -346,11 +362,11 @@ class Client:
         :return: None
         """
 
-        if hasattr(self._thread_local_data, 'conn'):
+        if hasattr(self._thread_local_data, "conn"):
             raise DatabaseException("Nested transactions are not supported")
 
         conn = self._get_conn(server_key)
-        prev_autocommit = getattr(conn, 'autocommit', True)
+        prev_autocommit = getattr(conn, "autocommit", True)
         conn.autocommit = False
         self._thread_local_data.conn = conn
 
@@ -378,11 +394,10 @@ class Client:
             except Exception:
                 pass
 
-
     def query(self, server_key=None, sql_query=None, params=None):
         """
         Executes the provided SQL query and returns the results.
-        
+
         :param server_key: Identifier for the server configuration.
         :param sql_query: SQL query string to be executed.
         :param params: Parameters for the SQL query.
@@ -395,28 +410,30 @@ class Client:
         if not sql_query:
             raise DatabaseException("Sql cannot be empty")
 
-        _conn = getattr(self._thread_local_data, 'conn', None) or self._get_conn(server_key)
+        _conn = getattr(self._thread_local_data, "conn", None) or self._get_conn(
+            server_key
+        )
 
         try:
             with _conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as _cursor:
-
-                _schema = self._get_conf(server_key, 'schema')
+                _schema = self._get_conf(server_key, "schema")
                 if _schema:
                     # Safely quote the schema identifier
-                    _cursor.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(_schema)))
+                    _cursor.execute(
+                        sql.SQL("SET search_path TO {}").format(sql.Identifier(_schema))
+                    )
 
                 _data = []
 
                 # copy params to avoid mutating caller's dictionary
                 _local_params = dict(params)
 
-                _chunk_size = _local_params.get('chunk_size', DEFAULT_CHUNK_SIZE)
-                _offset_limit = _local_params.get('offset_limit', DEFAULT_OFFSET_LIMIT)
+                _chunk_size = _local_params.get("chunk_size", DEFAULT_CHUNK_SIZE)
+                _offset_limit = _local_params.get("offset_limit", DEFAULT_OFFSET_LIMIT)
 
-                _local_params.update({
-                    'chunk_size': _chunk_size,
-                    'offset_limit': _offset_limit
-                })
+                _local_params.update(
+                    {"chunk_size": _chunk_size, "offset_limit": _offset_limit}
+                )
 
                 while True:
                     _cursor.execute(sql_query, _local_params)
@@ -427,14 +444,14 @@ class Client:
                     _data.extend(list(map(dict, _rows)))
 
                     _offset_limit += _chunk_size
-                    _local_params.update({'offset_limit': _offset_limit})
+                    _local_params.update({"offset_limit": _offset_limit})
 
-                    if _rowcount != _chunk_size or 'limit' not in sql_query.lower():
+                    if _rowcount != _chunk_size or "limit" not in sql_query.lower():
                         break
 
                 return _data
         finally:
-            if not getattr(self._thread_local_data, 'conn', None):
+            if not getattr(self._thread_local_data, "conn", None):
                 # query is not using transaction, release connection
                 self.release_conn(server_key, _conn)
 

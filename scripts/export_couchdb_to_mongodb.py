@@ -47,7 +47,7 @@ class MongoDB:
 
         try:
             _dbase_name, _collection_name = _database_name.split('_')
-        except Exception as e:
+        except Exception:
             print('\nDatabase {} ignored!!!'.format(_database_name))
             return
 
@@ -70,7 +70,7 @@ class MongoDB:
                 if '$' in str(e):
                     try:
                         _collection.insert_one(json.loads(json.dumps(_doc).replace('{"$', '{"')))
-                    except Exception as e1:
+                    except Exception:
                         print('\nError: {} while trying to insert this object: {}'.format(e, _doc))
                 else:
                     print('\nError: {} while trying to insert this object: {}'.format(e, _doc))

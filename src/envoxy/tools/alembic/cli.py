@@ -6,6 +6,7 @@ delegates to Alembic's CommandLine. This script is intended to be exposed as
 `envoxy-alembic` via console_scripts so services can run migrations without
 needing to know package installation paths.
 """
+
 from __future__ import annotations
 
 import sys
@@ -36,16 +37,24 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from alembic.config import CommandLine
     except Exception as exc:  # pragma: no cover - env dependent
-        print("ERROR: the 'alembic' package is not installed in this Python environment.", file=sys.stderr)
+        print(
+            "ERROR: the 'alembic' package is not installed in this Python environment.",
+            file=sys.stderr,
+        )
         print("Install it with: pip install alembic", file=sys.stderr)
-        print("Or install project dev requirements: pip install -r requirements.dev", file=sys.stderr)
+        print(
+            "Or install project dev requirements: pip install -r requirements.dev",
+            file=sys.stderr,
+        )
         print("Full error:", exc, file=sys.stderr)
         return 2
 
     # Ensure script_location is absolute so services need not have a local 'alembic' dir.
     tmp_ini_path = None
     # Allow service override of script directory
-    override_dir_env = os.environ.get("SERVICE_ALEMBIC_DIR") or os.environ.get("ENVOXY_ALEMBIC_DIR")
+    override_dir_env = os.environ.get("SERVICE_ALEMBIC_DIR") or os.environ.get(
+        "ENVOXY_ALEMBIC_DIR"
+    )
     if override_dir_env:
         custom_dir = Path(override_dir_env).resolve()
         versions_dir = custom_dir / "versions"
@@ -53,8 +62,8 @@ def main(argv: list[str] | None = None) -> int:
             custom_dir.mkdir(parents=True, exist_ok=True)
             versions_dir.mkdir(parents=True, exist_ok=True)
             # Provide env.py without duplicating: prefer symlink to packaged env.py, else generate a thin proxy.
-            env_py_src = (packaged_script_dir / "env.py")
-            env_py_dst = (custom_dir / "env.py")
+            env_py_src = packaged_script_dir / "env.py"
+            env_py_dst = custom_dir / "env.py"
             if env_py_src.is_file() and not env_py_dst.exists():
                 # Always create lightweight proxy delegating to packaged env (no symlink to ease cross-platform support)
                 try:
@@ -110,11 +119,12 @@ def main(argv: list[str] | None = None) -> int:
     # prepend the -c <ini> so alembic uses the (possibly rewritten) config
     full_argv = ["-c", str(effective_ini)] + argv
     from typing import Optional
+
     exit_code_raw: Optional[int]
     try:
         exit_code_raw = CommandLine().main(full_argv)
     except SystemExit as se:  # pragma: no cover
-        exit_code_raw = int(getattr(se, 'code', 0) or 0)
+        exit_code_raw = int(getattr(se, "code", 0) or 0)
     if exit_code_raw is None:
         return 0
     return int(exit_code_raw)

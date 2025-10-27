@@ -1,6 +1,4 @@
-import datetime
-import uuid
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import Column, Integer, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from envoxy.db.envoxy_mixin import EnvoxyMixin, register_envoxy_listeners
