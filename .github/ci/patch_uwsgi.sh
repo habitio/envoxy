@@ -236,12 +236,16 @@ else
         exit 1
     }
     
-    echo "CI: Explicitly disabling SSL module in Modules/Setup.local..."
-    # Python's configure still tries to build SSL if OpenSSL is found,
-    # so we explicitly disable it in the Setup file
+    echo "CI: Explicitly disabling problematic modules in Modules/Setup.local..."
+    # Python's configure still tries to build some modules even with flags,
+    # so we explicitly disable them in the Setup file
+    # - _ssl: requires OpenSSL 3.0+ (manylinux has 1.1.1)
+    # - _hashlib: depends on OpenSSL
+    # - _locale: requires libintl which isn't available separately in manylinux
     echo "*disabled*" >> Modules/Setup.local
     echo "_ssl" >> Modules/Setup.local
     echo "_hashlib" >> Modules/Setup.local
+    echo "_locale" >> Modules/Setup.local
     
     echo "CI: Building Python (this may take several minutes)..."
     make -j$(nproc) 2>&1 | tail -100 || {
@@ -320,9 +324,8 @@ injection = '''    # CI: Inject static Python library before linking
                 print(f"CI: Added static library to libs", file=sys.stderr)
             
             # Static linking requires explicitly adding all dependencies
-            # These are common dependencies for statically linked Python
+            # Note: _locale module is disabled, so we don't need -lintl
             required_libs = [
-                '-lintl',      # gettext/locale support (musl systems)
                 '-lpthread',   # threading support
                 '-ldl',        # dynamic loading support
                 '-lutil',      # pty and login utilities
