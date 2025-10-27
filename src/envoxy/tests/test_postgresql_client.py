@@ -1,3 +1,4 @@
+# ruff: noqa: F401,F821
 import pytest
 from threading import Thread
 

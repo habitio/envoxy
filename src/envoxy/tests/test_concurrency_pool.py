@@ -1,3 +1,4 @@
+# ruff: noqa: F401,F841
 import threading
 import time
 

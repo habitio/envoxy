@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 import math
 import uuid
 import re

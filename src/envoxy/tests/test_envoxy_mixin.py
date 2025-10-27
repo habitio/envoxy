@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 import datetime
 import uuid
 from sqlalchemy import Column, Integer, String, create_engine

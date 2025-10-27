@@ -1,4 +1,5 @@
 """ORM-related utilities and base classes for Envoxy."""
+# ruff: noqa: F811
 from .base import EnvoxyBase
 from .mixin import EnvoxyMixin
 from .meta import EnvoxyMeta

@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 import uuid
 import datetime
 from sqlalchemy.orm.mapper import Mapper

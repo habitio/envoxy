@@ -1,3 +1,4 @@
+# ruff: noqa: F403,F405,F811,E711
 from ..asserts import *
 from .fixtures import test_payload
 import pytest

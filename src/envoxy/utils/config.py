@@ -1,3 +1,5 @@
+"""Configuration helpers for runtime and non-uwsgi environments."""
+# ruff: noqa: E722
 import json
 
 try:

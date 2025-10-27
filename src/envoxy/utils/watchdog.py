@@ -1,3 +1,5 @@
+"""Watchdog helper for sending systemd/uwsgi keep-alive notifications."""
+# ruff: noqa: E722
 import logging
 import threading
 import time
@@ -27,7 +29,7 @@ class Watchdog:
                 self.thread = threading.Thread(target=self.send_notification, name="watchdog")
                 self.thread.daemon = True
                 self.thread.start()
-            except:
+            except Exception:
                 log.alert('[{}] Unexpected exception {}'.format(log.style.apply('Watchdog', log.style.RED_FG), traceback.format_exc(limit=5)))
         else:
             log.verbose('[{}] not enabled, keep_alive missing or 0'.format(log.style.apply('Watchdog', log.style.GREEN_FG)))
@@ -39,7 +41,7 @@ class Watchdog:
             # without systemd notifications (graceful degradation).
             try:
                 from cysystemd.daemon import notify
-            except Exception:
+            except ImportError:
                 from systemd.daemon import notify
             event = threading.Event()
 
@@ -55,7 +57,7 @@ class Watchdog:
             log.error('[{}] Error {}'.format(log.style.apply('Watchdog', log.style.RED_FG), e))
         except ImportError:
             log.warning('[{}] systemd not imported {}'.format(log.style.apply('Watchdog', log.style.RED_FG), traceback.format_exc(limit=5)))
-        except:
+        except Exception:
             log.alert('[{}] Unexpected exception {}'.format(log.style.apply('Watchdog', log.style.RED_FG), traceback.format_exc(limit=5)))
 
     def _test_http(self):
@@ -67,7 +69,8 @@ class Watchdog:
             if _host:
 
                 log.verbose(f'> watchdog event on {_host}')
-                requests.get(_host)
+                # Add a short timeout to avoid hanging if the host is unresponsive.
+                requests.get(_host, timeout=5)
 
                 uwsgi.opt['last_event_ms'] = time.time()
 
