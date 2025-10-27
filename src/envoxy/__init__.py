@@ -13,6 +13,13 @@ from .mqtt.dispatcher import Dispatcher as mqttc
 from .views.containers import Response
 from .celery.client import Client as celeryc
 
+# Version information
+try:
+	from importlib.metadata import version, PackageNotFoundError
+	__version__ = version("envoxy")
+except PackageNotFoundError:
+	__version__ = "unknown"
+
 envoxy = locals()
 
 
