@@ -60,6 +60,8 @@ jobs:
           # use the supported 'linux' platform (cibuildwheel v3 expects 'linux')
           CIBW_PLATFORM: "linux"
           CIBW_BUILD_VERBOSITY: "1"
+          # ensure auditwheel repairs the wheel to bundle dependencies
+          CIBW_REPAIR_WHEEL_COMMAND: "auditwheel repair -w {dest_dir} {wheel}"
 
       - name: Upload wheelhouse
         uses: actions/upload-artifact@v4
