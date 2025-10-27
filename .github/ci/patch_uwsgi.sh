@@ -318,6 +318,21 @@ injection = '''    # CI: Inject static Python library before linking
             if static_lib_path not in libs:
                 libs.append(static_lib_path)
                 print(f"CI: Added static library to libs", file=sys.stderr)
+            
+            # Static linking requires explicitly adding all dependencies
+            # These are common dependencies for statically linked Python
+            required_libs = [
+                '-lintl',      # gettext/locale support (musl systems)
+                '-lpthread',   # threading support
+                '-ldl',        # dynamic loading support
+                '-lutil',      # pty and login utilities
+                '-lm',         # math library
+            ]
+            
+            for lib in required_libs:
+                if lib not in libs:
+                    libs.append(lib)
+                    print(f"CI: Added {lib} for static Python", file=sys.stderr)
         else:
             print(f"CI: ERROR - Static library not found at: {static_lib_path}", file=sys.stderr)
             print("CI: Attempting to continue anyway, but linking will likely fail", file=sys.stderr)
