@@ -42,6 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     # if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
     if: ${{ github.event_name == 'push' }}
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/envoxy/
     env:
       TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
     steps:
@@ -100,6 +103,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' }}
+    environment:
+      name: pypi
+      url: https://pypi.org/project/envoxy/
     env:
       PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:

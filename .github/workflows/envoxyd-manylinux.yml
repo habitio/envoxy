@@ -75,6 +75,9 @@ jobs:
     # only run this job automatically for tag pushes; require the secret at runtime (checked in first step)
     # if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
     if: ${{ github.event_name == 'push' }}
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/envoxyd/
     env:
       TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
     steps:
@@ -110,6 +113,9 @@ jobs:
     runs-on: ubuntu-latest
     # only run on manual dispatch to avoid accidental production publishes; require the secret at runtime
     if: ${{ github.event_name == 'workflow_dispatch' }}
+    environment:
+      name: pypi
+      url: https://pypi.org/project/envoxyd/
     env:
       PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:
