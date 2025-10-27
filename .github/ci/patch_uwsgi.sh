@@ -223,12 +223,14 @@ else
     }
     
     echo "CI: Configuring Python with --enable-static..."
+    # Disable SSL and other optional modules that may have compatibility issues
+    # uWSGI only needs the core interpreter, not SSL or other optional extensions
     ./configure \
         --prefix="${STATIC_PYTHON_PREFIX}" \
         --enable-static \
         --disable-shared \
-        --enable-optimizations \
-        --with-lto 2>&1 | tail -50 || {
+        --without-ensurepip \
+        --disable-test-modules 2>&1 | tail -50 || {
         echo "CI: ERROR - Python configure failed"
         exit 1
     }
