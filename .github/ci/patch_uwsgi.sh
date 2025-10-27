@@ -230,7 +230,8 @@ else
         --enable-static \
         --disable-shared \
         --without-ensurepip \
-        --disable-test-modules 2>&1 | tail -50 || {
+        --disable-test-modules \
+        --with-openssl=no 2>&1 | tail -50 || {
         echo "CI: ERROR - Python configure failed"
         exit 1
     }
