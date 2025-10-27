@@ -191,11 +191,13 @@ if [ -f "${UWSGI_CONFIG}" ]; then
         cp -a "${UWSGI_CONFIG}" "${UWSGI_CONFIG}.ci-orig" || true
         
         # Find the line with '*** uWSGI linking ***' and inject our code before it
+        # Export UWSGI_CONFIG so Python can access it
+        export UWSGI_CONFIG
         python3 <<'PYPATCH'
 import sys
 import os
 
-uwsgi_config = os.environ.get('UWSGI_CONFIG', 'vendors/uwsgi/uwsgiconfig.py')
+uwsgi_config = os.environ['UWSGI_CONFIG']
 with open(uwsgi_config, 'r') as f:
     lines = f.readlines()
 
