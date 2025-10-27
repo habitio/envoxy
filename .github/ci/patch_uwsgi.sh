@@ -391,27 +391,30 @@ if [ ! -f "$DEST_BIN" ]; then
         echo "CI: searching for any files named uwsgi* or containing 'uwsgi' in name:"
         find . -maxdepth 2 -type f -iname '*uwsgi*' -ls || true
 
-        # common output names
-        for cand in uwsgi uwsgi-core uwsgi.bin; do
-            if [ -f "$cand" ]; then
-                mkdir -p "$(dirname "$DEST_BIN")"
-                cp "$cand" "$DEST_BIN" || true
-                chmod +x "$DEST_BIN" || true
-                echo "CI: copied built $cand to $DEST_BIN"
-                break
+        # common output names - the flask profile produces a binary named 'envoxyd'
+        for cand in envoxyd uwsgi uwsgi-core uwsgi.bin; do
+            if [ -f "$cand" ] && [ -x "$cand" ]; then
+                # Verify it's a real binary, not a script
+                if file "$cand" | grep -q 'ELF'; then
+                    mkdir -p "$(dirname "$DEST_BIN")"
+                    cp "$cand" "$DEST_BIN" || true
+                    chmod +x "$DEST_BIN" || true
+                    echo "CI: copied built ELF binary $cand to $DEST_BIN"
+                    break
+                fi
             fi
         done
 
-        # fallback: search for any executable named uwsgi* in the tree
+        # fallback: search for any executable ELF binary in the current directory
         if [ ! -f "$DEST_BIN" ]; then
-            foundbin=$(find . -maxdepth 3 -type f -executable -name 'uwsgi*' -print -quit || true)
+            foundbin=$(find . -maxdepth 1 -type f -executable -exec file {} \; | grep 'ELF' | head -1 | cut -d: -f1 || true)
             if [ -n "$foundbin" ]; then
                 mkdir -p "$(dirname "$DEST_BIN")"
                 cp "$foundbin" "$DEST_BIN" || true
                 chmod +x "$DEST_BIN" || true
-                echo "CI: copied found $foundbin to $DEST_BIN"
+                echo "CI: copied found ELF binary $foundbin to $DEST_BIN"
             else
-                echo "ERROR: no uwsgi binary found after build!"
+                echo "ERROR: no uwsgi ELF binary found after build!"
                 exit 1
             fi
         fi
@@ -421,6 +424,21 @@ if [ ! -f "$DEST_BIN" ]; then
     fi
 else
     echo "CI: $DEST_BIN already present; skipping build"
+fi
+
+echo "CI: =========================================="
+echo "CI: Final binary verification"
+echo "CI: =========================================="
+if [ -f "$DEST_BIN" ]; then
+    echo "CI: SUCCESS - Binary exists at: $DEST_BIN"
+    ls -lh "$DEST_BIN"
+    file "$DEST_BIN" || true
+    ldd "$DEST_BIN" 2>&1 | head -20 || true
+else
+    echo "CI: ERROR - Binary NOT found at: $DEST_BIN"
+    echo "CI: Searching for any uwsgi binaries in /project/vendors:"
+    find /project/vendors -name '*uwsgi*' -type f -executable -ls 2>/dev/null || true
+    exit 1
 fi
 
 echo "CI: patch_uwsgi.sh complete"
