@@ -215,34 +215,42 @@ if inject_index is None:
 # Inject our static library code just before the linking print statement
 injection = '''    # CI: Inject static Python library before linking
     import sysconfig
+    import glob
     try:
         # Remove dynamic Python library references
         libs[:] = [l for l in libs if not (isinstance(l, str) and l.startswith('-lpython'))]
         print("CI: Removed dynamic -lpython* from libs", file=sys.stderr)
         
-        # Find and add static Python library
-        _ldlib = sysconfig.get_config_var('LDLIBRARY') or ''
+        # Find static Python library - search common manylinux locations
+        print(f"CI: Python executable: {sys.executable}", file=sys.stderr)
+        print(f"CI: LDLIBRARY={sysconfig.get_config_var('LDLIBRARY')}", file=sys.stderr)
+        print(f"CI: LIBDIR={sysconfig.get_config_var('LIBDIR')}", file=sys.stderr)
+        
+        # Search for libpython*.a in common locations
+        search_paths = [
+            '/opt/_internal/*/lib/libpython*.a',
+            '/opt/_internal/lib/libpython*.a',
+            '/usr/local/lib/libpython*.a',
+        ]
+        
         _libdir = sysconfig.get_config_var('LIBDIR') or ''
+        if _libdir:
+            search_paths.insert(0, os.path.join(_libdir, 'libpython*.a'))
         
         candidates = []
-        if _ldlib and _libdir:
-            candidates.append(os.path.join(_libdir, _ldlib))
-        candidates.extend([
-            '/opt/_internal/cpython-3.12.12/lib/libpython3.12.a',
-            '/opt/_internal/lib/libpython3.12.a',
-        ])
+        for pattern in search_paths:
+            candidates.extend(glob.glob(pattern))
         
-        static_lib = None
-        for c in candidates:
-            if c and os.path.exists(c):
-                static_lib = c
-                break
+        print(f"CI: Found static library candidates: {candidates}", file=sys.stderr)
+        
+        # Use the first one found (should be the Python version we're using)
+        static_lib = candidates[0] if candidates else None
         
         if static_lib and static_lib not in libs:
             libs.append(static_lib)
             print(f"CI: Added static Python library: {static_lib}", file=sys.stderr)
         elif not static_lib:
-            print(f"CI: WARNING - Static Python library not found! Searched: {candidates}", file=sys.stderr)
+            print(f"CI: WARNING - No static Python library found! Searched patterns: {search_paths}", file=sys.stderr)
         
         print(f"CI: Total libs count: {len(libs)}", file=sys.stderr)
         print(f"CI: Python-related libs: {[l for l in libs if 'python' in str(l).lower() or str(l).endswith('.a')]}", file=sys.stderr)
