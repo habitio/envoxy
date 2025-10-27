@@ -454,6 +454,20 @@ if [ -f "$DEST_BIN" ]; then
     ls -lh "$DEST_BIN"
     file "$DEST_BIN" || true
     ldd "$DEST_BIN" 2>&1 | head -20 || true
+    
+    # Set RPATH to allow auditwheel to properly bundle libraries
+    echo "CI: Setting RPATH for auditwheel compatibility"
+    if command -v patchelf >/dev/null 2>&1; then
+        # Set RPATH to $ORIGIN so the binary can find bundled .so files in the same directory
+        # and also in the wheel's .libs directory where auditwheel places them
+        patchelf --set-rpath '$ORIGIN:$ORIGIN/../envoxyd.libs' "$DEST_BIN" || {
+            echo "WARNING: patchelf failed to set RPATH, continuing anyway"
+        }
+        echo "CI: RPATH set for $DEST_BIN"
+        patchelf --print-rpath "$DEST_BIN" || true
+    else
+        echo "WARNING: patchelf not available, RPATH not set. Install it for proper library bundling."
+    fi
 else
     echo "CI: ERROR - Binary NOT found at: $DEST_BIN"
     echo "CI: Searching for any uwsgi binaries in /project/vendors:"
