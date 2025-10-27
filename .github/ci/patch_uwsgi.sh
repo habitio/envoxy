@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
+# Do NOT use set -e: we want this script to be best-effort and never fail the build
 set -uo pipefail
 # Print commands for debugging inside manylinux container
 set -x
 
 echo "CI: patch_uwsgi.sh starting (idempotent)"
 
-# If anything errors, trap and continue the build (we don't want this helper to
-# fail the whole wheel build). Log the error code for debugging.
-trap 'echo "CI: patch_uwsgi.sh encountered an error (exit $?). Continuing."' ERR
+# Log errors but continue - this is a best-effort helper script
+trap 'echo "CI: patch_uwsgi.sh encountered an error at line $LINENO (exit $?). Continuing."' ERR
 
 # This script runs inside the manylinux container (cibuildwheel mounts the repo at /project)
 # It performs minimal, idempotent patches to the vendored uWSGI sources so the Python
