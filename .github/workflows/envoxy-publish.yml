@@ -1,0 +1,153 @@
+name: Build and publish envoxy (pure Python)
+
+on:
+  push:
+    branches: [main, feature/python3_12]
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    name: Build sdist & wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel build twine
+
+      - name: Build artifacts
+        run: python -m build -o dist
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: envoxy-dist
+          path: dist/
+
+  publish-testpypi:
+    name: Publish to TestPyPI (automatic on tag)
+    needs: build
+    runs-on: ubuntu-latest
+    # if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ github.event_name == 'push' }}
+    env:
+      TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+    steps:
+      - name: Verify TestPyPI token present
+        run: |
+          if [ -z "${TEST_PYPI_API_TOKEN}" ]; then
+            echo "ERROR: TEST_PYPI_API_TOKEN secret is not set. Add it to repository secrets to enable automatic TestPyPI publishing."
+            exit 1
+          fi
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxy-dist
+          path: dist
+
+      - name: List dist
+        run: ls -lah dist || ls -lah || true
+
+      - name: Check distribution metadata (twine check) and dump PKG-INFO/METADATA
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          echo "== twine check output =="
+          python -m twine check dist/* || true
+          echo "== raw metadata dump =="
+          for f in dist/*; do
+            echo "---- $f ----"
+            case "${f}" in
+              *.whl)
+                # extract METADATA from the wheel
+                unzip -p "$f" "*/METADATA" || echo "(no METADATA)"
+                ;;
+              *.tar.gz|*.zip)
+                # try PKG-INFO in sdist
+                tar tzf "$f" | sed -n '1,200p' || true
+                tar -xOzf "$f" "*/PKG-INFO" 2>/dev/null || tar -xOf "$f" PKG-INFO 2>/dev/null || echo "(no PKG-INFO)"
+                ;;
+              *)
+                echo "(unknown archive type)"
+                ;;
+            esac
+          done
+
+      - name: Publish to TestPyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          python -m twine upload --repository testpypi dist/*
+
+  publish-pypi:
+    name: Publish to PyPI (manual)
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - name: Verify PyPI token present
+        run: |
+          if [ -z "${PYPI_API_TOKEN}" ]; then
+            echo "ERROR: PYPI_API_TOKEN secret is not set. Add it to repository secrets or provide via OIDC to enable PyPI publishing."
+            exit 1
+          fi
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: envoxy-dist
+          path: dist
+
+      - name: List dist
+        run: ls -lah dist || ls -lah || true
+
+      - name: Check distribution metadata (twine check) and dump PKG-INFO/METADATA
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          echo "== twine check output =="
+          python -m twine check dist/* || true
+          echo "== raw metadata dump =="
+          for f in dist/*; do
+            echo "---- $f ----"
+            case "${f}" in
+              *.whl)
+                unzip -p "$f" "*/METADATA" || echo "(no METADATA)"
+                ;;
+              *.tar.gz|*.zip)
+                tar tzf "$f" | sed -n '1,200p' || true
+                tar -xOzf "$f" "*/PKG-INFO" 2>/dev/null || tar -xOf "$f" PKG-INFO 2>/dev/null || echo "(no PKG-INFO)"
+                ;;
+              *)
+                echo "(unknown archive type)"
+                ;;
+            esac
+          done
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          python -m twine upload dist/*

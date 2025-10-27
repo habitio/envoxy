@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "envoxy"
-version = "0.5.0"
+version = "0.5.9"
 description = "Envoxy Platform Framework"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -9,8 +13,13 @@ authors = [
     { name = "Laoska Guadamuz", email = "laoska@benyasca.com" },
 ]
 
-# Top-level (runtime) dependencies. Keep this file as the source-of-truth and
-# generate a pinned requirements.txt for Docker/CI using pip-tools (pip-compile).
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
+]
+
 dependencies = [
     "cachetools==6.2.1",
     "Flask==3.1.2",
@@ -22,6 +31,7 @@ dependencies = [
     "pymongo==4.15.3",
     "uPnPClient==1.0.3",
     "pylint==4.0.2",
+    "cffi>=2.0.0",
     "psycopg2==2.9.11",
     "SQLAlchemy==2.0.44",
     "redis==6.4.0",
@@ -62,7 +72,7 @@ test = [
     "pytest-xdist==3.6.1",
     "coverage[toml]>=7.6.0",
 ]
-journald = ["systemd-python>=235"]
+journald = ["cysystemd>=2.0.1"]
 
 [project.urls]
 Homepage = "https://github.com/habitio/envoxy"
@@ -70,19 +80,10 @@ Homepage = "https://github.com/habitio/envoxy"
 [project.scripts]
 envoxy-alembic = "envoxy.tools.alembic.cli:main"
 
-[tool.ruff]
-# But use a different line length.
-line-length = 180
+[tool.setuptools]
+# Disable automatic license file inclusion
+license-files = []
 
-[tool.vendors.envoxyd]
-name = "envoxyd"
-version = "0.4.0"
-description = "Customized uWSGI server for Envoxy"
-requires-python = ">=3.12"
-dependencies = ["envoxy>=0.5.0", "flask-cors==6.0.1", "isort==7.0.0"]
-author = "Matheus Santos"
-author-email = "vorj.dux@gmail.com"
-url = "https://github.com/habitio/envoxy"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -55,7 +55,9 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade pip setuptools wheel build
+          # Prefer installing a binary cysystemd wheel to avoid legacy setup.py builds
+          python -m pip install cysystemd || true
           pip install -e .[test]
 
       - name: Run unit tests

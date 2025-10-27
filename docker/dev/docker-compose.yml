@@ -11,8 +11,11 @@ services:
       - envoxyd-dist:/usr/envoxy/vendors/dist
       # Mount PyPI credentials for publishing
       - ~/.pypirc:/root/.pypirc:ro
+      # Allow builder to access host Docker daemon for cibuildwheel
+      # Note: not read-only so the builder can create containers
+      - /var/run/docker.sock:/var/run/docker.sock
     working_dir: /usr/envoxy
-    command: 
+    command:
       - /bin/bash
       - -c
       - "echo 'Builder ready. Use: docker compose run --rm builder make packages'"
@@ -33,11 +36,11 @@ services:
       - POSTGRES_DB=envoxy
       - POSTGRES_USER=envoxy
       - POSTGRES_PASSWORD=dev_password
-      
+
       # Redis connection
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      
+
       # Application settings
       - FLASK_ENV=development
       - LOG_LEVEL=INFO
@@ -66,7 +69,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U envoxy"]
+      test: [ "CMD-SHELL", "pg_isready -U envoxy" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -79,7 +82,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5

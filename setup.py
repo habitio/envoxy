@@ -33,6 +33,10 @@ _author_email = _authors[0].get("email") if _authors else None
 _urls = _pyproject_data.get("urls", {})
 _homepage = _urls.get("Homepage")
 
+# Set license directly to avoid setuptools generating non-standard metadata.
+# The license is declared via classifiers in pyproject.toml.
+_license = "MIT"
+
 # systemd-python is optional (journald / watchdog integration). Kept as extra.
 
 data_dir = os.path.dirname(os.path.realpath(__file__))
@@ -54,6 +58,7 @@ setup(
     author=_author,
     author_email=_author_email,
     url=_homepage,
+    license=_license,
     packages=find_namespace_packages(where="src", exclude=("tests", "templates")),
     # map the root package directory to `src/` so find_namespace_packages discovers all
     # nested packages under src/ (including PEP 420 namespace packages).
@@ -63,7 +68,6 @@ setup(
     include_package_data=True,
     package_data={
         "envoxy": [
-            find_file("LICENSE"),
             # include packaged tools assets
             "tools/*",
             "tools/alembic/*",
@@ -71,5 +75,4 @@ setup(
         ]
     },
     python_requires=_py_requires,
-    data_files=[("envoxy", ["LICENSE"])],
 )

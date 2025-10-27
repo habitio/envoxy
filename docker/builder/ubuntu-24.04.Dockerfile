@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev libssl-dev swig pkg-config \
     make gcc pkgconf \
     python3.12-distutils \
+    patchelf \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user with matching UID so bind-mounted files remain writable
@@ -23,6 +24,26 @@ RUN groupadd -g ${GID} ${USER} || true \
 # Create venv for packaging and testing
 RUN python3.12 -m venv /opt/envoxy && \
     /opt/envoxy/bin/pip install --upgrade pip setuptools wheel twine
+RUN /opt/envoxy/bin/pip install auditwheel
+
+
+# Copy the system libpython into the venv so compiled binaries can reference
+# a colocated interpreter shared object at runtime. This helps make the
+# runtime image portable when we copy /opt/envoxy into the final image.
+RUN python3.12 - <<'PY'
+import sysconfig, shutil, os
+libname = sysconfig.get_config_var('LDLIBRARY')
+libdir = sysconfig.get_config_var('LIBDIR')
+src = os.path.join(libdir, libname)
+dst_dir = '/opt/envoxy/lib'
+os.makedirs(dst_dir, exist_ok=True)
+if os.path.exists(src):
+    dst = os.path.join(dst_dir, libname)
+    print('Copying', src, 'to', dst)
+    shutil.copy(src, dst)
+else:
+    print('Warning: libpython not found at', src)
+PY
 
 # Create working dir and ensure permissions
 WORKDIR /usr/envoxy

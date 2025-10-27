@@ -147,8 +147,39 @@ envoxyd() {
 # Install envoxyd
 envoxyd_install() {
     log_info "Installing envoxyd..."
-    ${PYTHON} setup.py install
+    # Prefer using the virtualenv python if available to ensure built binary
+    # links against the venv's libpython (if that's the intended target).
+    if [ -x "${VENV_PATH}/bin/python" ]; then
+        "${VENV_PATH}/bin/python" setup.py install
+    else
+        ${PYTHON} setup.py install
+    fi
     log_success "envoxyd installed"
+}
+
+# After install, try to set RUNPATH on the envoxyd binary so it will prefer the
+# venv lib directory for libpython. This is a best-effort step and requires
+# patchelf to be available in the build environment.
+fix_envoxyd_rpath() {
+    local binpath
+    # look for installed binary in venv or local src
+    if [ -f "${VENV_PATH}/bin/envoxyd" ]; then
+        binpath="${VENV_PATH}/bin/envoxyd"
+    elif [ -f "./vendors/src/envoxyd/envoxyd" ]; then
+        binpath="./vendors/src/envoxyd/envoxyd"
+    elif [ -f "./src/envoxyd/envoxyd" ]; then
+        binpath="./src/envoxyd/envoxyd"
+    else
+        log_warn "envoxyd binary not found for RPATH fix"
+        return 0
+    fi
+
+    if command -v patchelf >/dev/null 2>&1; then
+        log_info "Setting RUNPATH on ${binpath} to /opt/envoxy/lib"
+        patchelf --set-rpath "/opt/envoxy/lib" "${binpath}" || log_warn "patchelf failed"
+    else
+        log_warn "patchelf not available; skipping RPATH fix"
+    fi
 }
 
 # Install envoxy
@@ -160,7 +191,9 @@ envoxy_install() {
     pip install --upgrade pip setuptools wheel
     
     log_info "Installing envoxy..."
-    ${PYTHON} setup.py install
+    # Use the venv python explicitly to make sure packages and any
+    # compiled extensions are built against the venv's Python runtime.
+    "${VENV_PATH}/bin/python" setup.py install
     
     log_success "envoxy installed"
 }
@@ -230,15 +263,26 @@ packages() {
     log_info "Ensuring wheel is installed..."
     pip3 install wheel twine
     
-    # Build envoxy package
+    # Build envoxy package using venv python when available
     log_info "Building envoxy package..."
-    ${PYTHON} setup.py sdist bdist_wheel
+    if [ -x "${VENV_PATH}/bin/python" ]; then
+        "${VENV_PATH}/bin/python" setup.py sdist bdist_wheel
+    else
+        ${PYTHON} setup.py sdist bdist_wheel
+    fi
     
-    # Build envoxyd package
+    # Build envoxyd package (use venv python when available so extensions
+    # are compiled/linked consistently with the venv target)
     log_info "Building envoxyd package..."
     cd vendors
-    ${PYTHON} setup.py sdist bdist_wheel
+    if [ -x "${VENV_PATH}/bin/python" ]; then
+        "${VENV_PATH}/bin/python" setup.py sdist bdist_wheel
+    else
+        ${PYTHON} setup.py sdist bdist_wheel
+    fi
     cd ..
+    # Try to fix rpath for the installed envoxyd binary
+    fix_envoxyd_rpath
     
     log_success "Packages built successfully!"
     log_info "Envoxy packages: dist/"

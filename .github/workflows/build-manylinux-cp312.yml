@@ -1,0 +1,102 @@
+name: Build manylinux wheels (cp312) (disabled automatic triggers)
+
+# This workflow was disabled for automatic tag/branch triggers to avoid
+# duplicating the new per-package `envoxyd-manylinux.yml` workflow.
+# It can still be run manually from the Actions UI via `workflow_dispatch`.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build-wheels:
+    name: Build wheels (manylinux, cp312)
+    runs-on: ubuntu-24.04
+    env:
+      # Force cibuildwheel to only build CPython 3.12 wheels by default.
+      # This can be overridden in the workflow call or by setting an env var
+      # in repository/workflow-level settings.
+      CIBW_BUILD: cp312-*
+      # Run your in-repo pre-build script inside the manylinux container so
+      # the uWSGI source can be patched there (the path /project points to the
+      # checked-out repository inside the manylinux container).
+      CIBW_BEFORE_BUILD: "/bin/sh /project/.github/ci/patch_uwsgi.sh"
+      # Enable verbose backend logs to help diagnose why builds produce pure-Python wheels
+      CIBW_BUILD_VERBOSITY: "1"
+      # Choose Linux platform (manylinux) — cibuildwheel will pick an appropriate manylinux image
+      CIBW_PLATFORM: linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Note: pyproject.toml is copied into package directories inside the
+      # manylinux container by .github/ci/patch_uwsgi.sh (CIBW_BEFORE_BUILD). We
+      # do NOT copy it on the runner here because cibuildwheel mounts the repo
+      # inside a container and the runner-side copy would not be visible there.
+
+      - name: Set up Python for helper steps
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling (local helper)
+        run: |
+          python -m pip install --upgrade pip build setuptools wheel
+
+      - name: Build manylinux wheels with cibuildwheel (cp312)
+        # Use a resolvable ref for the action. Using `main` unblocks validation
+        # while we pin to a specific release tag (recommended) later.
+        uses: pypa/cibuildwheel@main
+        with:
+          # Build the envoxyd package located under vendors/envoxyd inside the repo
+          package-dir: vendors/envoxyd
+          # Where to place produced wheels inside the runner
+          output-dir: wheelhouse
+        env:
+          # Run in-repo pre-build script inside manylinux container. The repo is mounted
+          # at /project inside the manylinux image, so point to the CI script we just added.
+          CIBW_BEFORE_BUILD: "/bin/sh /project/.github/ci/patch_uwsgi.sh"
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          # Upload the manylinux wheels produced by cibuildwheel
+          name: manylinux-cp312-wheels
+          path: wheelhouse/
+
+      - name: "Optional: Show produced wheels"
+        run: ls -lah wheelhouse || true
+
+  publish-testpypi:
+    name: Publish wheels to TestPyPI (on tag)
+    runs-on: ubuntu-24.04
+    needs: build-wheels
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download built wheels artifacts
+        uses: actions/download-artifact@v4
+        # without a name this downloads all artifacts uploaded by previous jobs
+        with:
+          path: wheelhouse
+
+      - name: List downloaded wheel files
+        run: |
+          echo "Files in wheelhouse:";
+          ls -lah wheelhouse || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install twine
+        run: python -m pip install --upgrade pip twine
+
+      - name: Publish to TestPyPI
+        env:
+          TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          if [ -z "${TEST_PYPI_TOKEN:-}" ]; then
+            echo "TEST_PYPI_API_TOKEN secret is not set; skipping publish";
+            exit 1;
+          fi
+          python -m twine upload --non-interactive --repository-url https://test.pypi.org/legacy/ -u __token__ -p "${TEST_PYPI_TOKEN}" wheelhouse/*.whl

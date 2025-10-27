@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+# Build only CPython 3.12 manylinux wheels for envoxyd
+build = ["cp312-*"]
+
+[project]
+name = "envoxyd"
+version = "0.4.9"
+description = "Customized uWSGI server for Envoxy"
+requires-python = ">=3.12"
+authors = [
+    { name = "Matheus (vorjdux) Santos", email = "vorj.dux@gmail.com" },
+    { name = "Laoska Guadamuz", email = "laoska@benyasca.com" },
+]
+
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+    "Development Status :: 4 - Beta",
+]
+
+dependencies = ["envoxy>=0.5.9", "flask-cors==6.0.1", "isort==7.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/habitio/envoxy"
+
+[tool.setuptools]
+# Disable automatic license file inclusion
+license-files = []
