@@ -293,23 +293,23 @@ if inject_index is None:
     sys.exit(1)
 
 # Inject our static library code just before the linking print statement
+# Note: os module is already imported at top of uwsgiconfig.py, don't re-import it
 injection = '''    # CI: Inject static Python library before linking
-    import os
     try:
         # Remove dynamic Python library references
         libs[:] = [l for l in libs if not (isinstance(l, str) and l.startswith('-lpython'))]
         print("CI: Removed dynamic -lpython* from libs", file=sys.stderr)
         
         # Use the static library built in CI
-        static_lib = os.environ.get('STATIC_LIB_PATH', '')
+        static_lib_path = os.environ.get('STATIC_LIB_PATH', '')
         
-        if static_lib and os.path.isfile(static_lib):
-            print(f"CI: Using CI-built static library: {static_lib}", file=sys.stderr)
-            if static_lib not in libs:
-                libs.append(static_lib)
+        if static_lib_path and os.path.isfile(static_lib_path):
+            print(f"CI: Using CI-built static library: {static_lib_path}", file=sys.stderr)
+            if static_lib_path not in libs:
+                libs.append(static_lib_path)
                 print(f"CI: Added static library to libs", file=sys.stderr)
         else:
-            print(f"CI: ERROR - Static library not found at: {static_lib}", file=sys.stderr)
+            print(f"CI: ERROR - Static library not found at: {static_lib_path}", file=sys.stderr)
             print("CI: Attempting to continue anyway, but linking will likely fail", file=sys.stderr)
         
         print(f"CI: Total libs count: {len(libs)}", file=sys.stderr)
