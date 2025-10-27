@@ -185,6 +185,14 @@ else
 fi
 
 echo "CI: Patch uwsgiconfig.py to inject static Python library before linking"
+
+# Debug: Check for static library files before patching
+echo "CI: Checking for static Python libraries in filesystem:"
+find /opt/_internal -name "libpython*.a" 2>/dev/null || echo "CI: No libpython*.a found in /opt/_internal"
+ls -la /opt/_internal/cpython-3.12.12/lib/libpython*.a 2>/dev/null || echo "CI: Direct path check failed"
+echo "CI: Python sysconfig LIBDIR:"
+python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
+
 UWSGI_CONFIG="$TARGET/uwsgiconfig.py"
 if [ -f "${UWSGI_CONFIG}" ]; then
     if ! grep -q "# CI: Inject static Python library" "${UWSGI_CONFIG}"; then
