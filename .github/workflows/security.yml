@@ -127,34 +127,6 @@ jobs:
           sarif_file: "trivy-results.sarif"
         if: always()
 
-  docker-security:
-    name: Docker Image Security Scan
-    runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Build runtime Docker image
-        run: |
-          docker build -f docker/runtime/Dockerfile -t envoxy:test .
-
-      - name: Run Trivy on Docker image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: "envoxy:test"
-          format: "sarif"
-          output: "trivy-docker-results.sarif"
-          severity: "CRITICAL,HIGH"
-
-      - name: Upload Docker scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-docker-results.sarif"
-        if: always()
-
   secrets-scan:
     name: Secrets Detection
     runs-on: ubuntu-latest

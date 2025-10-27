@@ -28,29 +28,41 @@ packaged migration workflow.
 ## 🚀 Quick Start
 
 ```bash
-# Install Envoxy
-pip install envoxy
+# Install the framework and uWSGI server
+pip install envoxy envoxyd
 
-# Create a new project
-envoxy-cli --create-project --name my-service
+# Create a new project structure
+mkdir my-service && cd my-service
 
-# Start the development environment with Docker
-cd docker/dev && docker-compose up -d
+# Create your application (run.py)
+# See usage examples below
 
-# Run migrations
-envoxy-alembic upgrade head
-
-# Start the service
+# Start the uWSGI server
 envoxyd --http :8080 --set conf=/path/to/envoxy.json
 ```
 
 ## 📦 Installation
 
-### From PyPI
+### Framework Only (Pure Python)
 
 ```bash
 pip install envoxy
 ```
+
+This installs the Envoxy framework with all Python dependencies for building services.
+
+### With uWSGI Server (Manylinux Binary)
+
+```bash
+pip install envoxyd
+```
+
+This installs:
+- The `envoxy` framework (as a dependency)
+- A pre-built `envoxyd` binary (uWSGI with embedded Python 3.12.12)
+- All shared libraries bundled for portability
+
+**Note:** `envoxyd` is Linux-only. For development on macOS/Windows, use the framework with your own WSGI server.
 
 ### Development Installation
 
@@ -135,9 +147,11 @@ docs = couchdbc.find(
 doc = couchdbc.get("005r9odyj...", db="server_key.db_name")
 ```
 
-## 🐳 Docker Support
+## 🐳 Docker Support (Development Only)
 
-### Quick Start with Docker Compose
+### Local Development Environment
+
+For local development and testing, a Docker Compose setup is available:
 
 ```bash
 cd docker/dev
@@ -145,24 +159,14 @@ docker-compose up -d
 ```
 
 This starts:
-
-- Envoxy service
 - PostgreSQL database
 - Redis cache
 - pgAdmin (PostgreSQL GUI)
 - RedisInsight (Redis GUI)
 
-### Build Production Image
+**Note:** For production deployments, use the `envoxyd` wheel from PyPI instead of Docker images.
 
-```bash
-# Using the unified build script (recommended)
-./tools/build.sh
-
-# Or manually
-docker build -t envoxy:runtime -f docker/runtime/Dockerfile .
-```
-
-See [docker/README.md](docker/README.md) for comprehensive Docker documentation.
+See [docker/dev/README.md](docker/dev/README.md) for development environment documentation.
 
 ## 🔧 Development
 
