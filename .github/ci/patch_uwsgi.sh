@@ -187,41 +187,39 @@ fi
 echo "CI: ensure plugins/python/uwsgiplugin.py has idempotent append-to-LIBS logic"
 PLUGIN_FILE="$TARGET/plugins/python/uwsgiplugin.py"
 if [ -f "${PLUGIN_FILE}" ]; then
-    if ! grep -q "# ci: append static libpython to LIBS" "${PLUGIN_FILE}"; then
+    if ! grep -q "# ci: replace dynamic python lib with static" "${PLUGIN_FILE}"; then
         cp -a "${PLUGIN_FILE}" "${PLUGIN_FILE}.ci-orig" || true
         cat >> "${PLUGIN_FILE}" <<'PYAPP'
-# ci: append static libpython to LIBS
+# ci: replace dynamic python lib with static
 try:
     import sysconfig, os
     _ldlib = sysconfig.get_config_var('LDLIBRARY') or ''
     _libdir = sysconfig.get_config_var('LIBDIR') or ''
-    # also probe common /opt/python locations used by manylinux images
+    
+    # Remove any -lpythonX.Y entries from LIBS
+    LIBS[:] = [lib for lib in LIBS if not (isinstance(lib, str) and lib.startswith('-lpython'))]
+    
+    # Find static library path
     candidates = []
     if _ldlib and _libdir:
         candidates.append(os.path.join(_libdir, _ldlib))
     # include /opt/_internal (some images use this layout)
     if _ldlib:
-        candidates.append(os.path.join('/opt/_internal', _ldlib))
-    # probe any /opt/python/*/lib directories for the ldlib name
-    for base in ('/opt/python', '/opt'):
-        try:
-            for p in os.listdir(base):
-                candidates.append(os.path.join(base, p, 'lib', _ldlib))
-        except Exception:
-            pass
+        for base in ['/opt/_internal/cpython-3.12.12', '/opt/_internal']:
+            candidates.append(os.path.join(base, 'lib', _ldlib))
+    
+    # Add the static library
     for _c in candidates:
         try:
             if _c and os.path.exists(_c):
-                try:
-                    if _c not in LIBS:
-                        LIBS.append(_c)
-                        # if the library is a static archive, ensure we also add its dir to LDFLAGS rpath
-                except Exception:
-                    pass
+                if _c not in LIBS:
+                    LIBS.append(_c)
+                    print(f"CI: Added static Python library: {_c}")
                 break
         except Exception:
             pass
-except Exception:
+except Exception as e:
+    print(f"CI: Error patching LIBS: {e}")
     pass
 PYAPP
         echo "CI: patched ${PLUGIN_FILE}"
