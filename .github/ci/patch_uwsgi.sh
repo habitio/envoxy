@@ -192,52 +192,66 @@ if [ -f "${PLUGIN_FILE}" ]; then
         cat >> "${PLUGIN_FILE}" <<'PYAPP'
 # ci: replace dynamic python lib with static
 try:
-    import sysconfig, os
+    import sysconfig, os, sys
     _ldlib = sysconfig.get_config_var('LDLIBRARY') or ''
     _libdir = sysconfig.get_config_var('LIBDIR') or ''
     
     # Remove any -lpythonX.Y entries from LIBS
+    _orig_count = len(LIBS)
     LIBS[:] = [lib for lib in LIBS if not (isinstance(lib, str) and lib.startswith('-lpython'))]
+    _removed = _orig_count - len(LIBS)
+    if _removed > 0:
+        sys.stderr.write(f"CI: Removed {_removed} dynamic Python library refs from LIBS\n")
+        sys.stderr.flush()
     
     # Find static library path
     candidates = []
     if _ldlib and _libdir:
         candidates.append(os.path.join(_libdir, _ldlib))
-    # include /opt/_internal (some images use this layout)
+    # include /opt/_internal (manylinux layout)
     if _ldlib:
         for base in ['/opt/_internal/cpython-3.12.12', '/opt/_internal']:
             candidates.append(os.path.join(base, 'lib', _ldlib))
+    # Hardcoded fallback
+    candidates.extend([
+        '/opt/_internal/cpython-3.12.12/lib/libpython3.12.a',
+        '/opt/_internal/lib/libpython3.12.a',
+    ])
     
-    # Add the static library - ensure it's at the END of LIBS for proper linking
+    # Add the static library - CRITICAL: must be at the END of LIBS for proper linking order
     static_lib_added = False
     for _c in candidates:
         try:
             if _c and os.path.exists(_c):
                 if _c not in LIBS:
                     LIBS.append(_c)
-                    print(f"CI: Added static Python library to LIBS: {_c}")
+                    sys.stderr.write(f"CI: Added static Python library to LIBS: {_c}\n")
+                    sys.stderr.flush()
                     static_lib_added = True
+                    # Verify
+                    if _c in LIBS:
+                        sys.stderr.write(f"CI: VERIFIED static library is in LIBS array\n")
+                        sys.stderr.flush()
                 break
-        except Exception:
-            pass
+        except Exception as ex:
+            sys.stderr.write(f"CI: Error checking {_c}: {ex}\n")
+            sys.stderr.flush()
     
-    # Also add to GCC_LIST if it exists to ensure it's in the linker command
-    if static_lib_added:
-        try:
-            if 'GCC_LIST' in dir():
-                for _c in candidates:
-                    if _c and os.path.exists(_c):
-                        if _c not in GCC_LIST:
-                            GCC_LIST.append(_c)
-                            print(f"CI: Added static Python library to GCC_LIST: {_c}")
-                        break
-        except Exception as e:
-            print(f"CI: Could not add to GCC_LIST: {e}")
+    if not static_lib_added:
+        sys.stderr.write(f"CI: ERROR - No static Python library found! Searched: {candidates}\n")
+        sys.stderr.flush()
+    
+    # Debug: show final Python-related libs
+    _py_libs = [str(l) for l in LIBS if 'python' in str(l).lower() or str(l).endswith('.a')]
+    sys.stderr.write(f"CI: Final LIBS Python-related entries ({len(_py_libs)}): {_py_libs}\n")
+    sys.stderr.write(f"CI: Total LIBS count: {len(LIBS)}\n")
+    sys.stderr.flush()
             
 except Exception as e:
-    print(f"CI: Error patching LIBS: {e}")
     import traceback
-    traceback.print_exc()
+    sys.stderr.write(f"CI: Error patching LIBS: {e}\n")
+    traceback.print_exc(file=sys.stderr)
+    sys.stderr.flush()
 PYAPP
         echo "CI: patched ${PLUGIN_FILE}"
     else
