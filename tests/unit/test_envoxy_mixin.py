@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from envoxy.db.envoxy_mixin import EnvoxyMixin, register_envoxy_listeners
+from envoxy.db.orm import EnvoxyMixin, register_envoxy_listeners
 
 
 Base = declarative_base()

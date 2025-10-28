@@ -13,6 +13,33 @@ from pathlib import Path
 REQUIRED = {"id", "created", "updated", "href"}
 
 
+def validate_model_file(p: Path) -> list[str]:
+    """Validate a single model file and return list of error messages.
+    
+    Args:
+        p: Path to the JSON model file
+        
+    Returns:
+        List of error messages (empty if no errors)
+    """
+    errors = []
+    try:
+        obj = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        errors.append(f"Failed to parse JSON: {e}")
+        return errors
+    
+    # Check if this is a model file with datums
+    if isinstance(obj, dict) and "datums" in obj and isinstance(obj["datums"], list):
+        for idx, datum in enumerate(obj["datums"]):
+            if isinstance(datum, dict) and "fields" in datum and isinstance(datum["fields"], dict):
+                missing = REQUIRED - set(datum["fields"].keys())
+                if missing:
+                    errors.append(f"Datum {idx}: missing fields: {', '.join(sorted(missing))}")
+    
+    return errors
+
+
 def check_file(p: Path) -> bool:
     try:
         obj = json.loads(p.read_text(encoding="utf-8"))
