@@ -1,13 +1,10 @@
 from sqlalchemy import Column, Integer, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
-from envoxy.db.orm import EnvoxyMixin, register_envoxy_listeners
-
-
-Base = declarative_base()
+from envoxy.db.orm import EnvoxyBase, register_envoxy_listeners
 
 
-class MyModel(EnvoxyMixin, Base):
+class MyModel(EnvoxyBase):
     __tablename__ = 'mymodel'
     pk = Column(Integer, primary_key=True)
 
@@ -15,7 +12,7 @@ class MyModel(EnvoxyMixin, Base):
 def test_listeners_populate_fields():
     register_envoxy_listeners()
     engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(engine)
+    EnvoxyBase.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     s = Session()
 

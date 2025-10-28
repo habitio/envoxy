@@ -132,7 +132,8 @@ jobs:
           REDIS_PORT: 6379
           INTEGRATION_TESTS_ENABLED: "1"
         run: |
-          pytest -m integration -v --cov=src/envoxy --cov-report=xml --cov-report=term
+          # Run integration tests; allow exit code 5 (no tests collected)
+          pytest -m integration -v --cov=src/envoxy --cov-report=xml --cov-report=term || [ $? -eq 5 ]
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

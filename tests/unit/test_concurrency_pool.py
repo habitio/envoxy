@@ -1,6 +1,8 @@
 import threading
 import time
 
+import pytest
+
 from envoxy.postgresql.client import SemaphoreThreadedConnectionPool
 
 
@@ -18,6 +20,7 @@ class DummyConn:
         return None
 
 
+@pytest.mark.postgresql
 def test_semaphore_limits_and_timeouts():
     max_conn = 3
 

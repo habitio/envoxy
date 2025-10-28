@@ -15,10 +15,10 @@ REQUIRED = {"id", "created", "updated", "href"}
 
 def validate_model_file(p: Path) -> list[str]:
     """Validate a single model file and return list of error messages.
-    
+
     Args:
         p: Path to the JSON model file
-        
+
     Returns:
         List of error messages (empty if no errors)
     """
@@ -28,15 +28,21 @@ def validate_model_file(p: Path) -> list[str]:
     except Exception as e:
         errors.append(f"Failed to parse JSON: {e}")
         return errors
-    
+
     # Check if this is a model file with datums
     if isinstance(obj, dict) and "datums" in obj and isinstance(obj["datums"], list):
         for idx, datum in enumerate(obj["datums"]):
-            if isinstance(datum, dict) and "fields" in datum and isinstance(datum["fields"], dict):
+            if (
+                isinstance(datum, dict)
+                and "fields" in datum
+                and isinstance(datum["fields"], dict)
+            ):
                 missing = REQUIRED - set(datum["fields"].keys())
                 if missing:
-                    errors.append(f"Datum {idx}: missing fields: {', '.join(sorted(missing))}")
-    
+                    errors.append(
+                        f"Datum {idx}: missing fields: {', '.join(sorted(missing))}"
+                    )
+
     return errors
 
 
