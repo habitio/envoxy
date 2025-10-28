@@ -6,7 +6,7 @@ from envoxy.db.orm import EnvoxyBase, register_envoxy_listeners
 
 class MyModel(EnvoxyBase):
     __tablename__ = 'mymodel'
-    pk = Column(Integer, primary_key=True)
+    pk = Column(Integer, primary_key=True, autoincrement=True)
 
 
 def test_listeners_populate_fields():

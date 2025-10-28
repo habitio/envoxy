@@ -97,7 +97,7 @@ def client_instance(tmp_path, monkeypatch):
 
     return c
 
-@pytest.mark.postgresql
+@pytest.mark.skip(reason="Requires PostgreSQL connection - should be integration test")
 def test_transaction_rollback_and_autocommit_restored(client_instance):
     c = client_instance
 
