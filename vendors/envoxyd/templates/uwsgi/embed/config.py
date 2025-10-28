@@ -1,32 +1,25 @@
 import json
 import os
 
-import envoxy
 import uwsgi
+import envoxy
 
 if 'conf' in uwsgi.opt:
 
     _conf_path = uwsgi.opt['conf'].decode('utf-8')
 
-    envoxy.log.system('[{}] Configuration file param found: {}\n'.format(
-        envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG),
-        _conf_path
-    ))
+    envoxy.log.system(f"[{envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)}] Configuration file param found: {_conf_path}\n")
 
     if os.path.exists(_conf_path) and os.path.isfile(_conf_path):
 
-        envoxy.log.system('[{}] Configuration file exists! Trying to parse the file...\n'.format(
-            envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG)
-        ))
+        envoxy.log.system("[{envoxy.log.style.apply('---', envoxy.log.style.BLUE_FG)}] Configuration file exists! Trying to parse the file...\n")
 
         _module_name = os.path.basename(_conf_path).replace('.json', '')
 
-        # try:
-        _conf_file = open(_conf_path, encoding='utf-8')
-        _conf_content = json.loads(_conf_file.read())
-        envoxy.log.system('[{}] The configuration file was parsed successfully!\n\n'.format(
-            envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)
-        ))
+        with open(_conf_path, encoding='utf-8') as _conf_file:
+            _conf_content = json.loads(_conf_file.read())
+        
+        envoxy.log.system(f"[{envoxy.log.style.apply('OK', envoxy.log.style.GREEN_FG)}] The configuration file was parsed successfully!\n\n")
 
         uwsgi.opt['conf_content'] = _conf_content
 
