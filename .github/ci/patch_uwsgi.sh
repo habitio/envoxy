@@ -460,9 +460,9 @@ if [ -f "$DEST_BIN" ]; then
     if command -v patchelf >/dev/null 2>&1; then
         # Set RPATH to find bundled .so files
         # Binary will be in: {prefix}/bin/envoxyd
-        # Libs will be in: {prefix}/lib/python3.12/site-packages/envoxyd.libs/
-        # Relative path from bin/ to libs: ../lib/python3.12/site-packages/envoxyd.libs
-        patchelf --set-rpath '$ORIGIN/../lib/python3.12/site-packages/envoxyd.libs' "$DEST_BIN" || {
+        # Libs will be in: {prefix}/lib/python${PYTHON_SHORT_VERSION}/site-packages/envoxyd.libs/
+        # Relative path from bin/ to libs: ../lib/python${PYTHON_SHORT_VERSION}/site-packages/envoxyd.libs
+        patchelf --set-rpath "\$ORIGIN/../lib/python${PYTHON_SHORT_VERSION}/site-packages/envoxyd.libs" "$DEST_BIN" || {
             echo "WARNING: patchelf failed to set RPATH, continuing anyway"
         }
         echo "CI: RPATH set for $DEST_BIN"
