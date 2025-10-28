@@ -81,8 +81,8 @@ def assertz_mandatory(
         element_exists = _element in _obj
         element_value = _obj[_element] if element_exists else None
         is_valid = (
-            element_exists 
-            and element_value is not None 
+            element_exists
+            and element_value is not None
             and (not isinstance(element_value, str) or element_value != "")
         )
         return assertz_call(
