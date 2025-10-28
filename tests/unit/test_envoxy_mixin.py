@@ -1,21 +1,17 @@
-from sqlalchemy import Column, Integer, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from envoxy.db.envoxy_mixin import EnvoxyMixin, register_envoxy_listeners
-
-
-Base = declarative_base()
+from envoxy.db.orm import EnvoxyBase, register_envoxy_listeners
 
 
-class MyModel(EnvoxyMixin, Base):
+class MyModel(EnvoxyBase):
     __tablename__ = 'mymodel'
-    pk = Column(Integer, primary_key=True)
 
 
 def test_listeners_populate_fields():
     register_envoxy_listeners()
     engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(engine)
+    EnvoxyBase.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     s = Session()
 
@@ -31,7 +27,6 @@ def test_listeners_populate_fields():
 
     # update and check updated changes
     prev = m.updated
-    m.pk = 1
     s.add(m)
     s.commit()
     assert m.updated >= prev

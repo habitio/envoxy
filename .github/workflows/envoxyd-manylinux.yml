@@ -14,6 +14,13 @@ jobs:
   build:
     name: Build wheels (cibuildwheel)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - { version: "3.12", build: "cp312-*", publish: true }
+          # Future Python versions can be added here:
+          # - { version: "3.13", build: "cp313-*", publish: true }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,8 +61,8 @@ jobs:
         env:
           # run our in-repo patch helper inside the manylinux container (use sh for robustness)
           CIBW_BEFORE_BUILD: "sh /project/.github/ci/patch_uwsgi.sh"
-          # only build CPython 3.12 manylinux wheels
-          CIBW_BUILD: "cp312-*"
+          # build for matrix Python version
+          CIBW_BUILD: "${{ matrix.python.build }}"
           # use the supported 'linux' platform (cibuildwheel v3 expects 'linux')
           CIBW_PLATFORM: "linux"
           CIBW_BUILD_VERBOSITY: "1"
@@ -63,10 +70,14 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND: "auditwheel repair -w {dest_dir} {wheel}"
 
       - name: Upload wheelhouse
+        if: matrix.python.publish == true
         uses: actions/upload-artifact@v4
         with:
-          name: envoxyd-wheelhouse
+          name: envoxyd-wheelhouse-py${{ matrix.python.version }}
           path: wheelhouse/
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
 
   publish-testpypi:
     name: Publish to TestPyPI (automatic on tag)
@@ -90,8 +101,9 @@ jobs:
       - name: Download wheelhouse
         uses: actions/download-artifact@v6
         with:
-          name: envoxyd-wheelhouse
+          pattern: envoxyd-wheelhouse-*
           path: wheelhouse
+          merge-multiple: true
 
       - name: List built wheels
         run: |
@@ -108,10 +120,10 @@ jobs:
           python -m twine upload --repository testpypi wheelhouse/*
 
   publish-pypi:
-    name: Publish to PyPI (manual)
+    name: Publish to PyPI (manual workflow_dispatch only)
     needs: build
     runs-on: ubuntu-latest
-    # only run on manual dispatch to avoid accidental production publishes; require the secret at runtime
+    # never run this job automatically: we manually trigger the publish via workflow_dispatch
     if: ${{ github.event_name == 'workflow_dispatch' }}
     environment:
       name: pypi
@@ -122,18 +134,19 @@ jobs:
       - name: Verify PyPI token present
         run: |
           if [ -z "${PYPI_API_TOKEN}" ]; then
-            echo "ERROR: PYPI_API_TOKEN secret is not set. Add it to repository secrets or provide via OIDC to enable PyPI publishing."
+            echo "ERROR: PYPI_API_TOKEN secret is not set. Add it to repository secrets to enable PyPI publishing."
             exit 1
           fi
       - name: Download wheelhouse
         uses: actions/download-artifact@v6
         with:
-          name: envoxyd-wheelhouse
+          pattern: envoxyd-wheelhouse-*
           path: wheelhouse
+          merge-multiple: true
 
       - name: List built wheels
         run: |
-          echo "Wheels in wheelhouse (publishing to PyPI):" 
+          echo "Wheels in wheelhouse:" 
           ls -lah wheelhouse || true
 
       - name: Publish wheels to PyPI
