@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, create_engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from envoxy.db.orm import EnvoxyBase, register_envoxy_listeners
@@ -6,7 +6,6 @@ from envoxy.db.orm import EnvoxyBase, register_envoxy_listeners
 
 class MyModel(EnvoxyBase):
     __tablename__ = 'mymodel'
-    pk = Column(Integer, primary_key=True, autoincrement=True)
 
 
 def test_listeners_populate_fields():
@@ -28,7 +27,6 @@ def test_listeners_populate_fields():
 
     # update and check updated changes
     prev = m.updated
-    m.pk = 1
     s.add(m)
     s.commit()
     assert m.updated >= prev
