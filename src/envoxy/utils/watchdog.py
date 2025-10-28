@@ -22,8 +22,12 @@ except ImportError:
     try:
         from systemd.daemon import notify
     except ImportError:
+
         def notify(msg):
-            log.error(f"[{log.style.apply('Watchdog', log.style.RED_FG)}] systemd not available, cannot send notification: {msg}")
+            log.error(
+                f"[{log.style.apply('Watchdog', log.style.RED_FG)}] systemd not available, cannot send notification: {msg}"
+            )
+
 
 from ..utils.config import Config
 from ..utils.logs import Log as log

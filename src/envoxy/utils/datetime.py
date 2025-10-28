@@ -21,10 +21,10 @@ import time
 from typing import Optional, Union
 
 try:
-        # Python 3.9+ standard timezone database
-        from zoneinfo import ZoneInfo
+    # Python 3.9+ standard timezone database
+    from zoneinfo import ZoneInfo
 except Exception:  # pragma: no cover - very old Python
-        ZoneInfo = None  # type: ignore
+    ZoneInfo = None  # type: ignore
 
 # ruff: noqa: E722
 
@@ -134,7 +134,9 @@ def _get_zone(tz: Optional[Union[str, ZoneInfo]]) -> Optional[ZoneInfo]:
     return None
 
 
-def coerce_datetime(value: Optional[Union[str, datetime, date]], assume_tz: str = "UTC") -> Optional[datetime]:
+def coerce_datetime(
+    value: Optional[Union[str, datetime, date]], assume_tz: str = "UTC"
+) -> Optional[datetime]:
     """Coerce a string, date, or datetime to a timezone-aware ``datetime``.
 
     - If ``value`` is ``None`` return ``None``.
@@ -148,7 +150,7 @@ def coerce_datetime(value: Optional[Union[str, datetime, date]], assume_tz: str 
     """
     if value is None:
         return None
-    
+
     # Handle date objects (but not datetime, since datetime is a subclass of date)
     if isinstance(value, date) and not isinstance(value, datetime):
         # Convert date to datetime at midnight in the assumed timezone
@@ -156,7 +158,7 @@ def coerce_datetime(value: Optional[Union[str, datetime, date]], assume_tz: str 
         if ZoneInfo is None:
             return dt_naive.replace(tzinfo=timezone.utc)
         return dt_naive.replace(tzinfo=ZoneInfo(assume_tz))
-    
+
     if isinstance(value, datetime):
         if value.tzinfo is None:
             if ZoneInfo is None:
@@ -202,12 +204,17 @@ def _format_fractional(us: int, fractional: Optional[int]) -> str:
     factor = 10 ** (6 - fractional)
     rounded = int(round(us / factor))
     # handle carry that would roll over to the seconds (rare)
-    if rounded >= 10 ** fractional:
+    if rounded >= 10**fractional:
         rounded = 0
     return f".{rounded:0{fractional}d}"
 
 
-def format_iso(dt: Union[str, datetime, date, None] = None, fractional: Optional[int] = 3, tz: Optional[Union[str, ZoneInfo]] = None, assume_tz: str = "UTC") -> Optional[str]:
+def format_iso(
+    dt: Union[str, datetime, date, None] = None,
+    fractional: Optional[int] = 3,
+    tz: Optional[Union[str, ZoneInfo]] = None,
+    assume_tz: str = "UTC",
+) -> Optional[str]:
     """Return an RFC3339-like ISO string for ``dt``.
 
     - ``fractional`` controls digits after the decimal point (0..6). ``None``
@@ -249,7 +256,9 @@ def format_iso(dt: Union[str, datetime, date, None] = None, fractional: Optional
     return f"{base}{frac}{offset}"
 
 
-def format_rfc1123(dt: Union[str, datetime, date, None] = None, assume_tz: str = "UTC") -> Optional[str]:
+def format_rfc1123(
+    dt: Union[str, datetime, date, None] = None, assume_tz: str = "UTC"
+) -> Optional[str]:
     """Return an RFC1123 / HTTP-date string for ``dt`` in GMT.
 
     Example: 'Tue, 28 Oct 2025 12:34:56 GMT'
@@ -268,7 +277,12 @@ def format_rfc1123(dt: Union[str, datetime, date, None] = None, assume_tz: str =
     return format_date_time(ts)
 
 
-def format_unix(dt: Union[str, datetime, date, None] = None, ms: bool = False, as_int: bool = True, assume_tz: str = "UTC") -> Optional[Union[int, float]]:
+def format_unix(
+    dt: Union[str, datetime, date, None] = None,
+    ms: bool = False,
+    as_int: bool = True,
+    assume_tz: str = "UTC",
+) -> Optional[Union[int, float]]:
     """Return epoch seconds for ``dt``. If ``ms`` is True return
     milliseconds.
     """
@@ -285,10 +299,18 @@ def format_unix(dt: Union[str, datetime, date, None] = None, ms: bool = False, a
     return int(ts) if as_int else ts
 
 
-def format_strftime(dt: Union[str, datetime, date, None], fmt: str, tz: Optional[Union[str, ZoneInfo]] = None, assume_tz: str = "UTC") -> Optional[str]:
-    """Format datetime with a custom strftime pattern, applying ``tz`` first.
-    """
-    dt_obj = coerce_datetime(dt, assume_tz=assume_tz) if dt is not None else datetime.now(timezone.utc)
+def format_strftime(
+    dt: Union[str, datetime, date, None],
+    fmt: str,
+    tz: Optional[Union[str, ZoneInfo]] = None,
+    assume_tz: str = "UTC",
+) -> Optional[str]:
+    """Format datetime with a custom strftime pattern, applying ``tz`` first."""
+    dt_obj = (
+        coerce_datetime(dt, assume_tz=assume_tz)
+        if dt is not None
+        else datetime.now(timezone.utc)
+    )
     if dt_obj is None:
         return None
     out_zone = _get_zone(tz)
@@ -297,7 +319,17 @@ def format_strftime(dt: Union[str, datetime, date, None], fmt: str, tz: Optional
     return dt_obj.strftime(fmt)
 
 
-def api_format(value: Optional[Union[str, datetime, date]] = None, *, style: str = "iso", fmt: Optional[str] = None, tz: Optional[Union[str, ZoneInfo]] = None, fractional: Optional[int] = 3, unix_ms: bool = False, assume_tz: str = "UTC", as_object: bool = False) -> Optional[Union[str, int, float, datetime]]:
+def api_format(
+    value: Optional[Union[str, datetime, date]] = None,
+    *,
+    style: str = "iso",
+    fmt: Optional[str] = None,
+    tz: Optional[Union[str, ZoneInfo]] = None,
+    fractional: Optional[int] = 3,
+    unix_ms: bool = False,
+    assume_tz: str = "UTC",
+    as_object: bool = False,
+) -> Optional[Union[str, int, float, datetime]]:
     """High-level API formatter.
 
     Parameters
@@ -351,40 +383,45 @@ class Format:
     This class provides static methods for formatting datetime values into
     various standard formats (ISO8601/RFC3339, RFC1123, Unix epoch, custom
     strftime). Each method works like ``Now.api_format()``:
-    
+
     - Called with no arguments, returns the current UTC time in the specified format
     - Called with a ``dt`` argument, formats that specific datetime
-    
+
     Methods accept datetime objects or ISO-like strings and handle timezone
     conversions consistently.
-    
+
     Examples:
         >>> Format.iso()  # current time as ISO8601
         '2025-10-28T12:34:56.123Z'
-        
+
         >>> Format.iso(my_datetime, fractional=6)
         '2025-10-28T12:34:56.123456Z'
-        
+
         >>> Format.rfc1123()  # current time as HTTP date
         'Tue, 28 Oct 2025 12:34:56 GMT'
-        
+
         >>> Format.unix(ms=True)  # current time as milliseconds
         1730123696123
     """
 
     @staticmethod
-    def iso(dt: Union[str, datetime, date, None] = None, fractional: Optional[int] = 3, tz: Optional[Union[str, ZoneInfo]] = None, assume_tz: str = "UTC") -> str:
+    def iso(
+        dt: Union[str, datetime, date, None] = None,
+        fractional: Optional[int] = 3,
+        tz: Optional[Union[str, ZoneInfo]] = None,
+        assume_tz: str = "UTC",
+    ) -> str:
         """Return ISO8601/RFC3339 formatted timestamp.
-        
+
         Args:
             dt: Datetime, date, or ISO string to format. If None, uses current UTC time.
             fractional: Number of fractional second digits (0-6). None preserves all microseconds.
             tz: Output timezone (string like 'UTC' or ZoneInfo). UTC outputs 'Z' suffix.
             assume_tz: Timezone to assume for naive datetime inputs.
-            
+
         Returns:
             ISO8601 formatted string, e.g. '2025-10-28T12:34:56.123Z'
-            
+
         Examples:
             >>> Format.iso()  # current time
             '2025-10-28T12:34:56.123Z'
@@ -396,16 +433,18 @@ class Format:
         return format_iso(dt, fractional=fractional, tz=tz, assume_tz=assume_tz)
 
     @staticmethod
-    def rfc1123(dt: Union[str, datetime, date, None] = None, assume_tz: str = "UTC") -> str:
+    def rfc1123(
+        dt: Union[str, datetime, date, None] = None, assume_tz: str = "UTC"
+    ) -> str:
         """Return RFC1123/HTTP-date formatted timestamp (always GMT).
-        
+
         Args:
             dt: Datetime, date, or ISO string to format. If None, uses current UTC time.
             assume_tz: Timezone to assume for naive datetime inputs.
-            
+
         Returns:
             RFC1123 formatted string, e.g. 'Tue, 28 Oct 2025 12:34:56 GMT'
-            
+
         Examples:
             >>> Format.rfc1123()  # current time
             'Tue, 28 Oct 2025 12:34:56 GMT'
@@ -415,18 +454,23 @@ class Format:
         return format_rfc1123(dt, assume_tz=assume_tz)
 
     @staticmethod
-    def unix(dt: Union[str, datetime, date, None] = None, ms: bool = False, as_int: bool = True, assume_tz: str = "UTC") -> Union[int, float]:
+    def unix(
+        dt: Union[str, datetime, date, None] = None,
+        ms: bool = False,
+        as_int: bool = True,
+        assume_tz: str = "UTC",
+    ) -> Union[int, float]:
         """Return Unix epoch timestamp (seconds or milliseconds).
-        
+
         Args:
             dt: Datetime, date, or ISO string to format. If None, uses current UTC time.
             ms: If True, return milliseconds instead of seconds.
             as_int: If True, return integer (rounded). If False, return float.
             assume_tz: Timezone to assume for naive datetime inputs.
-            
+
         Returns:
             Epoch seconds (or milliseconds if ms=True) as int or float.
-            
+
         Examples:
             >>> Format.unix()  # current time in seconds
             1730123696
@@ -438,18 +482,23 @@ class Format:
         return format_unix(dt, ms=ms, as_int=as_int, assume_tz=assume_tz)
 
     @staticmethod
-    def custom(dt: Union[str, datetime, date, None] = None, fmt: str = "%Y-%m-%d %H:%M:%S", tz: Optional[Union[str, ZoneInfo]] = None, assume_tz: str = "UTC") -> str:
+    def custom(
+        dt: Union[str, datetime, date, None] = None,
+        fmt: str = "%Y-%m-%d %H:%M:%S",
+        tz: Optional[Union[str, ZoneInfo]] = None,
+        assume_tz: str = "UTC",
+    ) -> str:
         """Return custom strftime-formatted timestamp.
-        
+
         Args:
             dt: Datetime, date, or ISO string to format. If None, uses current UTC time.
             fmt: strftime format string.
             tz: Output timezone to convert to before formatting.
             assume_tz: Timezone to assume for naive datetime inputs.
-            
+
         Returns:
             Custom formatted string according to fmt.
-            
+
         Examples:
             >>> Format.custom(fmt="%Y-%m-%d")  # current date
             '2025-10-28'
@@ -461,20 +510,22 @@ class Format:
         return format_strftime(dt, fmt, tz=tz, assume_tz=assume_tz)
 
     @staticmethod
-    def api_format(dt: Union[str, datetime, date, None] = None, assume_tz: str = "UTC") -> str:
+    def api_format(
+        dt: Union[str, datetime, date, None] = None, assume_tz: str = "UTC"
+    ) -> str:
         """Return API-formatted timestamp matching Now.api_format() pattern.
-        
+
         Returns a timestamp in the format "YYYY-MM-DDTHH:MM:SS.fff+0000" with
         millisecond precision and UTC offset, matching the format produced by
         Now.api_format() but accepting an optional datetime parameter.
-        
+
         Args:
             dt: Datetime, date, or ISO string to format. If None, uses current UTC time.
             assume_tz: Timezone to assume for naive datetime inputs.
-            
+
         Returns:
             API formatted string, e.g. '2025-10-28T12:34:56.123+0000'
-            
+
         Examples:
             >>> Format.api_format()  # current time
             '2025-10-28T12:34:56.123+0000'
@@ -489,29 +540,31 @@ class Format:
             dt_obj = coerce_datetime(dt, assume_tz=assume_tz)
             if dt_obj is None:
                 raise ValueError(f"Could not coerce datetime from: {dt}")
-        
+
         # Convert to UTC for consistent output
         dt_utc = dt_obj.astimezone(timezone.utc)
-        
+
         # Format as YYYY-MM-DDTHH:MM:SS.fff+0000 (milliseconds, UTC offset)
-        base = dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]  # truncate microseconds to milliseconds
+        base = dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[
+            :-3
+        ]  # truncate microseconds to milliseconds
         return f"{base}+0000"
 
     @staticmethod
     def parse(value: Union[str, datetime, date], assume_tz: str = "UTC") -> datetime:
         """Parse a string or coerce date/datetime to timezone-aware datetime object.
-        
+
         Args:
             value: ISO-like string, date, or datetime object to parse/coerce.
             assume_tz: Timezone to assume for naive datetime inputs.
-            
+
         Returns:
             Timezone-aware datetime object.
-            
+
         Raises:
             ValueError: If string cannot be parsed.
             TypeError: If value is not a string, date, or datetime.
-            
+
         Examples:
             >>> Format.parse("2025-10-28T12:34:56Z")
             datetime.datetime(2025, 10, 28, 12, 34, 56, tzinfo=...)
