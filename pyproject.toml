@@ -42,7 +42,7 @@ dependencies = [
     "amqp==5.3.1",
     "celerybeat-mongo==0.2.0",
     "inflect==7.5.0",
-    "alembic==1.17.0",
+    "alembic==1.17.1",
 ]
 
 [project.optional-dependencies]
@@ -51,7 +51,7 @@ dev = [
     "pytest==8.4.2",
     "twine==6.2.0",
     "urllib3==2.5.0",
-    "alembic==1.17.0",
+    "alembic==1.17.1",
     "pytest-cov==7.0.0",
     "pytest-asyncio==0.24.0",
     "pytest-mock==3.14.0",
