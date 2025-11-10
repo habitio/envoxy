@@ -31,7 +31,7 @@ jobs:
         run: python -m build -o dist
 
       - name: Upload dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: envoxy-dist
           path: dist/

@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload wheelhouse
         if: matrix.python.publish == true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: envoxyd-wheelhouse-py${{ matrix.python.version }}
           path: wheelhouse/
