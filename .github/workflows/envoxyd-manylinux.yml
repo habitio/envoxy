@@ -51,7 +51,7 @@ jobs:
           fi
 
       - name: Run cibuildwheel (manylinux)
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.3.0
         with:
           # the vendor build is driven by vendors/setup.py which reads
           # top-level pyproject.toml [tool.vendors.envoxyd]; point cibuildwheel
