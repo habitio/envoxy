@@ -302,9 +302,9 @@ if inject_index is None:
 # Note: os module is already imported at top of uwsgiconfig.py, don't re-import it
 injection = '''    # CI: Inject static Python library before linking
     try:
-        # Remove dynamic Python library references
-        libs[:] = [l for l in libs if not (isinstance(l, str) and l.startswith('-lpython'))]
-        print("CI: Removed dynamic -lpython* from libs", file=sys.stderr)
+        # Remove ALL Python library references (both -lpython* and full paths like /path/to/libpython*.a)
+        libs[:] = [l for l in libs if not (isinstance(l, str) and ('libpython' in l or l.startswith('-lpython')))]
+        print("CI: Removed all Python library references from libs", file=sys.stderr)
         
         # Use the static library built in CI
         static_lib_path = os.environ.get('STATIC_LIB_PATH', '')
