@@ -302,9 +302,9 @@ if first_import_index is not None and static_python_prefix:
     # Inject sysconfig override right after imports
     sysconfig_override = f'''
 # CI: Override sysconfig to use our static Python 3.12.3 build
-import sysconfig as _original_sysconfig
+import sysconfig
 _static_prefix = "{static_python_prefix}"
-_original_get_config_var = _original_sysconfig.get_config_var
+_original_get_config_var = sysconfig.get_config_var
 
 def _patched_get_config_var(name):
     # Override paths to point to our static Python build
