@@ -152,6 +152,7 @@ setup(
             "tools/*",
             "templates/__init__.py",
             "templates/confs/__init__.py",
+            "lib/**/*",  # Include bundled Python stdlib
         ]
     },
     data_files=_data_files,
