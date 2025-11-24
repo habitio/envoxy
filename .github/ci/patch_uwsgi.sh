@@ -192,70 +192,63 @@ STATIC_LIB_PATH="${STATIC_PYTHON_PREFIX}/lib/libpython${PYTHON_SHORT_VERSION}.a"
 if [ -f "${STATIC_LIB_PATH}" ]; then
     echo "CI: Static Python library already exists at ${STATIC_LIB_PATH}"
 else
-    echo "CI: Building static Python ${PYTHON_VERSION} from source..."
+    echo "CI: Installing pyenv to build Python with proper module layout..."
     
-    # Download Python source
-    PYTHON_TAR_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
-    PYTHON_SRC_DIR="/tmp/Python-${PYTHON_VERSION}"
+    # Install pyenv dependencies  
+    yum install -y git || true
     
-    echo "CI: Downloading Python source from ${PYTHON_TAR_URL}"
-    curl -L -o "/tmp/Python-${PYTHON_VERSION}.tgz" "${PYTHON_TAR_URL}" || {
-        echo "CI: ERROR - Failed to download Python source"
+    # Install pyenv
+    export PYENV_ROOT="/tmp/pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    
+    if [ ! -d "$PYENV_ROOT" ]; then
+        echo "CI: Cloning pyenv..."
+        git clone https://github.com/pyenv/pyenv.git "$PYENV_ROOT" || {
+            echo "CI: ERROR - Failed to clone pyenv"
+            exit 1
+        }
+    fi
+    
+    # Initialize pyenv
+    eval "$(pyenv init -)"
+    
+    echo "CI: Building Python ${PYTHON_VERSION} with pyenv (modules as .so)..."
+    # Install Python via pyenv - this will compile modules as separate .so files
+    # Unlike system Python (Ubuntu), pyenv builds modules as shared objects
+    PYTHON_CONFIGURE_OPTS="--enable-static --disable-shared" \
+    CFLAGS="-fPIC" \
+    pyenv install -v ${PYTHON_VERSION} || {
+        echo "CI: ERROR - pyenv install failed"
         exit 1
     }
     
-    echo "CI: Extracting Python source..."
-    tar -xzf "/tmp/Python-${PYTHON_VERSION}.tgz" -C /tmp || {
-        echo "CI: ERROR - Failed to extract Python source"
+    # Set the pyenv Python as active
+    pyenv global ${PYTHON_VERSION}
+    
+    echo "CI: Copying pyenv Python installation to ${STATIC_PYTHON_PREFIX}..."
+    PYENV_PYTHON_DIR="$PYENV_ROOT/versions/${PYTHON_VERSION}"
+    
+    if [ ! -d "$PYENV_PYTHON_DIR" ]; then
+        echo "CI: ERROR - pyenv Python installation not found at $PYENV_PYTHON_DIR"
+        exit 1
+    fi
+    
+    # Copy the entire Python installation
+    cp -r "$PYENV_PYTHON_DIR" "$STATIC_PYTHON_PREFIX" || {
+        echo "CI: ERROR - Failed to copy pyenv Python installation"
         exit 1
     }
     
-    cd "${PYTHON_SRC_DIR}" || {
-        echo "CI: ERROR - Failed to cd to Python source directory"
+    echo "CI: Verifying static library exists..."
+    if [ ! -f "${STATIC_LIB_PATH}" ]; then
+        echo "CI: ERROR - Static library not found at ${STATIC_LIB_PATH}"
         exit 1
-    }
+    fi
     
-    echo "CI: Configuring Python with --enable-static..."
-    # Disable SSL and other optional modules that may have compatibility issues
-    # uWSGI only needs the core interpreter, not SSL or other optional extensions
-    ./configure \
-        --prefix="${STATIC_PYTHON_PREFIX}" \
-        --enable-static \
-        --disable-shared \
-        --without-ensurepip \
-        --disable-test-modules \
-        --without-ssl 2>&1 | tail -50 || {
-        echo "CI: ERROR - Python configure failed"
-        exit 1
-    }
-    
-    echo "CI: Explicitly disabling problematic modules in Modules/Setup.local..."
-    # Python's configure still tries to build some modules even with flags,
-    # so we explicitly disable them in the Setup file
-    # - _ssl: requires OpenSSL 3.0+ (manylinux has 1.1.1)
-    # - _hashlib: depends on OpenSSL
-    # - _locale: requires libintl which isn't available separately in manylinux
-    echo "*disabled*" >> Modules/Setup.local
-    echo "_ssl" >> Modules/Setup.local
-    echo "_hashlib" >> Modules/Setup.local
-    echo "_locale" >> Modules/Setup.local
-    
-    echo "CI: Building Python (this may take several minutes)..."
-    make -j$(nproc) 2>&1 | tail -100 || {
-        echo "CI: ERROR - Python build failed"
-        exit 1
-    }
-    
-    echo "CI: Installing Python to ${STATIC_PYTHON_PREFIX}..."
-    make install 2>&1 | tail -50 || {
-        echo "CI: ERROR - Python install failed"
-        exit 1
-    }
+    echo "CI: Python ${PYTHON_VERSION} installed via pyenv with modules as .so files"
     
     # Return to original directory
     cd "${TARGET}" || exit 1
-    
-    # Verify static library was created
     if [ -f "${STATIC_LIB_PATH}" ]; then
         echo "CI: SUCCESS - Static library created at ${STATIC_LIB_PATH}"
         ls -lh "${STATIC_LIB_PATH}"
@@ -497,7 +490,7 @@ if [ -f "$DEST_BIN" ]; then
     # Bundle Python stdlib with the binary
     echo "CI: Bundling Python ${PYTHON_SHORT_VERSION} stdlib for embedded use"
     STDLIB_SOURCE="${STATIC_PYTHON_PREFIX}/lib/python${PYTHON_SHORT_VERSION}"
-    STDLIB_DEST="/project/vendors/src/envoxyd/lib/python${PYTHON_SHORT_VERSION}"
+    STDLIB_DEST="/project/vendors/envoxyd/lib/python${PYTHON_SHORT_VERSION}"
     
     if [ -d "${STDLIB_SOURCE}" ]; then
         echo "CI: Copying stdlib from ${STDLIB_SOURCE} to ${STDLIB_DEST}"
