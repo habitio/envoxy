@@ -216,24 +216,29 @@ else
     }
     
     echo "CI: Configuring Python with --enable-static..."
-    # Build a static Python with most builtin modules enabled
-    # Only disable SSL-related modules that have OpenSSL version conflicts
+    # Disable SSL and other optional modules that may have compatibility issues
+    # uWSGI only needs the core interpreter, not SSL or other optional extensions
     ./configure \
         --prefix="${STATIC_PYTHON_PREFIX}" \
         --enable-static \
         --disable-shared \
         --without-ensurepip \
-        --disable-test-modules 2>&1 | tail -50 || {
+        --disable-test-modules \
+        --without-ssl 2>&1 | tail -50 || {
         echo "CI: ERROR - Python configure failed"
         exit 1
     }
     
-    echo "CI: Explicitly disabling only SSL-related modules in Modules/Setup.local..."
-    # Only disable SSL-related modules that cause OpenSSL version conflicts
-    # Keep essential modules like math, socket, etc. enabled
+    echo "CI: Explicitly disabling problematic modules in Modules/Setup.local..."
+    # Python's configure still tries to build some modules even with flags,
+    # so we explicitly disable them in the Setup file
+    # - _ssl: requires OpenSSL 3.0+ (manylinux has 1.1.1)
+    # - _hashlib: depends on OpenSSL
+    # - _locale: requires libintl which isn't available separately in manylinux
     echo "*disabled*" >> Modules/Setup.local
     echo "_ssl" >> Modules/Setup.local
     echo "_hashlib" >> Modules/Setup.local
+    echo "_locale" >> Modules/Setup.local
     
     echo "CI: Building Python (this may take several minutes)..."
     make -j$(nproc) 2>&1 | tail -100 || {
