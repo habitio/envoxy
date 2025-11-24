@@ -178,10 +178,11 @@ fi
 
 echo "CI: Build static Python library for portable uWSGI embedding"
 
-# Get Python version from running interpreter
-PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
-PYTHON_SHORT_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-echo "CI: Detected Python version: $PYTHON_VERSION (short: $PYTHON_SHORT_VERSION)"
+# Pin to Ubuntu 24.04 LTS's Python version for compatibility
+PYTHON_VERSION="3.12.3"
+PYTHON_SHORT_VERSION="3.12"
+echo "CI: Using pinned Python version: $PYTHON_VERSION (Ubuntu 24.04 LTS)"
+echo "CI: Container Python version: $(python3 --version)"
 
 # Set build paths
 STATIC_PYTHON_PREFIX="/tmp/python-static-${PYTHON_VERSION}"
