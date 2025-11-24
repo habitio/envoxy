@@ -15,15 +15,22 @@ print(f"ENVOXY BOOTSTRAP: Looking for bundled stdlib at: {bundled_stdlib}", file
 print(f"ENVOXY BOOTSTRAP: Directory exists: {os.path.isdir(bundled_stdlib)}", file=sys.stderr)
 
 if os.path.isdir(bundled_stdlib):
-    # PREPEND bundled stdlib to sys.path so it takes precedence over system paths
+    # Ensure bundled stdlib is FIRST in sys.path
+    # early-python-path already added it, but let's verify it takes precedence
     bundled_paths = [
         bundled_stdlib,
         os.path.join(bundled_stdlib, 'lib-dynload'),
     ]
-    # Insert at the beginning but keep site-packages after
-    sys.path = bundled_paths + [p for p in sys.path if 'site-packages' in p or not p.startswith('/usr')]
+    
+    # Remove any existing references to bundled paths to avoid duplicates
+    sys.path = [p for p in sys.path if p not in bundled_paths]
+    
+    # PREPEND bundled stdlib (must be BEFORE any system paths)
+    sys.path = bundled_paths + sys.path
+    
     print(f"ENVOXY: Using bundled Python stdlib from {bundled_stdlib}", file=sys.stderr)
-    print(f"ENVOXY: New sys.path (first 5)={sys.path[:5]}", file=sys.stderr)
+    print(f"ENVOXY: Bundled stdlib takes precedence over system stdlib", file=sys.stderr)
+    print(f"ENVOXY: sys.path[0:3]={sys.path[0:3]}", file=sys.stderr)
 else:
     print(f"ENVOXY: WARNING - Bundled stdlib not found at {bundled_stdlib}, using system paths", file=sys.stderr)
     if os.path.isdir(prefix):
