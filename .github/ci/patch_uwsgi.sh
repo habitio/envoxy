@@ -216,29 +216,24 @@ else
     }
     
     echo "CI: Configuring Python with --enable-static..."
-    # Disable SSL and other optional modules that may have compatibility issues
-    # uWSGI only needs the core interpreter, not SSL or other optional extensions
+    # Build a static Python with most builtin modules enabled
+    # Only disable SSL-related modules that have OpenSSL version conflicts
     ./configure \
         --prefix="${STATIC_PYTHON_PREFIX}" \
         --enable-static \
         --disable-shared \
         --without-ensurepip \
-        --disable-test-modules \
-        --without-ssl 2>&1 | tail -50 || {
+        --disable-test-modules 2>&1 | tail -50 || {
         echo "CI: ERROR - Python configure failed"
         exit 1
     }
     
-    echo "CI: Explicitly disabling problematic modules in Modules/Setup.local..."
-    # Python's configure still tries to build some modules even with flags,
-    # so we explicitly disable them in the Setup file
-    # - _ssl: requires OpenSSL 3.0+ (manylinux has 1.1.1)
-    # - _hashlib: depends on OpenSSL
-    # - _locale: requires libintl which isn't available separately in manylinux
+    echo "CI: Explicitly disabling only SSL-related modules in Modules/Setup.local..."
+    # Only disable SSL-related modules that cause OpenSSL version conflicts
+    # Keep essential modules like math, socket, etc. enabled
     echo "*disabled*" >> Modules/Setup.local
     echo "_ssl" >> Modules/Setup.local
     echo "_hashlib" >> Modules/Setup.local
-    echo "_locale" >> Modules/Setup.local
     
     echo "CI: Building Python (this may take several minutes)..."
     make -j$(nproc) 2>&1 | tail -100 || {
@@ -278,15 +273,52 @@ if [ -f "${UWSGI_CONFIG}" ]; then
         # Export environment variables for Python script
         export UWSGI_CONFIG
         export STATIC_LIB_PATH
+        export STATIC_PYTHON_PREFIX
         python3 <<'PYPATCH'
 import sys
 import os
 
 uwsgi_config = os.environ['UWSGI_CONFIG']
 static_lib_path = os.environ.get('STATIC_LIB_PATH', '')
+static_python_prefix = os.environ.get('STATIC_PYTHON_PREFIX', '')
 
 with open(uwsgi_config, 'r') as f:
     lines = f.readlines()
+
+# First, inject sysconfig override at the very beginning (after imports)
+# Find the first import statement
+first_import_index = None
+for i, line in enumerate(lines):
+    if line.strip().startswith('import ') or line.strip().startswith('from '):
+        first_import_index = i + 1
+        break
+
+if first_import_index is not None and static_python_prefix:
+    # Inject sysconfig override right after imports
+    sysconfig_override = f'''
+# CI: Override sysconfig to use our static Python 3.12.3 build
+import sysconfig as _original_sysconfig
+_static_prefix = "{static_python_prefix}"
+_original_get_config_var = _original_sysconfig.get_config_var
+
+def _patched_get_config_var(name):
+    # Override paths to point to our static Python build
+    overrides = {{
+        'LIBDIR': f'{{_static_prefix}}/lib',
+        'LIBPL': f'{{_static_prefix}}/lib/python3.12/config-3.12-x86_64-linux-gnu',
+        'INCLUDEPY': f'{{_static_prefix}}/include/python3.12',
+        'LDLIBRARY': 'libpython3.12.a',
+    }}
+    if name in overrides:
+        print(f"CI: Overriding sysconfig {{name}} = {{overrides[name]}}", file=sys.stderr)
+        return overrides[name]
+    return _original_get_config_var(name)
+
+sysconfig.get_config_var = _patched_get_config_var
+print("CI: Patched sysconfig to use static Python 3.12.3", file=sys.stderr)
+
+'''
+    lines.insert(first_import_index, sysconfig_override)
 
 # Find the line with 'print("*** uWSGI linking ***")'
 inject_index = None
@@ -455,6 +487,23 @@ if [ -f "$DEST_BIN" ]; then
     ls -lh "$DEST_BIN"
     file "$DEST_BIN" || true
     ldd "$DEST_BIN" 2>&1 | head -20 || true
+    
+    # Bundle Python stdlib with the binary
+    echo "CI: Bundling Python ${PYTHON_SHORT_VERSION} stdlib for embedded use"
+    STDLIB_SOURCE="${STATIC_PYTHON_PREFIX}/lib/python${PYTHON_SHORT_VERSION}"
+    STDLIB_DEST="/project/vendors/src/envoxyd/lib/python${PYTHON_SHORT_VERSION}"
+    
+    if [ -d "${STDLIB_SOURCE}" ]; then
+        echo "CI: Copying stdlib from ${STDLIB_SOURCE} to ${STDLIB_DEST}"
+        mkdir -p "$(dirname "${STDLIB_DEST}")"
+        cp -r "${STDLIB_SOURCE}" "${STDLIB_DEST}" || {
+            echo "WARNING: Failed to copy stdlib"
+        }
+        echo "CI: Python stdlib bundled at ${STDLIB_DEST}"
+        ls -lah "${STDLIB_DEST}" | head -20
+    else
+        echo "WARNING: Python stdlib not found at ${STDLIB_SOURCE}"
+    fi
     
     # Set RPATH to allow auditwheel to properly bundle libraries
     echo "CI: Setting RPATH for auditwheel compatibility"
