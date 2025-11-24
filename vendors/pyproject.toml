@@ -32,6 +32,3 @@ Homepage = "https://github.com/habitio/envoxy"
 [tool.setuptools]
 # Disable automatic license file inclusion
 license-files = []
-
-[tool.setuptools.packages.find]
-where = ["src"]
