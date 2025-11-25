@@ -1,4 +1,5 @@
 recursive-include src *
 recursive-include envoxyd *
-recursive-exclude uwsgi *
+recursive-include uwsgi *
 include pyproject.toml
+

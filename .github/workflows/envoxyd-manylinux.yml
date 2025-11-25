@@ -1,4 +1,4 @@
-name: Build and publish envoxyd (manylinux)
+name: Build and publish envoxyd (sdist)
 
 on:
   push:
@@ -12,69 +12,35 @@ permissions:
 
 jobs:
   build:
-    name: Build wheels (cibuildwheel)
+    name: Build source distribution (sdist)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python:
-          - { version: "3.12", build: "cp312-*", publish: true }
-          # Future Python versions can be added here:
-          # - { version: "3.13", build: "cp313-*", publish: true }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Make CI helpers executable
-        run: |
-          if [ -f .github/ci/patch_uwsgi.sh ]; then
-            chmod +x .github/ci/patch_uwsgi.sh || true
-            echo "CI: made .github/ci/patch_uwsgi.sh executable"
-          else
-            echo "CI: .github/ci/patch_uwsgi.sh not present"
-          fi
-
-      - name: Prepare package-dir (ensure pyproject.toml in vendors/)
-        run: |
-          PKG_ROOT="vendors"
-          if [ -f pyproject.toml ] && [ -d "$PKG_ROOT" ]; then
-            if [ ! -f "$PKG_ROOT/pyproject.toml" ]; then
-              echo "CI: copying top-level pyproject.toml into $PKG_ROOT"
-              cp pyproject.toml "$PKG_ROOT/pyproject.toml"
-            else
-              echo "CI: $PKG_ROOT/pyproject.toml already present"
-            fi
-          else
-            echo "CI: pyproject.toml or $PKG_ROOT missing; skipping copy"
-          fi
-
-      - name: Run cibuildwheel (manylinux)
-        uses: pypa/cibuildwheel@v3.2.1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          # the vendor build is driven by vendors/setup.py which reads
-          # top-level pyproject.toml [tool.vendors.envoxyd]; point cibuildwheel
-          # at `vendors/` so setuptools/setup.py is discovered correctly.
-          package-dir: vendors
-          output-dir: wheelhouse
-        env:
-          # run our in-repo patch helper inside the manylinux container (use sh for robustness)
-          CIBW_BEFORE_BUILD: "sh /project/.github/ci/patch_uwsgi.sh"
-          # build for matrix Python version
-          CIBW_BUILD: "${{ matrix.python.build }}"
-          # use the supported 'linux' platform (cibuildwheel v3 expects 'linux')
-          CIBW_PLATFORM: "linux"
-          CIBW_BUILD_VERBOSITY: "1"
-          # ensure auditwheel repairs the wheel to bundle dependencies
-          CIBW_REPAIR_WHEEL_COMMAND: "auditwheel repair -w {dest_dir} {wheel}"
+          python-version: "3.12"
 
-      - name: Upload wheelhouse
-        if: matrix.python.publish == true
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Build sdist
+        run: |
+          cd vendors
+          python -m build --sdist
+          ls -lah dist/
+
+      - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: envoxyd-wheelhouse-py${{ matrix.python.version }}
-          path: wheelhouse/
+          name: envoxyd-sdist
+          path: vendors/dist/*.tar.gz
           retention-days: 1
           compression-level: 0
           if-no-files-found: error
@@ -83,8 +49,6 @@ jobs:
     name: Publish to TestPyPI (automatic on tag)
     needs: build
     runs-on: ubuntu-latest
-    # only run this job automatically for tag pushes; require the secret at runtime (checked in first step)
-    # if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
     if: ${{ github.event_name == 'push' }}
     environment:
       name: testpypi
@@ -98,32 +62,31 @@ jobs:
             echo "ERROR: TEST_PYPI_API_TOKEN secret is not set. Add it to repository secrets to enable automatic TestPyPI publishing."
             exit 1
           fi
-      - name: Download wheelhouse
+      - name: Download sdist
         uses: actions/download-artifact@v6
         with:
-          pattern: envoxyd-wheelhouse-*
-          path: wheelhouse
+          pattern: envoxyd-sdist
+          path: dist
           merge-multiple: true
 
-      - name: List built wheels
+      - name: List built artifacts
         run: |
-          echo "Wheels in wheelhouse:" 
-          ls -lah wheelhouse || true
+          echo "Artifacts in dist:" 
+          ls -lah dist || true
 
-      - name: Publish wheels to TestPyPI
+      - name: Publish to TestPyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
           python -m pip install --upgrade pip
           python -m pip install twine
-          python -m twine upload --repository testpypi wheelhouse/*
+          python -m twine upload --repository testpypi dist/*
 
   publish-pypi:
     name: Publish to PyPI (manual workflow_dispatch only)
     needs: build
     runs-on: ubuntu-latest
-    # never run this job automatically: we manually trigger the publish via workflow_dispatch
     if: ${{ github.event_name == 'workflow_dispatch' }}
     environment:
       name: pypi
@@ -137,23 +100,24 @@ jobs:
             echo "ERROR: PYPI_API_TOKEN secret is not set. Add it to repository secrets to enable PyPI publishing."
             exit 1
           fi
-      - name: Download wheelhouse
+      - name: Download sdist
         uses: actions/download-artifact@v6
         with:
-          pattern: envoxyd-wheelhouse-*
-          path: wheelhouse
+          pattern: envoxyd-sdist
+          path: dist
           merge-multiple: true
 
-      - name: List built wheels
+      - name: List built artifacts
         run: |
-          echo "Wheels in wheelhouse:" 
-          ls -lah wheelhouse || true
+          echo "Artifacts in dist:" 
+          ls -lah dist || true
 
-      - name: Publish wheels to PyPI
+      - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           python -m pip install --upgrade pip
           python -m pip install twine
-          python -m twine upload wheelhouse/*
+          python -m twine upload dist/*
+
