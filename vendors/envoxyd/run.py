@@ -2,6 +2,8 @@ import importlib.util
 import inspect
 import json
 import time
+import os
+import traceback
 
 import envoxy
 
@@ -221,7 +223,51 @@ class AppContext(object):
                 if enable_cors:
                     CORS(cls._app, supports_credentials=True)
 
-            uwsgi.log('\n\n')
+                uwsgi.log('\n\n')
+
+                # Fallback: if systemd watchdog expects notifications from the
+                # master process (WATCHDOG_PID == this pid), ensure we start
+                # a watchdog here so systemd receives WATCHDOG=1 from the
+                # correct PID. This is a safe, reversible safeguard in case
+                # the uwsgi embed hook didn't execute in the expected process.
+                try:
+                    _keep = int(_conf_content.get('keep_alive', 0))
+                except Exception:
+                    _keep = 0
+
+                try:
+                    wd_pid_env = os.environ.get('WATCHDOG_PID')
+                    allowed_to_start = False
+
+                    if _keep and _keep > 0:
+                        if wd_pid_env:
+                            try:
+                                allowed_to_start = int(wd_pid_env) == os.getpid()
+                            except Exception:
+                                allowed_to_start = False
+                        else:
+                            # If WATCHDOG_PID not set, attempt to only start in
+                            # the uwsgi master process (best-effort).
+                            try:
+                                allowed_to_start = hasattr(uwsgi, 'masterpid') and uwsgi.masterpid() == os.getpid()
+                            except Exception:
+                                allowed_to_start = False
+
+                    if allowed_to_start:
+                        try:
+                            envoxy.Watchdog(int(_keep)).start()
+                            envoxy.log.system('[{}] Watchdog started from bootstrap (master)'.format(
+                                envoxy.log.style.apply('---', envoxy.log.style.GREEN_FG)
+                            ))
+                        except Exception:
+                            envoxy.log.warning('[{}] failed to start watchdog from bootstrap: {}'.format(
+                                envoxy.log.style.apply('Watchdog', envoxy.log.style.YELLOW_FG), traceback.format_exc(limit=2)
+                            ))
+                except Exception:
+                    # Don't let any bootstrap watchdog logic break app startup
+                    envoxy.log.warning('[{}] bootstrap watchdog guard failed: {}'.format(
+                        envoxy.log.style.apply('Watchdog', envoxy.log.style.YELLOW_FG), traceback.format_exc(limit=2)
+                    ))
 
         return cls._app
 
