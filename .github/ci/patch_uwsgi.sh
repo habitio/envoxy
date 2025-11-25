@@ -9,11 +9,35 @@ PY_BIN=${1:-python}
 # Upgrade pip and build tools
 ${PY_BIN} -m pip install --upgrade pip setuptools wheel
 
+# In manylinux, we need to use the Python from /opt/python/cpXXX
+# Get Python version info
+PY_VER=$(${PY_BIN} -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')")
+PY_SHORT=$(${PY_BIN} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PY_PREFIX=$(${PY_BIN} -c "import sys; print(sys.prefix)")
+
+echo "CI: Python version: ${PY_SHORT} (cp${PY_VER})"
+echo "CI: Python prefix: ${PY_PREFIX}"
+
+# Check if libpython exists
+LIBPYTHON_PATH="${PY_PREFIX}/lib/libpython${PY_SHORT}.so"
+if [ ! -f "${LIBPYTHON_PATH}" ]; then
+    echo "WARNING: libpython not found at ${LIBPYTHON_PATH}, trying with version suffix"
+    # Try with version suffix
+    LIBPYTHON_PATH=$(find "${PY_PREFIX}/lib" -name "libpython${PY_SHORT}*.so*" | head -1)
+    if [ -z "${LIBPYTHON_PATH}" ]; then
+        echo "ERROR: Cannot find libpython${PY_SHORT}.so in ${PY_PREFIX}/lib"
+        ls -la "${PY_PREFIX}/lib" || true
+        exit 1
+    fi
+fi
+
+echo "CI: Found libpython at: ${LIBPYTHON_PATH}"
+
 # Detect and install build dependencies
 if command -v yum >/dev/null 2>&1; then
-    yum install -y gcc make pkgconfig python3-devel openssl-devel zlib-devel || true
+    yum install -y gcc make pkgconfig openssl-devel zlib-devel || true
 elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update && apt-get install -y build-essential python3-dev libssl-dev zlib1g-dev || true
+    apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev || true
 fi
 
 # Find uwsgi source directory
@@ -46,7 +70,14 @@ if [ -f "/project/vendors/envoxyd/templates/run.py" ]; then
 fi
 
 # Build uwsgi with dynamic Python linking (official method)
+# Set PYTHON environment variable to use the correct Python
+export PYTHON="${PY_BIN}"
+export PYTHON_VERSION="${PY_SHORT}"
+
 echo "CI: Building uwsgi with flask profile"
+echo "CI: Using PYTHON=${PYTHON}"
+echo "CI: Using PYTHON_VERSION=${PYTHON_VERSION}"
+
 "${PY_BIN}" uwsgiconfig.py --build flask || {
     echo "ERROR: uwsgi build failed"
     exit 1
