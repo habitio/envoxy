@@ -2,14 +2,9 @@
 
 import os
 import sys
-from setuptools import setup, find_packages, Extension
-try:
-    from wheel.bdist_wheel import bdist_wheel
-    _HAS_WHEEL = True
-except Exception:
-    _HAS_WHEEL = False
+import shutil
+from setuptools import setup, find_packages
 from setuptools.command.install import install
-
 from subprocess import check_call
 
 
@@ -21,31 +16,61 @@ def find_file(path):
 
 
 class InstallCommand(install):
+    """Custom install command that compiles uwsgi during installation."""
 
     description = "install envoxyd"
 
     def run(self):
         """Build uWSGI and install package."""
-        # Get the directory where this setup.py lives
         setup_dir = os.path.dirname(os.path.abspath(__file__))
-        data_dir = os.path.join(setup_dir, "src", "envoxyd")
-        envoxyd_binary = os.path.join(data_dir, "envoxyd")
+        uwsgi_src_dir = os.path.join(setup_dir, "uwsgi")
+        dest_dir = os.path.join(setup_dir, "src", "envoxyd")
         
-        # Skip uWSGI compilation if binary already exists (e.g., pre-built by Dockerfile)
-        # OR if running under cibuildwheel (which will compile in CIBW_BEFORE_BUILD)
-        skip_compilation = os.path.exists(envoxyd_binary) or os.environ.get('CIBUILDWHEEL', '0') == '1'
+        if not os.path.exists(uwsgi_src_dir):
+            raise RuntimeError(f"uwsgi source directory not found at {uwsgi_src_dir}")
         
-        if not skip_compilation:
-            print("Compiling uWSGI...")
-            python_executable = sys.executable
-            uwsgi_dir = os.path.join(setup_dir, "src", "envoxyd")
-            check_call([python_executable, "uwsgiconfig.py", "--build", "flask"], cwd=uwsgi_dir)
+        # Copy template files to uwsgi directory
+        templates_dir = os.path.join(setup_dir, "envoxyd", "templates", "uwsgi")
+        if os.path.exists(templates_dir):
+            print(f"Copying uwsgi templates from {templates_dir}")
+            for item in os.listdir(templates_dir):
+                src = os.path.join(templates_dir, item)
+                dst = os.path.join(uwsgi_src_dir, item)
+                if os.path.isfile(src):
+                    shutil.copy2(src, dst)
+                elif os.path.isdir(src):
+                    shutil.copytree(src, dst, dirs_exist_ok=True)
+        
+        # Also copy run.py to embed/
+        run_py_src = os.path.join(setup_dir, "envoxyd", "templates", "run.py")
+        if os.path.exists(run_py_src):
+            embed_dir = os.path.join(uwsgi_src_dir, "embed")
+            os.makedirs(embed_dir, exist_ok=True)
+            shutil.copy2(run_py_src, os.path.join(embed_dir, "run.py"))
+        
+        # Compile uwsgi with flask profile
+        print(f"Compiling uwsgi in {uwsgi_src_dir}...")
+        python_executable = sys.executable
+        check_call(
+            [python_executable, "uwsgiconfig.py", "--build", "flask"],
+            cwd=uwsgi_src_dir
+        )
+        
+        # Find and copy the built binary
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_binary = os.path.join(dest_dir, "envoxyd")
+        
+        for binary_name in ["envoxyd", "uwsgi"]:
+            src_binary = os.path.join(uwsgi_src_dir, binary_name)
+            if os.path.exists(src_binary):
+                print(f"Copying {src_binary} to {dest_binary}")
+                shutil.copy2(src_binary, dest_binary)
+                os.chmod(dest_binary, 0o755)
+                break
         else:
-            if os.environ.get('CIBUILDWHEEL'):
-                print("Skipping uWSGI compilation (will be built by CIBW_BEFORE_BUILD)")
-            else:
-                print(f"Skipping uWSGI compilation (binary exists at {envoxyd_binary})")
+            raise RuntimeError("Built uwsgi binary not found")
         
+        print("uwsgi compilation complete")
         install.run(self)
 
 
@@ -100,49 +125,16 @@ _url = _urls.get("Homepage")
 # License from classifiers
 _project_license = "MIT"
 
-if _HAS_WHEEL:
-    class NonPureWheel(bdist_wheel):
-        def finalize_options(self):
-            bdist_wheel.finalize_options(self)
-            # Force wheel metadata to indicate non-pure since this package
-            # installs compiled/native files into data_files.
-            self.root_is_pure = False
-
-# Prepare cmdclass ensuring 'install' is preserved and optionally
-# register the NonPureWheel for bdist_wheel when wheel is available.
+# Prepare cmdclass with custom install command
 cmdclass = {"install": InstallCommand}
-if _HAS_WHEEL:
-    cmdclass["bdist_wheel"] = NonPureWheel
 
-# Conditionally include the uWSGI binary in data_files only if it exists.
-# During cibuildwheel, CIBW_BEFORE_BUILD should have built and placed the binary.
-# For local dev builds, the InstallCommand will build it before install_data runs.
+# Include the uWSGI binary in data_files if it exists
 _data_files = [
     ("bin", ["envoxyd/tools/envoxy-cli"]),
 ]
 _envoxyd_binary_path = "src/envoxyd/envoxyd"
 if os.path.exists(_envoxyd_binary_path):
     _data_files.insert(0, ("bin", [_envoxyd_binary_path]))
-else:
-    # When CIBUILDWHEEL is set, the binary should exist (built by CIBW_BEFORE_BUILD).
-    # If it doesn't, log a warning but continue (the install step will handle it).
-    if os.environ.get('CIBUILDWHEEL'):
-        print(f"WARNING: {_envoxyd_binary_path} not found but CIBUILDWHEEL is set. "
-              "Ensure CIBW_BEFORE_BUILD built the binary.")
-
-# Force wheel to be platform-specific (platlib) by adding a dummy extension.
-# This is required because we bundle .so files in package_data (Python stdlib).
-# Without this, auditwheel will reject the wheel as "invalid" because .so files
-# would be in purelib instead of platlib.
-# The Extension doesn't need to actually build anything - it just signals to
-# setuptools/wheel that this is a platform-specific package.
-_ext_modules = [
-    Extension(
-        name="envoxyd._platform",
-        sources=[],  # No sources - this is just a marker
-        optional=True,  # Don't fail if it can't build
-    )
-]
 
 setup(
     name=_name,
@@ -157,7 +149,6 @@ setup(
     package_dir={
         "envoxyd": "envoxyd/",
     },
-    # console_scripts not defined because envoxy-cli is a bash script distributed via data_files/bin
     package_data={
         "envoxyd": [
             "templates/run.py",
@@ -169,8 +160,8 @@ setup(
         ]
     },
     data_files=_data_files,
-    ext_modules=_ext_modules,  # Dummy extension to force platlib (binary package)
     cmdclass=cmdclass,
     python_requires=_requires_python,
     include_package_data=True,
 )
+

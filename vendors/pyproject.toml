@@ -2,13 +2,9 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.cibuildwheel]
-# Build only CPython 3.12 manylinux wheels for envoxyd
-build = ["cp312-*"]
-
 [project]
 name = "envoxyd"
-version = "0.4.32"
+version = "0.5.0"
 description = "Customized uWSGI server for Envoxy"
 requires-python = ">=3.12"
 authors = [
