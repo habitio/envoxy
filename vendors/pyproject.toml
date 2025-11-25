@@ -8,7 +8,7 @@ build = ["cp312-*"]
 
 [project]
 name = "envoxyd"
-version = "0.4.30"
+version = "0.4.31"
 description = "Customized uWSGI server for Envoxy"
 requires-python = ">=3.12"
 authors = [

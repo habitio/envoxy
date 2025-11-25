@@ -166,11 +166,10 @@ setup(
             "tools/*",
             "templates/__init__.py",
             "templates/confs/__init__.py",
-            "lib/**/*",  # Include bundled Python stdlib
         ]
     },
     data_files=_data_files,
-    ext_modules=_ext_modules,  # Add dummy extension to force platlib
+    ext_modules=_ext_modules,  # Dummy extension to force platlib (binary package)
     cmdclass=cmdclass,
     python_requires=_requires_python,
     include_package_data=True,
