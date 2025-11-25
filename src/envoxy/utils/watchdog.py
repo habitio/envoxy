@@ -137,16 +137,57 @@ class Watchdog:
 
             while not event.wait(self.interval - 1):
                 main_thread_alive = threading.main_thread().is_alive()
-                if main_thread_alive:
-                    if (
-                        "last_event_ms" in uwsgi.opt
-                        and time.time() - uwsgi.opt["last_event_ms"] <= self.interval
-                        or self._test_http()
-                    ):
-                        log.verbose(
-                            f"[{log.style.apply('OK', log.style.GREEN_FG)}] Watchdog sent successfully"
-                        )
+                
+                if not main_thread_alive:
+                    log.warning(
+                        f"[{log.style.apply('Watchdog', log.style.RED_FG)}] Main thread is dead, stopping watchdog"
+                    )
+                    break
+                
+                # Check health: either last_event_ms is recent OR HTTP test passes
+                is_healthy = False
+                
+                # Check 1: uwsgi last_event_ms
+                try:
+                    if "last_event_ms" in uwsgi.opt:
+                        elapsed = time.time() - uwsgi.opt["last_event_ms"]
+                        if elapsed <= self.interval:
+                            is_healthy = True
+                            log.verbose(
+                                f"[{log.style.apply('Watchdog', log.style.GREEN_FG)}] uwsgi heartbeat OK (last event {elapsed:.1f}s ago)"
+                            )
+                except (KeyError, TypeError, NameError):
+                    pass
+                
+                # Check 2: HTTP health test (fallback)
+                if not is_healthy:
+                    is_healthy = self._test_http()
+                
+                # Always send notification (graceful degradation)
+                # Track failures but give a few retries before stopping
+                if is_healthy:
+                    notify("WATCHDOG=1")
+                    log.verbose(
+                        f"[{log.style.apply('OK', log.style.GREEN_FG)}] Watchdog sent successfully"
+                    )
+                    if hasattr(self, '_failure_count'):
+                        self._failure_count = 0
+                else:
+                    # Track consecutive failures
+                    self._failure_count = getattr(self, '_failure_count', 0) + 1
+                    
+                    if self._failure_count <= 3:
+                        # Still send notification for first 3 failures (transient issues)
                         notify("WATCHDOG=1")
+                        log.warning(
+                            f"[{log.style.apply('Watchdog', log.style.YELLOW_FG)}] Health check failed ({self._failure_count}/3) but still notifying systemd"
+                        )
+                    else:
+                        # After 3 consecutive failures, stop sending (let systemd restart)
+                        log.error(
+                            f"[{log.style.apply('Watchdog', log.style.RED_FG)}] Health check failed {self._failure_count} times, stopping notifications (systemd will restart service)"
+                        )
+                        break
 
         except (KeyError, TypeError, ValueError) as e:
             log.error(f"[{log.style.apply('Watchdog', log.style.RED_FG)}] Error {e}")
@@ -160,21 +201,47 @@ class Watchdog:
             )
 
     def _test_http(self):
+        """Test HTTP server health using the internal /_health endpoint.
+        
+        This method attempts to GET the /_health endpoint which is automatically
+        registered by the framework for watchdog health checks. This endpoint is
+        preferred over hitting the base URL because it:
+        - Returns 200 OK (not 404)
+        - Doesn't interfere with user routes
+        - Is specifically designed for health checks
+        """
         try:
             _host = Config.get("boot")[0].get("http", {}).get("bind", None)
 
             if _host:
-                log.verbose(f"> watchdog event on {_host}")
+                # Parse the bind address to construct the health endpoint URL
+                # bind format can be "http://localhost:8080" or "localhost:8080" or ":8080"
+                if _host.startswith("http://") or _host.startswith("https://"):
+                    health_url = f"{_host}/_health"
+                elif _host.startswith(":"):
+                    health_url = f"http://localhost{_host}/_health"
+                else:
+                    health_url = f"http://{_host}/_health"
+                
+                log.verbose(f"> watchdog event on {health_url}")
                 # Add a short timeout to avoid hanging if the host is unresponsive.
-                requests.get(_host, timeout=5)
+                response = requests.get(health_url, timeout=5)
+                
+                # Check for 200 OK response
+                if response.status_code == 200:
+                    uwsgi.opt["last_event_ms"] = time.time()
+                    log.verbose(
+                        f"[{log.style.apply('Watchdog', log.style.GREEN_FG)}] HTTP health check passed (/_health returned 200)"
+                    )
+                    return True
+                else:
+                    log.warning(
+                        f"[{log.style.apply('Watchdog', log.style.YELLOW_FG)}] HTTP health check returned {response.status_code} (expected 200)"
+                    )
 
-                uwsgi.opt["last_event_ms"] = time.time()
-
-                return True
-
-        except (KeyError, requests.RequestException):
+        except (KeyError, requests.RequestException) as e:
             log.error(
-                f"[{log.style.apply('Watchdog', log.style.RED_FG)}] HTTP watchdog test failed"
+                f"[{log.style.apply('Watchdog', log.style.RED_FG)}] HTTP watchdog test failed: {e}"
             )
 
         return False

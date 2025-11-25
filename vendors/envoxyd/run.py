@@ -80,6 +80,18 @@ class AppContext(object):
             cls._app.response_class = envoxy.Response
             cls._app.url_map.converters['str'] = cls._app.url_map.converters['string']
 
+            # Internal health check endpoint for systemd watchdog
+            # This endpoint is registered before user routes and won't interfere
+            @cls._app.route('/_health')
+            def _internal_health():
+                """Internal health check endpoint for systemd watchdog.
+                
+                Returns 200 OK with a simple JSON response indicating the service is healthy.
+                This endpoint is automatically registered by the framework and should not be
+                used by external clients - it's specifically for watchdog health checks.
+                """
+                return Response({"status": "healthy", "service": "envoxy"}, status=200, mimetype='application/json')
+
             if 'mode' in uwsgi.opt and uwsgi.opt['mode'] == b'test':
 
                 @cls._app.route('/')
