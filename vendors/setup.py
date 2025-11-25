@@ -2,7 +2,7 @@
 
 import os
 import sys
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 try:
     from wheel.bdist_wheel import bdist_wheel
     _HAS_WHEEL = True
@@ -130,6 +130,20 @@ else:
         print(f"WARNING: {_envoxyd_binary_path} not found but CIBUILDWHEEL is set. "
               "Ensure CIBW_BEFORE_BUILD built the binary.")
 
+# Force wheel to be platform-specific (platlib) by adding a dummy extension.
+# This is required because we bundle .so files in package_data (Python stdlib).
+# Without this, auditwheel will reject the wheel as "invalid" because .so files
+# would be in purelib instead of platlib.
+# The Extension doesn't need to actually build anything - it just signals to
+# setuptools/wheel that this is a platform-specific package.
+_ext_modules = [
+    Extension(
+        name="envoxyd._platform",
+        sources=[],  # No sources - this is just a marker
+        optional=True,  # Don't fail if it can't build
+    )
+]
+
 setup(
     name=_name,
     version=_version,
@@ -156,6 +170,7 @@ setup(
         ]
     },
     data_files=_data_files,
+    ext_modules=_ext_modules,  # Add dummy extension to force platlib
     cmdclass=cmdclass,
     python_requires=_requires_python,
     include_package_data=True,
