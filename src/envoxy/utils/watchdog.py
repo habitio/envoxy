@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # cysystemd is not installed. If neither is available, operate
 # without systemd notifications (graceful degradation).
 try:
-    from cysystemd.daemon import notify as _notify_real
+    from cysystemd.daemon import notify as _notify_real, Notification
     def notify(msg):
         # When NOTIFY_SOCKET is not set, cysystemd.notify is effectively a no-op.
         # Log the attempted notification so watchdog activity is visible in logs
@@ -31,7 +31,12 @@ try:
         if os.environ.get('NOTIFY_SOCKET') is None:
             # Use WARNING so the message is visible in typical journal logs
             log.warning(f"[Watchdog] notify() called but NOTIFY_SOCKET unset: {msg}")
-        return _notify_real(msg)
+        # cysystemd expects Notification enum, not string
+        if msg == "WATCHDOG=1":
+            return _notify_real(Notification.WATCHDOG)
+        else:
+            # For other notifications, try to parse or use READY as fallback
+            return _notify_real(Notification.READY)
 except ImportError:
     try:
         from systemd.daemon import notify as _notify_real
