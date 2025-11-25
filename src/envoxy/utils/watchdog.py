@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 import traceback
+import os
 
 import requests
 
@@ -13,26 +14,39 @@ try:
 except ImportError:
     pass
 
-# Prefer cysystemd (binary wheels available). Fall back to systemd if
-# cysystemd is not installed. If neither is available, operate
-# without systemd notifications (graceful degradation).
-try:
-    from cysystemd.daemon import notify
-except ImportError:
-    try:
-        from systemd.daemon import notify
-    except ImportError:
-
-        def notify(msg):
-            log.error(
-                f"[{log.style.apply('Watchdog', log.style.RED_FG)}] systemd not available, cannot send notification: {msg}"
-            )
-
-
 from ..utils.config import Config
 from ..utils.logs import Log as log
 
 logger = logging.getLogger(__name__)
+
+# Prefer cysystemd (binary wheels available). Fall back to systemd if
+# cysystemd is not installed. If neither is available, operate
+# without systemd notifications (graceful degradation).
+try:
+    from cysystemd.daemon import notify as _notify_real
+    def notify(msg):
+        # When NOTIFY_SOCKET is not set, cysystemd.notify is effectively a no-op.
+        # Log the attempted notification so watchdog activity is visible in logs
+        # during testing even when systemd socket is not present.
+        if os.environ.get('NOTIFY_SOCKET') is None:
+            # Use WARNING so the message is visible in typical journal logs
+            log.warning(f"[Watchdog] notify() called but NOTIFY_SOCKET unset: {msg}")
+        return _notify_real(msg)
+except ImportError:
+    try:
+        from systemd.daemon import notify as _notify_real
+        def notify(msg):
+            if os.environ.get('NOTIFY_SOCKET') is None:
+                # Use WARNING so the message is visible in typical journal logs
+                log.warning(f"[Watchdog] notify() called but NOTIFY_SOCKET unset: {msg}")
+            return _notify_real(msg)
+    except ImportError:
+
+        def notify(msg):
+            # No systemd bindings available — log at error level so it's obvious.
+            log.error(
+                f"[{log.style.apply('Watchdog', log.style.RED_FG)}] systemd not available, cannot send notification: {msg}"
+            )
 
 
 class Watchdog:
@@ -83,12 +97,43 @@ class Watchdog:
 
     def start(self):
         if self.interval is not None and self.interval > 0:
+            # Guard against multiple starts in the same process
+            # Check if a watchdog thread already exists
+            for thread in threading.enumerate():
+                if thread.name == "watchdog" and thread.is_alive():
+                    log.verbose(
+                        f"[{log.style.apply('Watchdog', log.style.YELLOW_FG)}] watchdog thread already running in this process (pid={os.getpid()}), skipping duplicate start"
+                    )
+                    return
+            
             try:
                 self.thread = threading.Thread(
                     target=self.send_notification, name="watchdog"
                 )
                 self.thread.daemon = True
                 self.thread.start()
+                # Log at WARNING so the message is visible in systemd journal
+                # and we can confirm the watchdog thread actually started in production.
+                try:
+                    log.warning(
+                        f"[{log.style.apply('Watchdog', log.style.GREEN_FG)}] watchdog thread started (name={self.thread.name}, ident={self.thread.ident}, pid={os.getpid()})"
+                    )
+                except Exception:
+                    # Best-effort logging; don't prevent startup if style/ident access fails
+                    log.warning(
+                        f"[Watchdog] watchdog thread started (pid={os.getpid()})"
+                    )
+                # Send an immediate notify to satisfy systemd watchdog timers
+                # so the service doesn't get killed before the first periodic notify
+                try:
+                    notify("WATCHDOG=1")
+                    log.verbose(
+                        f"[{log.style.apply('Watchdog', log.style.GREEN_FG)}] initial WATCHDOG=1 sent on start"
+                    )
+                except Exception:
+                    log.warning(
+                        f"[{log.style.apply('Watchdog', log.style.YELLOW_FG)}] initial WATCHDOG notify failed: {traceback.format_exc(limit=2)}"
+                    )
             except (RuntimeError, OSError, threading.ThreadError):
                 log.alert(
                     f"[{log.style.apply('Watchdog', log.style.RED_FG)}] Unexpected exception {traceback.format_exc(limit=5)}"
