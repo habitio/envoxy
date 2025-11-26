@@ -5,6 +5,7 @@ import sys
 import shutil
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
+from setuptools.command.build_py import build_py
 from setuptools.command.install import install
 from subprocess import check_call
 import sysconfig
@@ -15,6 +16,27 @@ data_dir = os.path.dirname(os.path.realpath(__file__))
 
 def find_file(path):
     return os.path.join(data_dir, path)
+
+
+class BuildPyWithBinary(build_py):
+    """Custom build_py that copies the binary after build_ext runs."""
+    
+    def run(self):
+        # Run normal build_py first
+        build_py.run(self)
+        
+        # After build_ext has run (if it did), copy the binary from source to build
+        src_binary = os.path.join(data_dir, "envoxyd", "bin", "envoxyd")
+        if os.path.exists(src_binary):
+            # Copy to build directory so it gets included in the wheel
+            dest_dir = os.path.join(self.build_lib, "envoxyd", "bin")
+            os.makedirs(dest_dir, exist_ok=True)
+            dest_binary = os.path.join(dest_dir, "envoxyd")
+            print(f"Copying binary to build: {src_binary} -> {dest_binary}")
+            shutil.copy2(src_binary, dest_binary)
+            os.chmod(dest_binary, 0o755)
+        else:
+            print(f"Warning: Binary not found at {src_binary} during build_py")
 
 
 class BuildEnvoxyD(build_ext):
@@ -61,11 +83,30 @@ class BuildEnvoxyD(build_ext):
         
         # Compile uwsgi with flask profile
         print(f"Compiling uwsgi in {uwsgi_src_dir}...")
+        print("=" * 80)
+        print("IMPORTANT: uwsgi compilation requires:")
+        print("  - gcc or clang compiler")
+        print("  - Python development headers (python3-dev/python3-devel)")
+        print("  - make and other build tools")
+        print("=" * 80)
+        
         python_executable = sys.executable
-        check_call(
-            [python_executable, "uwsgiconfig.py", "--build", "flask"],
-            cwd=uwsgi_src_dir
-        )
+        try:
+            check_call(
+                [python_executable, "uwsgiconfig.py", "--build", "flask"],
+                cwd=uwsgi_src_dir
+            )
+        except Exception as e:
+            print("=" * 80)
+            print("ERROR: uwsgi compilation failed!")
+            print(f"Error: {e}")
+            print("=" * 80)
+            raise RuntimeError(
+                "uwsgi compilation failed. Please ensure build dependencies are installed:\n"
+                "  Ubuntu/Debian: sudo apt-get install build-essential python3-dev\n"
+                "  RHEL/CentOS: sudo yum install gcc python3-devel\n"
+                f"Original error: {e}"
+            )
         
         # Find the built binary
         built_binary = None
@@ -77,7 +118,10 @@ class BuildEnvoxyD(build_ext):
                 break
         
         if not built_binary:
-            raise RuntimeError("Built uwsgi binary not found")
+            raise RuntimeError(
+                "Built uwsgi binary not found after compilation completed. "
+                "Expected to find 'envoxyd' or 'uwsgi' in " + uwsgi_src_dir
+            )
         
         # Copy binary to package directory (will be included in wheel)
         bin_dir = os.path.join(setup_dir, "envoxyd", "bin")
@@ -185,9 +229,10 @@ _url = _urls.get("Homepage")
 # License from classifiers
 _project_license = "MIT"
 
-# Prepare cmdclass with custom build_ext and install commands
+# Prepare cmdclass with custom build_ext, build_py and install commands
 cmdclass = {
     "build_ext": BuildEnvoxyD,
+    "build_py": BuildPyWithBinary,
     "install": InstallCommand,
 }
 
