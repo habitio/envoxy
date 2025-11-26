@@ -5,12 +5,22 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.12 and runtime dependencies
+# Install Python 3.12 and build/runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
     python3.12-venv \
+    python3.12-dev \
     python3-pip \
+    # Build dependencies
+    build-essential \
+    gcc \
+    g++ \
+    # PostgreSQL client libraries
     libpq5 \
+    libpq-dev \
+    # ZeroMQ libraries
+    libzmq5 \
+    libzmq3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/envoxy

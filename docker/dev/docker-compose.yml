@@ -32,7 +32,7 @@ services:
       - ../../vendors:/usr/envoxy/vendors
       - ./uwsgi.ini:/etc/uwsgi/uwsgi.ini
       - ./envoxy.json:/etc/envoxy/envoxy.json
-    command: envoxyd /etc/uwsgi/uwsgi.ini
+    command: envoxyd --http :8080 --set conf=/etc/envoxy/envoxy.json --master --enable-threads --processes 4 --threads 2
     restart: unless-stopped
 
   postgres:

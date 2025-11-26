@@ -61,7 +61,7 @@ pip install envoxyd
 This installs:
 
 - The `envoxy` framework (as a dependency)
-- A pre-built `envoxyd` binary (uWSGI with embedded Python 3.12.12)
+- A pre-built `envoxyd` binary (uWSGI with dynamic Python 3.12 linking)
 - All shared libraries bundled for portability
 
 **Note:** `envoxyd` is Linux-only. For development on macOS/Windows, use the framework with your own WSGI server.
@@ -225,17 +225,17 @@ Update the version in both package files:
 
 ```bash
 # Edit pyproject.toml for envoxy
-vim pyproject.toml  # Update version = "0.5.10"
+vim pyproject.toml  # Update version = "0.6.10"
 
 # Edit vendors/pyproject.toml for envoxyd
-vim vendors/pyproject.toml  # Update version = "0.4.10"
+vim vendors/pyproject.toml  # Update version = "0.5.10"
 ```
 
 #### 2. Commit and Push Version Changes
 
 ```bash
 git add pyproject.toml vendors/pyproject.toml
-git commit -m "chore: Bump version to 0.5.10 / 0.4.10"
+git commit -m "chore: Bump version to 0.6.10 / 0.5.10"
 git push origin main
 ```
 
@@ -279,7 +279,7 @@ Make sure `pyproject.toml` and `vendors/pyproject.toml` have the correct version
 
 ```bash
 # Create annotated tag (recommended for documentation)
-git tag -a v0.5.10 -m "Release version 0.5.10
+git tag -a v0.6.10 -m "Release version 0.6.10
 
 - Feature: Description of major features
 - Fix: Description of bug fixes
@@ -287,7 +287,7 @@ git tag -a v0.5.10 -m "Release version 0.5.10
 "
 
 # Push the tag to GitHub
-git push origin v0.5.10
+git push origin v0.6.10
 ```
 
 **Note:** Pushing a tag will trigger the workflows to **build** the packages, but **NOT** publish to production PyPI.
@@ -301,7 +301,7 @@ After pushing the tag and verifying the builds succeeded:
 1. Go to [GitHub Actions](https://github.com/habitio/envoxy/actions)
 2. Select `Build and publish envoxy (pure Python)` workflow
 3. Click "Run workflow"
-4. Select the tag (e.g., `v0.5.10`) from the branch dropdown
+4. Select the tag (e.g., `v0.6.10`) from the branch dropdown
 5. Click "Run workflow"
 
 This will publish to production PyPI at `https://pypi.org/project/envoxy/`
@@ -311,7 +311,7 @@ This will publish to production PyPI at `https://pypi.org/project/envoxy/`
 1. Go to [GitHub Actions](https://github.com/habitio/envoxy/actions)
 2. Select `Build and publish envoxyd (manylinux)` workflow
 3. Click "Run workflow"
-4. Select the tag (e.g., `v0.5.10`) from the branch dropdown
+4. Select the tag (e.g., `v0.6.10`) from the branch dropdown
 5. Click "Run workflow"
 
 This will publish to production PyPI at `https://pypi.org/project/envoxyd/`
@@ -337,8 +337,8 @@ pip show envoxy envoxyd
 Follow [Semantic Versioning](https://semver.org/):
 
 - **Major version** (1.0.0): Breaking changes
-- **Minor version** (0.5.0): New features, backward compatible
-- **Patch version** (0.5.1): Bug fixes, backward compatible
+- **Minor version** (0.6.0): New features, backward compatible
+- **Patch version** (0.6.1): Bug fixes, backward compatible
 
 Both `envoxy` and `envoxyd` should be versioned together to maintain compatibility:
 
@@ -348,8 +348,8 @@ envoxy: 1.0.0
 envoxyd: 1.0.0
 
 # Example: Feature release
-envoxy: 0.6.0
-envoxyd: 0.5.0  # Only if envoxyd has no changes
+envoxy: 0.7.0
+envoxyd: 0.6.0  # Only if envoxyd has no changes
 ```
 
 ### Troubleshooting
@@ -373,6 +373,7 @@ envoxyd: 0.5.0  # Only if envoxyd has no changes
 - Test in clean manylinux container: `docker run -it quay.io/pypa/manylinux_2_28_x86_64 bash`
 
 ## 📚 Documentation
+
 ## Core capabilities
 
 - ZeroMQ / UPnP integration ("Zapata")
