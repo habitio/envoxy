@@ -12,8 +12,8 @@ This directory provides Docker configuration for local development and testing o
 To trigger a release, create and push a git tag:
 
 ```bash
-git tag v0.5.10
-git push origin v0.5.10
+git tag v0.6.10
+git push origin v0.6.10
 ```
 
 ## Local Development
