@@ -30,7 +30,7 @@ class BuildEnvoxyD(build_ext):
         if not os.path.exists(uwsgi_src_dir):
             raise RuntimeError(f"uwsgi source directory not found at {uwsgi_src_dir}")
         
-        # Copy template files to uwsgi directory
+        # Copy template files to uwsgi directory (merge, don't overwrite directories)
         templates_dir = os.path.join(setup_dir, "envoxyd", "templates", "uwsgi")
         if os.path.exists(templates_dir):
             print(f"Copying uwsgi templates from {templates_dir}")
@@ -40,10 +40,17 @@ class BuildEnvoxyD(build_ext):
                 if os.path.isfile(src):
                     shutil.copy2(src, dst)
                 elif os.path.isdir(src):
-                    # Handle existing directories
-                    if os.path.exists(dst):
-                        shutil.rmtree(dst)
-                    shutil.copytree(src, dst)
+                    # Merge directories - copy files into existing directory
+                    os.makedirs(dst, exist_ok=True)
+                    for subitem in os.listdir(src):
+                        src_subitem = os.path.join(src, subitem)
+                        dst_subitem = os.path.join(dst, subitem)
+                        if os.path.isfile(src_subitem):
+                            shutil.copy2(src_subitem, dst_subitem)
+                        elif os.path.isdir(src_subitem):
+                            if os.path.exists(dst_subitem):
+                                shutil.rmtree(dst_subitem)
+                            shutil.copytree(src_subitem, dst_subitem)
         
         # Also copy run.py to embed/
         run_py_src = os.path.join(setup_dir, "envoxyd", "templates", "run.py")
@@ -95,30 +102,36 @@ class InstallCommand(install):
         # First run the normal install to set up paths
         install.run(self)
         
-        # Find the installed package location
+        # Try to find the installed package location
         # After install.run(), the package is installed to site-packages
-        import envoxyd
-        installed_package_dir = os.path.dirname(envoxyd.__file__)
-        
-        # The binary should be in the installed package
-        src_binary = os.path.join(installed_package_dir, "bin", "envoxyd")
-        
-        if not os.path.exists(src_binary):
-            # If binary doesn't exist, it means build_ext didn't run
-            # This can happen with editable installs or if build failed
-            print(f"Warning: Binary not found at {src_binary}")
-            print("Binary should be built during build phase")
-            return
-        
-        # Install to {prefix}/bin/ (works with venv, user install, system install)
-        scripts_dir = sysconfig.get_path('scripts')
-        dest_binary = os.path.join(scripts_dir, "envoxyd")
-        
-        print(f"Installing envoxyd binary to {dest_binary}")
-        os.makedirs(scripts_dir, exist_ok=True)
-        shutil.copy2(src_binary, dest_binary)
-        os.chmod(dest_binary, 0o755)
-        print("envoxyd binary installation complete")
+        try:
+            import envoxyd
+            installed_package_dir = os.path.dirname(envoxyd.__file__)
+            
+            # The binary should be in the installed package
+            src_binary = os.path.join(installed_package_dir, "bin", "envoxyd")
+            
+            if not os.path.exists(src_binary):
+                # If binary doesn't exist, it means build_ext didn't run
+                # This can happen with editable installs or if build failed
+                print(f"Warning: Binary not found at {src_binary}")
+                print("Binary should be built during build phase")
+                return
+            
+            # Install to {prefix}/bin/ (works with venv, user install, system install)
+            scripts_dir = sysconfig.get_path('scripts')
+            dest_binary = os.path.join(scripts_dir, "envoxyd")
+            
+            print(f"Installing envoxyd binary to {dest_binary}")
+            os.makedirs(scripts_dir, exist_ok=True)
+            shutil.copy2(src_binary, dest_binary)
+            os.chmod(dest_binary, 0o755)
+            print("envoxyd binary installation complete")
+        except ImportError:
+            # During wheel building, envoxyd is not yet importable
+            # This is expected - the binary will be in the wheel's data
+            print("Skipping binary installation (wheel build phase)")
+            pass
 
 
 packages = find_packages(include=["envoxyd", "envoxyd.*"], exclude=["tests", "uwsgi.build"])
