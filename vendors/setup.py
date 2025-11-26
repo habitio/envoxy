@@ -3,9 +3,11 @@
 import os
 import sys
 import shutil
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
+from setuptools.command.build_ext import build_ext
 from setuptools.command.install import install
 from subprocess import check_call
+import sysconfig
 
 
 data_dir = os.path.dirname(os.path.realpath(__file__))
@@ -15,17 +17,13 @@ def find_file(path):
     return os.path.join(data_dir, path)
 
 
-class InstallCommand(install):
-    """Custom install command that compiles uwsgi during installation."""
+class BuildEnvoxyD(build_ext):
+    """Custom build_ext command that compiles uwsgi during BUILD phase (before wheel creation)."""
 
-    description = "install envoxyd"
+    description = "build envoxyd binary"
 
     def run(self):
-        """Build uWSGI and install package."""
-        # First run the normal install to set up paths
-        install.run(self)
-        
-        # Now compile and install the binary
+        """Build uWSGI binary and copy to package directory."""
         setup_dir = os.path.dirname(os.path.abspath(__file__))
         uwsgi_src_dir = os.path.join(setup_dir, "uwsgi")
         
@@ -42,7 +40,10 @@ class InstallCommand(install):
                 if os.path.isfile(src):
                     shutil.copy2(src, dst)
                 elif os.path.isdir(src):
-                    shutil.copytree(src, dst, dirs_exist_ok=True)
+                    # Handle existing directories
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
         
         # Also copy run.py to embed/
         run_py_src = os.path.join(setup_dir, "envoxyd", "templates", "run.py")
@@ -71,16 +72,53 @@ class InstallCommand(install):
         if not built_binary:
             raise RuntimeError("Built uwsgi binary not found")
         
+        # Copy binary to package directory (will be included in wheel)
+        bin_dir = os.path.join(setup_dir, "envoxyd", "bin")
+        os.makedirs(bin_dir, exist_ok=True)
+        dest_binary = os.path.join(bin_dir, "envoxyd")
+        shutil.copy2(built_binary, dest_binary)
+        os.chmod(dest_binary, 0o755)
+        print(f"Binary copied to package: {dest_binary}")
+        print("uwsgi compilation complete")
+        
+        # Run parent build_ext
+        build_ext.run(self)
+
+
+class InstallCommand(install):
+    """Custom install command that copies the pre-built binary to scripts directory."""
+
+    description = "install envoxyd"
+
+    def run(self):
+        """Install package and copy binary to scripts directory."""
+        # First run the normal install to set up paths
+        install.run(self)
+        
+        # Find the installed package location
+        # After install.run(), the package is installed to site-packages
+        import envoxyd
+        installed_package_dir = os.path.dirname(envoxyd.__file__)
+        
+        # The binary should be in the installed package
+        src_binary = os.path.join(installed_package_dir, "bin", "envoxyd")
+        
+        if not os.path.exists(src_binary):
+            # If binary doesn't exist, it means build_ext didn't run
+            # This can happen with editable installs or if build failed
+            print(f"Warning: Binary not found at {src_binary}")
+            print("Binary should be built during build phase")
+            return
+        
         # Install to {prefix}/bin/ (works with venv, user install, system install)
-        import sysconfig
         scripts_dir = sysconfig.get_path('scripts')
         dest_binary = os.path.join(scripts_dir, "envoxyd")
         
-        print(f"Installing envoxyd to {dest_binary}")
+        print(f"Installing envoxyd binary to {dest_binary}")
         os.makedirs(scripts_dir, exist_ok=True)
-        shutil.copy2(built_binary, dest_binary)
+        shutil.copy2(src_binary, dest_binary)
         os.chmod(dest_binary, 0o755)
-        print("uwsgi compilation and installation complete")
+        print("envoxyd binary installation complete")
 
 
 packages = find_packages(include=["envoxyd", "envoxyd.*"], exclude=["tests", "uwsgi.build"])
@@ -134,8 +172,11 @@ _url = _urls.get("Homepage")
 # License from classifiers
 _project_license = "MIT"
 
-# Prepare cmdclass with custom install command
-cmdclass = {"install": InstallCommand}
+# Prepare cmdclass with custom build_ext and install commands
+cmdclass = {
+    "build_ext": BuildEnvoxyD,
+    "install": InstallCommand,
+}
 
 setup(
     name=_name,
@@ -158,9 +199,14 @@ setup(
             "tools/*",
             "templates/__init__.py",
             "templates/confs/__init__.py",
+            "bin/envoxyd",  # Include the pre-built binary
         ]
     },
     scripts=["envoxyd/tools/envoxy-cli"],
+    ext_modules=[
+        # Dummy extension to trigger build_ext
+        Extension('_envoxyd_build', sources=[])
+    ],
     cmdclass=cmdclass,
     python_requires=_requires_python,
     include_package_data=True,
