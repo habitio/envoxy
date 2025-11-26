@@ -22,10 +22,13 @@ class BuildPyWithBinary(build_py):
     """Custom build_py that copies the binary after build_ext runs."""
     
     def run(self):
-        # Run normal build_py first
+        # CRITICAL: Force build_ext to run FIRST to compile the binary
+        self.run_command('build_ext')
+        
+        # Run normal build_py
         build_py.run(self)
         
-        # After build_ext has run (if it did), copy the binary from source to build
+        # After build_ext has run, copy the binary from source to build
         src_binary = os.path.join(data_dir, "envoxyd", "bin", "envoxyd")
         if os.path.exists(src_binary):
             # Copy to build directory so it gets included in the wheel
