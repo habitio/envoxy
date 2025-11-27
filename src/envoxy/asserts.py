@@ -77,10 +77,16 @@ def assertz_mandatory(
         return assertz_call(
             _element, "Key must not be emtpy", 1201, _status_code, reply=reply
         )
-    elif _obj and _element is not None:
+    elif _element is not None:
         # Check if element exists and is not None (empty strings ARE allowed)
-        element_exists = _element in _obj
-        element_value = _obj[_element] if element_exists else None
+        try:
+            element_exists = _element in _obj
+            element_value = _obj[_element] if element_exists else None
+        except (TypeError, KeyError):
+            # _obj is not subscriptable or iterable
+            element_exists = False
+            element_value = None
+        
         is_valid = element_exists and element_value is not None
         return assertz_call(
             is_valid,

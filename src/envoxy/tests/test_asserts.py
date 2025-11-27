@@ -103,6 +103,57 @@ def test_assertz_mandatory_with_none_value(test_payload):
     assert str(e.value) == "Mandatory: None"
 
 
+def test_assertz_mandatory_edge_cases():
+    """Test edge cases for assertz_mandatory including falsy containers and non-iterables
+    
+    These tests verify the fix for the bug where:
+    1. Empty dicts/lists were incorrectly passing validation
+    2. Non-iterable types (bool, int, float) were causing TypeError
+    """
+    # Empty dict should fail when checking for a key
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory({}, 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # Empty string value should pass (NEW BEHAVIOR)
+    assert assertz_mandatory({'data': ''}, 'data') == None
+    
+    # Dict without the key should fail
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory({'other': 'value'}, 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # Dict with None value should fail
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory({'data': None}, 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # Empty list (falsy container) should fail when checking for a key
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory([], 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # Boolean False (non-iterable) should fail gracefully without TypeError
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory(False, 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # Integer 0 (non-iterable) should fail gracefully without TypeError
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory(0, 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # Float 0.0 (non-iterable) should fail gracefully without TypeError
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory(0.0, 'data')
+    assert str(e.value) == "Mandatory: data"
+    
+    # String (non-iterable for typical key lookups) should fail gracefully
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory("string", 'data')
+    assert str(e.value) == "Mandatory: data"
+
+
 ##### assertz_string #####
 
 
