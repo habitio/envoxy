@@ -38,9 +38,6 @@ def test_assertz_mandatory_nok(test_payload):
     assert str(e.value) == "Key must not be emtpy"
 
     with pytest.raises(ValidationException) as e:
-        assertz_mandatory(test_payload, "username")
-
-    with pytest.raises(ValidationException) as e:
         assertz_mandatory(test_payload["user"], "last_name")
     assert str(e.value) == "Mandatory: last_name"
 
@@ -48,6 +45,54 @@ def test_assertz_mandatory_nok(test_payload):
         assertz_mandatory({})
     assert str(e.value) == "Mandatory: {}"
 
+
+def test_assertz_mandatory_empty_string_allowed():
+    """Test that empty strings are now ALLOWED as valid values"""
+    # Empty string should pass (NEW BEHAVIOR)
+    test_data = {"field": ""}
+    assert assertz_mandatory(test_data, "field") == None
+
+
+def test_assertz_mandatory_none_rejected():
+    """Test that None values are still rejected"""
+    test_data = {"field": None}
+    with pytest.raises(ValidationException) as e:
+        assertz_mandatory(test_data, "field")
+    assert str(e.value) == "Mandatory: field"
+
+
+def test_assertz_mandatory_various_types():
+    """Test that all non-None values are accepted"""
+    # String (non-empty)
+    assert assertz_mandatory({"field": "value"}, "field") == None
+    
+    # String (empty) - NEW: should pass
+    assert assertz_mandatory({"field": ""}, "field") == None
+    
+    # Integer (including 0)
+    assert assertz_mandatory({"field": 0}, "field") == None
+    assert assertz_mandatory({"field": 123}, "field") == None
+    
+    # Float (including 0.0)
+    assert assertz_mandatory({"field": 0.0}, "field") == None
+    assert assertz_mandatory({"field": 3.14}, "field") == None
+    
+    # Boolean (including False)
+    assert assertz_mandatory({"field": False}, "field") == None
+    assert assertz_mandatory({"field": True}, "field") == None
+    
+    # Empty collections (should pass)
+    assert assertz_mandatory({"field": []}, "field") == None
+    assert assertz_mandatory({"field": {}}, "field") == None
+    assert assertz_mandatory({"field": set()}, "field") == None
+    
+    # None should fail
+    with pytest.raises(ValidationException):
+        assertz_mandatory({"field": None}, "field")
+
+
+def test_assertz_mandatory_with_none_value(test_payload):
+    """Test that None values in fixture are rejected"""
     with pytest.raises(ValidationException) as e:
         assertz_mandatory(test_payload, "features")
     assert str(e.value) == "Mandatory: features"

@@ -69,7 +69,8 @@ def assertz_mandatory(
     _obj, _element=None, _error_code=1200, _status_code=DEFAULT_STATUS_CODE, reply=False
 ):
     """
-    Validates if an element is part of another object and value should't be an empty string
+    Validates if an element is part of another object and value is not None.
+    Empty strings are allowed as valid values.
     when not given and _element only validates _ob
     """
     if isinstance(_element, str) and not _element:
@@ -77,14 +78,10 @@ def assertz_mandatory(
             _element, "Key must not be emtpy", 1201, _status_code, reply=reply
         )
     elif _obj and _element is not None:
-        # Check if element exists, is not None, and is not an empty string
+        # Check if element exists and is not None (empty strings ARE allowed)
         element_exists = _element in _obj
         element_value = _obj[_element] if element_exists else None
-        is_valid = (
-            element_exists
-            and element_value is not None
-            and (not isinstance(element_value, str) or element_value != "")
-        )
+        is_valid = element_exists and element_value is not None
         return assertz_call(
             is_valid,
             f"Mandatory: {_element}",
