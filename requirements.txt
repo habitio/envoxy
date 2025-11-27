@@ -24,7 +24,7 @@ celery==5.5.3
     #   envoxy (pyproject.toml)
 celerybeat-mongo==0.2.0
     # via envoxy (pyproject.toml)
-certifi==2025.10.5
+certifi==2025.11.12
     # via requests
 cffi==2.0.0
     # via envoxy (pyproject.toml)
