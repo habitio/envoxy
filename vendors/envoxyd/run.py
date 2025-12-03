@@ -15,6 +15,31 @@ from flask_cors import CORS
 from envoxy.db.orm.listeners import register_envoxy_listeners
 
 
+def _import_with_retry(module_name, retries=3, delay=0.1):
+    """Import a module with retry logic for editable install timing issues.
+    
+    Args:
+        module_name: Full module name to import (e.g., 'applications.loader')
+        retries: Number of retry attempts
+        delay: Delay in seconds between retries
+        
+    Returns:
+        Imported module object
+        
+    Raises:
+        ModuleNotFoundError: If module cannot be imported after all retries
+    """
+    for attempt in range(retries):
+        try:
+            return importlib.import_module(module_name)
+        except ModuleNotFoundError as e:
+            if attempt < retries - 1:
+                envoxy.log.system(f'[RETRY] Import failed for {module_name}, retrying in {delay}s (attempt {attempt + 1}/{retries})\n')
+                time.sleep(delay)
+            else:
+                raise
+
+
 def load_modules(_modules_list):
     _view_classes = []
 
@@ -53,7 +78,8 @@ def load_packages(_package_list):
             _package
         ))
 
-        _obj = importlib.import_module(f'{_package}.loader')
+        # Use retry mechanism for editable install timing issues
+        _obj = _import_with_retry(f'{_package}.loader')
 
         if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
             envoxy.log.system('[{}] Loader: {}\n'.format(

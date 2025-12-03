@@ -44,6 +44,25 @@ if venv_path:
         if venv_site_packages not in sys.path:
             print(f"DEBUG: Adding to sys.path: {venv_site_packages}", file=sys.stderr)
             sys.path.insert(0, venv_site_packages)
+            
+            # Process .pth files synchronously BEFORE site.addsitedir()
+            # This ensures editable install finders are registered immediately
+            print(f"DEBUG: Pre-processing .pth import statements", file=sys.stderr)
+            pth_files = sorted([f for f in os.listdir(venv_site_packages) if f.endswith('.pth')])
+            for pth_file in pth_files:
+                pth_path = os.path.join(venv_site_packages, pth_file)
+                try:
+                    with open(pth_path, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            # Only execute import statements (editable install finders)
+                            if line and line.startswith(('import ', 'from ')):
+                                print(f"DEBUG:   Exec: {pth_file}: {line[:60]}", file=sys.stderr)
+                                exec(line)
+                except Exception as e:
+                    print(f"DEBUG:   Error in {pth_file}: {e}", file=sys.stderr)
+            
+            # Now call site.addsitedir for path entries and other setup
             site.addsitedir(venv_site_packages)
         else:
             print(f"DEBUG: Already in sys.path: {venv_site_packages}", file=sys.stderr)
