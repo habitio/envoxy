@@ -60,8 +60,14 @@ class Client:
             include.extend(package_list)
             for package in package_list:
                 module_name = f"{package}.tasks"
-                if importlib.util.find_spec(module_name):
-                    include.append(module_name)
+                try:
+                    spec = importlib.util.find_spec(module_name)
+                    if spec is not None:
+                        include.append(module_name)
+                except (ModuleNotFoundError, ImportError, AttributeError, ValueError):
+                    # Module doesn't exist, parent package not found, or can't be resolved
+                    # Skip it gracefully - common with editable installs or missing packages
+                    pass
 
         elif task_modules:
             include.extend(task_modules)
