@@ -40,7 +40,7 @@ def _ensure_editable_finders():
     # Check if we already have editable finders
     existing_finders = [f for f in sys.meta_path if isinstance(f, type) and '_EditableFinder' in f.__name__]
     if existing_finders:
-        # Even if finders exist, resolve symlinks in their paths
+        # Even if finders exist, patch invalid paths
         patched_count = 0
         for finder in existing_finders:
             try:
@@ -49,7 +49,9 @@ def _ensure_editable_finders():
                 if mod and hasattr(mod, 'MAPPING'):
                     for pkg, path in list(mod.MAPPING.items()):
                         if not os.path.exists(path):
-                            # Resolve symlinks component by component
+                            fixed_path = None
+                            
+                            # Strategy 1: Resolve symlinks component by component
                             path_parts = path.split(os.sep)
                             resolved = ''
                             
@@ -69,14 +71,32 @@ def _ensure_editable_finders():
                                 else:
                                     resolved = current
                             
-                            if resolved and os.path.exists(resolved) and resolved != path:
-                                mod.MAPPING[pkg] = resolved
+                            if resolved and os.path.exists(resolved):
+                                fixed_path = resolved
+                            
+                            # Strategy 2: Search in current venv's src/ directory
+                            if not fixed_path:
+                                src_dir = os.path.join(venv, 'src')
+                                if os.path.exists(src_dir):
+                                    try:
+                                        for item in os.listdir(src_dir):
+                                            item_path = os.path.join(src_dir, item)
+                                            if os.path.isdir(item_path):
+                                                pkg_path = os.path.join(item_path, pkg)
+                                                if os.path.exists(pkg_path) and os.path.isdir(pkg_path):
+                                                    fixed_path = pkg_path
+                                                    break
+                                    except Exception:
+                                        pass
+                            
+                            if fixed_path and fixed_path != path:
+                                mod.MAPPING[pkg] = fixed_path
                                 patched_count += 1
             except Exception:
                 pass
         
         if patched_count > 0:
-            print(f"[RUN.PY] Resolved {patched_count} symlinked paths in existing finders", file=sys.stderr)
+            print(f"[RUN.PY] Patched {patched_count} invalid paths in existing finders", file=sys.stderr)
         return
     
     if site_packages not in sys.path:
@@ -101,7 +121,7 @@ def _ensure_editable_finders():
     except Exception:
         pass
     
-    # Resolve symlinks in newly added finders
+    # Patch invalid paths in newly added finders
     new_finders = [f for f in sys.meta_path if isinstance(f, type) and '_EditableFinder' in f.__name__]
     patched_count = 0
     
@@ -112,6 +132,9 @@ def _ensure_editable_finders():
             if mod and hasattr(mod, 'MAPPING'):
                 for pkg, path in list(mod.MAPPING.items()):
                     if not os.path.exists(path):
+                        fixed_path = None
+                        
+                        # Strategy 1: Resolve symlinks component by component
                         path_parts = path.split(os.sep)
                         resolved = ''
                         
@@ -131,15 +154,33 @@ def _ensure_editable_finders():
                             else:
                                 resolved = current
                         
-                        if resolved and os.path.exists(resolved) and resolved != path:
-                            mod.MAPPING[pkg] = resolved
+                        if resolved and os.path.exists(resolved):
+                            fixed_path = resolved
+                        
+                        # Strategy 2: Search dynamically in venv/src/
+                        if not fixed_path:
+                            src_dir = os.path.join(venv, 'src')
+                            if os.path.exists(src_dir):
+                                try:
+                                    for item in os.listdir(src_dir):
+                                        item_path = os.path.join(src_dir, item)
+                                        if os.path.isdir(item_path):
+                                            pkg_path = os.path.join(item_path, pkg)
+                                            if os.path.exists(pkg_path) and os.path.isdir(pkg_path):
+                                                fixed_path = pkg_path
+                                                break
+                                except Exception:
+                                    pass
+                        
+                        if fixed_path and fixed_path != path:
+                            mod.MAPPING[pkg] = fixed_path
                             patched_count += 1
         except Exception:
             pass
     
     print(f"[RUN.PY] Registered {len(new_finders)} editable finders", file=sys.stderr)
     if patched_count > 0:
-        print(f"[RUN.PY] Resolved {patched_count} symlinked paths", file=sys.stderr)
+        print(f"[RUN.PY] Patched {patched_count} invalid paths", file=sys.stderr)
 
 
 # Call this immediately to ensure finders are ready
