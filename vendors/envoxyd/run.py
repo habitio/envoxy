@@ -1,8 +1,10 @@
+import importlib
 import importlib.util
 import inspect
 import json
-import time
 import os
+import sys
+import time
 import traceback
 
 import envoxy
@@ -15,29 +17,133 @@ from flask_cors import CORS
 from envoxy.db.orm.listeners import register_envoxy_listeners
 
 
-def _import_with_retry(module_name, retries=3, delay=0.1):
-    """Import a module with retry logic for editable install timing issues.
+# CRITICAL: Ensure editable install finders are registered in THIS interpreter
+# This is a failsafe in case bootstrap/envoxy.__init__ didn't register them
+def _ensure_editable_finders():
+    """Ensure editable install finders are in sys.meta_path.
     
-    Args:
-        module_name: Full module name to import (e.g., 'applications.loader')
-        retries: Number of retry attempts
-        delay: Delay in seconds between retries
-        
-    Returns:
-        Imported module object
-        
-    Raises:
-        ModuleNotFoundError: If module cannot be imported after all retries
+    This function processes .pth files to register editable install finders
+    in the current interpreter. It's needed because uWSGI worker interpreters
+    may not inherit sys.meta_path modifications from the bootstrap.
+    
+    Also resolves symlinks in MAPPING paths to handle deployment scenarios
+    where venvs are accessed via symlinks.
     """
-    for attempt in range(retries):
+    venv = os.environ.get('VIRTUAL_ENV')
+    if not venv:
+        return
+    
+    site_packages = os.path.join(venv, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages')
+    if not os.path.exists(site_packages):
+        return
+    
+    # Check if we already have editable finders
+    existing_finders = [f for f in sys.meta_path if isinstance(f, type) and '_EditableFinder' in f.__name__]
+    if existing_finders:
+        # Even if finders exist, resolve symlinks in their paths
+        patched_count = 0
+        for finder in existing_finders:
+            try:
+                mod_name = finder.__module__
+                mod = sys.modules.get(mod_name)
+                if mod and hasattr(mod, 'MAPPING'):
+                    for pkg, path in list(mod.MAPPING.items()):
+                        if not os.path.exists(path):
+                            # Resolve symlinks component by component
+                            path_parts = path.split(os.sep)
+                            resolved = ''
+                            
+                            for part in path_parts:
+                                if not part:
+                                    resolved = os.sep
+                                    continue
+                                    
+                                current = os.path.join(resolved, part)
+                                
+                                if os.path.islink(current):
+                                    target = os.readlink(current)
+                                    if os.path.isabs(target):
+                                        resolved = target
+                                    else:
+                                        resolved = os.path.join(os.path.dirname(current), target)
+                                else:
+                                    resolved = current
+                            
+                            if resolved and os.path.exists(resolved) and resolved != path:
+                                mod.MAPPING[pkg] = resolved
+                                patched_count += 1
+            except Exception:
+                pass
+        
+        if patched_count > 0:
+            print(f"[RUN.PY] Resolved {patched_count} symlinked paths in existing finders", file=sys.stderr)
+        return
+    
+    if site_packages not in sys.path:
+        sys.path.insert(0, site_packages)
+    
+    print(f"[RUN.PY] No editable finders found, processing .pth files...", file=sys.stderr)
+    try:
+        pth_files = sorted([f for f in os.listdir(site_packages) if f.endswith('.pth')])
+        for pth_file in pth_files:
+            pth_path = os.path.join(site_packages, pth_file)
+            try:
+                with open(pth_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and line.startswith(('import ', 'from ')):
+                            try:
+                                exec(line, globals())
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+    except Exception:
+        pass
+    
+    # Resolve symlinks in newly added finders
+    new_finders = [f for f in sys.meta_path if isinstance(f, type) and '_EditableFinder' in f.__name__]
+    patched_count = 0
+    
+    for finder in new_finders:
         try:
-            return importlib.import_module(module_name)
-        except ModuleNotFoundError as e:
-            if attempt < retries - 1:
-                envoxy.log.system(f'[RETRY] Import failed for {module_name}, retrying in {delay}s (attempt {attempt + 1}/{retries})\n')
-                time.sleep(delay)
-            else:
-                raise
+            mod_name = finder.__module__
+            mod = sys.modules.get(mod_name)
+            if mod and hasattr(mod, 'MAPPING'):
+                for pkg, path in list(mod.MAPPING.items()):
+                    if not os.path.exists(path):
+                        path_parts = path.split(os.sep)
+                        resolved = ''
+                        
+                        for part in path_parts:
+                            if not part:
+                                resolved = os.sep
+                                continue
+                                
+                            current = os.path.join(resolved, part)
+                            
+                            if os.path.islink(current):
+                                target = os.readlink(current)
+                                if os.path.isabs(target):
+                                    resolved = target
+                                else:
+                                    resolved = os.path.join(os.path.dirname(current), target)
+                            else:
+                                resolved = current
+                        
+                        if resolved and os.path.exists(resolved) and resolved != path:
+                            mod.MAPPING[pkg] = resolved
+                            patched_count += 1
+        except Exception:
+            pass
+    
+    print(f"[RUN.PY] Registered {len(new_finders)} editable finders", file=sys.stderr)
+    if patched_count > 0:
+        print(f"[RUN.PY] Resolved {patched_count} symlinked paths", file=sys.stderr)
+
+
+# Call this immediately to ensure finders are ready
+_ensure_editable_finders()
 
 
 def load_modules(_modules_list):
@@ -78,8 +184,7 @@ def load_packages(_package_list):
             _package
         ))
 
-        # Use retry mechanism for editable install timing issues
-        _obj = _import_with_retry(f'{_package}.loader')
+        _obj = importlib.import_module(f'{_package}.loader')
 
         if hasattr(_obj, '__loader__') and isinstance(_obj.__loader__, list) and len(_obj.__loader__) > 0:
             envoxy.log.system('[{}] Loader: {}\n'.format(
