@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "envoxyd"
-version = "0.5.15"
+version = "0.5.16"
 description = "Customized uWSGI server for Envoxy"
 requires-python = ">=3.12"
 authors = [
@@ -20,7 +20,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
 ]
 
-dependencies = ["envoxy>=0.6.15", "flask-cors==6.0.1", "isort==7.0.0"]
+dependencies = ["envoxy>=0.6.16", "flask-cors==6.0.1", "isort==7.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/habitio/envoxy"
