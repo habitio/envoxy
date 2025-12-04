@@ -112,4 +112,6 @@ envoxy.log.system('\n\n')
 envoxy.log.system(_apply('>>> I am the bootstrap for uwsgi.SymbolsImporter', envoxy.log.style.BOLD))
 envoxy.log.system('\n\n')
 
-sys.meta_path.insert(0, uwsgi.SymbolsImporter())
+# Place SymbolsImporter after default importers to avoid shadowing
+# editable installs and standard resolution.
+sys.meta_path.append(uwsgi.SymbolsImporter())

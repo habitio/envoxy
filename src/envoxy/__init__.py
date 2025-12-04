@@ -7,23 +7,38 @@ import os
 
 _venv_path = os.environ.get('VIRTUAL_ENV')
 if _venv_path:
-    _site_packages = os.path.join(_venv_path, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages')
-    if os.path.exists(_site_packages) and _site_packages in sys.path:
+    _site_packages = os.path.join(
+        _venv_path,
+        'lib',
+        f'python{sys.version_info.major}.{sys.version_info.minor}',
+        'site-packages',
+    )
+    if os.path.exists(_site_packages):
+        # Ensure site-packages is present in THIS interpreter
+        if _site_packages not in sys.path:
+            sys.path.insert(0, _site_packages)
+
         # Process .pth files to register editable install finders
-        _pth_files = sorted([f for f in os.listdir(_site_packages) if f.endswith('.pth')])
-        for _pth_file in _pth_files:
-            _pth_path = os.path.join(_site_packages, _pth_file)
-            try:
-                with open(_pth_path, 'r', encoding='utf-8') as _f:
-                    for _line in _f:
-                        _line = _line.strip()
-                        if _line and _line.startswith(('import ', 'from ')):
-                            try:
-                                exec(_line)
-                            except Exception:
-                                pass  # Silently skip errors
-            except Exception:
-                pass
+        try:
+            _pth_files = sorted([f for f in os.listdir(_site_packages) if f.endswith('.pth')])
+            for _pth_file in _pth_files:
+                _pth_path = os.path.join(_site_packages, _pth_file)
+                try:
+                    with open(_pth_path, 'r', encoding='utf-8') as _f:
+                        for _line in _f:
+                            _line = _line.strip()
+                            if _line and _line.startswith(('import ', 'from ')):
+                                try:
+                                    exec(_line)
+                                except Exception:
+                                    # Silently skip errors to keep init resilient
+                                    pass
+                except Exception:
+                    # Skip unreadable .pth files
+                    pass
+        except Exception:
+            # Defensive: never break import due to .pth processing
+            pass
 
 from .constants import *
 from .decorators import *
