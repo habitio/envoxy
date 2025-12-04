@@ -60,7 +60,8 @@ if venv_path:
                             # Only execute import statements (editable install finders)
                             if line and line.startswith(('import ', 'from ')):
                                 print(f"DEBUG:   Exec: {pth_file}: {line[:60]}", file=sys.stderr)
-                                exec(line)
+                                # Execute with globals() to ensure proper namespace
+                                exec(line, globals())
                                 exec_count += 1
                 except Exception as e:
                     print(f"DEBUG:   Error in {pth_file}: {e}", file=sys.stderr)
