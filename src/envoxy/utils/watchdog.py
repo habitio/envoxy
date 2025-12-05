@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 # without systemd notifications (graceful degradation).
 try:
     from cysystemd.daemon import notify as _notify_real, Notification
+
     def notify(msg):
         # When NOTIFY_SOCKET is not set, cysystemd.notify is effectively a no-op.
         # Log the attempted notification so watchdog activity is visible in logs
         # during testing even when systemd socket is not present.
-        if os.environ.get('NOTIFY_SOCKET') is None:
+        if os.environ.get("NOTIFY_SOCKET") is None:
             # Use WARNING so the message is visible in typical journal logs
             log.warning(f"[Watchdog] notify() called but NOTIFY_SOCKET unset: {msg}")
         # cysystemd expects Notification enum, not string
@@ -40,10 +41,13 @@ try:
 except ImportError:
     try:
         from systemd.daemon import notify as _notify_real
+
         def notify(msg):
-            if os.environ.get('NOTIFY_SOCKET') is None:
+            if os.environ.get("NOTIFY_SOCKET") is None:
                 # Use WARNING so the message is visible in typical journal logs
-                log.warning(f"[Watchdog] notify() called but NOTIFY_SOCKET unset: {msg}")
+                log.warning(
+                    f"[Watchdog] notify() called but NOTIFY_SOCKET unset: {msg}"
+                )
             return _notify_real(msg)
     except ImportError:
 
@@ -110,7 +114,7 @@ class Watchdog:
                         f"[{log.style.apply('Watchdog', log.style.YELLOW_FG)}] watchdog thread already running in this process (pid={os.getpid()}), skipping duplicate start"
                     )
                     return
-            
+
             try:
                 self.thread = threading.Thread(
                     target=self.send_notification, name="watchdog"
@@ -187,16 +191,16 @@ class Watchdog:
 
             while not event.wait(self.interval - 1):
                 main_thread_alive = threading.main_thread().is_alive()
-                
+
                 if not main_thread_alive:
                     log.warning(
                         f"[{log.style.apply('Watchdog', log.style.RED_FG)}] Main thread is dead, stopping watchdog"
                     )
                     break
-                
+
                 # Check health: either last_event_ms is recent OR HTTP test passes
                 is_healthy = False
-                
+
                 # Check 1: uwsgi last_event_ms
                 try:
                     if "last_event_ms" in uwsgi.opt:
@@ -208,11 +212,11 @@ class Watchdog:
                             )
                 except (KeyError, TypeError, NameError):
                     pass
-                
+
                 # Check 2: HTTP health test (fallback)
                 if not is_healthy:
                     is_healthy = self._test_http()
-                
+
                 # Always send notification (graceful degradation)
                 # Track failures but give a few retries before stopping
                 if is_healthy:
@@ -220,12 +224,12 @@ class Watchdog:
                     log.verbose(
                         f"[{log.style.apply('OK', log.style.GREEN_FG)}] Watchdog sent successfully"
                     )
-                    if hasattr(self, '_failure_count'):
+                    if hasattr(self, "_failure_count"):
                         self._failure_count = 0
                 else:
                     # Track consecutive failures
-                    self._failure_count = getattr(self, '_failure_count', 0) + 1
-                    
+                    self._failure_count = getattr(self, "_failure_count", 0) + 1
+
                     if self._failure_count <= 3:
                         # Still send notification for first 3 failures (transient issues)
                         notify("WATCHDOG=1")
@@ -252,7 +256,7 @@ class Watchdog:
 
     def _test_http(self):
         """Test HTTP server health using the internal /_health endpoint.
-        
+
         This method attempts to GET the /_health endpoint which is automatically
         registered by the framework for watchdog health checks. This endpoint is
         preferred over hitting the base URL because it:
@@ -272,11 +276,11 @@ class Watchdog:
                     health_url = f"http://localhost{_host}/_health"
                 else:
                     health_url = f"http://{_host}/_health"
-                
+
                 log.verbose(f"> watchdog event on {health_url}")
                 # Add a short timeout to avoid hanging if the host is unresponsive.
                 response = requests.get(health_url, timeout=5)
-                
+
                 # Check for 200 OK response
                 if response.status_code == 200:
                     uwsgi.opt["last_event_ms"] = time.time()

@@ -86,7 +86,7 @@ def assertz_mandatory(
             # _obj is not subscriptable or iterable
             element_exists = False
             element_value = None
-        
+
         is_valid = element_exists and element_value is not None
         return assertz_call(
             is_valid,
