@@ -228,7 +228,18 @@ class ZMQ(Singleton):
 
                 _socket = self.get_or_create_socket(server_key, _worker_id)
 
-                _socket.send_multipart([b"", envoxy_json_dumps(message)])
+                try:
+                    # Attempt serialization separately to catch errors early and prevent infinite recursion
+                    serialized_message = envoxy_json_dumps(message)
+                except (TypeError, OverflowError) as e:
+                    Log.error(
+                        f"ZMQ::send_and_recv : Message serialization failed for {_instance['url']}. "
+                        f"Error: {e}. This usually indicates data type issues (e.g., integers exceeding 64-bit range)."
+                    )
+                    # Don't retry - this is a data problem, not a connection problem
+                    raise ValueError(f"Cannot serialize message: {e}") from e
+
+                _socket.send_multipart([b"", serialized_message])
 
                 try:
                     _poller_attempt = 0
