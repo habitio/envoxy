@@ -50,7 +50,7 @@ dev = [
     "zipp==3.23.0",
     "pytest==8.4.2",
     "twine==6.2.0",
-    "urllib3==2.5.0",
+    "urllib3==2.6.0",
     "alembic==1.17.0",
     "pytest-cov==7.0.0",
     "pytest-asyncio==0.24.0",
