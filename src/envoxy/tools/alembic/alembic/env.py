@@ -274,6 +274,9 @@ def _load_rc_vars(rc_path: str) -> dict[str, str] | None:
 
 def _maybe_set_sqlalchemy_url():  # noqa: D401
     env_url = os.environ.get("SERVICE_DB_URL")
+    if DEBUG:
+        log.warning("[alembic] _maybe_set_sqlalchemy_url() called")
+        log.warning("[alembic] SERVICE_DB_URL=%s", "SET" if env_url else "NOT SET")
     if env_url:
         if not env_url.startswith("postgresql://"):
             raise RuntimeError(
@@ -286,8 +289,14 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
 
     # RC file with exported variables (e.g. /etc/zapata/rc.d/muzzley.rc)
     rc_path = os.environ.get("ENVOXY_RC_PATH", "/etc/zapata/rc.d/muzzley.rc")
+    if DEBUG:
+        log.warning("[alembic] checking RC file: %s (exists=%s)", rc_path, os.path.isfile(rc_path))
     if os.path.isfile(rc_path):
         rc_vars = _load_rc_vars(rc_path)
+        if DEBUG:
+            log.warning("[alembic] RC vars loaded: %s", "SUCCESS" if rc_vars else "FAILED")
+            if rc_vars:
+                log.warning("[alembic] RC keys: %s", list(rc_vars.keys()))
         if rc_vars is not None:
             host = rc_vars.get("MUZZLEY_PGSQL_ADDR")
             port = rc_vars.get("MUZZLEY_PGSQL_PORT", "5432") or "5432"
@@ -296,6 +305,9 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
             dbname = (
                 rc_vars.get("MUZZLEY_PGSQL_DB") or user
             )  # assume db = user if absent
+            if DEBUG:
+                log.warning("[alembic] RC parsed: host=%s, port=%s, user=%s, dbname=%s", 
+                           host, port, user if user else "NONE", dbname if dbname else "NONE")
             if host and user and dbname:
                 user_enc = quote_plus(user)
                 pwd_enc = quote_plus(pwd) if pwd else ""
@@ -313,6 +325,9 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
                     "[alembic] RC file %s missing required PG vars (host/user/db)",
                     rc_path,
                 )
+    else:
+        if DEBUG:
+            log.warning("[alembic] RC file %s does not exist", rc_path)
 
     raise RuntimeError(
         "PostgreSQL URL required: set SERVICE_DB_URL=postgresql://... or provide RC file with MUZZLEY_PGSQL_* variables"
@@ -425,6 +440,14 @@ def run_migrations_online():
 
         with context.begin_transaction():  # type: ignore[attr-defined]
             context.run_migrations()  # type: ignore[attr-defined]
+        
+        # Explicitly commit the transaction to persist version table updates
+        if not context.is_offline_mode():  # type: ignore[attr-defined]
+            try:
+                connection.commit()  # type: ignore[attr-defined]
+            except Exception:  # pragma: no cover
+                # If connection doesn't support commit (managed externally), that's fine
+                pass
 
 
 if context.is_offline_mode():  # type: ignore[attr-defined]
