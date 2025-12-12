@@ -145,7 +145,7 @@ tzdata==2025.2
     # via kombu
 upnpclient==1.0.3
     # via envoxy (pyproject.toml)
-urllib3==2.5.0
+urllib3==2.6.0
     # via requests
 vine==5.1.0
     # via
