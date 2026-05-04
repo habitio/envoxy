@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import json
+from collections.abc import MappingView
 
 import orjson
 
@@ -39,8 +40,17 @@ def envoxy_json_encode_default(obj):
     if isinstance(obj, decimal.Decimal):
         return float(obj)
 
-    if isinstance(obj, (datetime.datetime, datetime.date)):
+    # datetime before date — datetime is a subclass of date
+    if isinstance(obj, datetime.datetime):
+        dt_utc = obj if obj.tzinfo is None else obj.astimezone(datetime.timezone.utc)
+        return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+
+    if isinstance(obj, datetime.date):
         return obj.isoformat()
+
+    # Handle dict views (dict_keys, dict_values, dict_items) that orjson can't serialize natively.
+    if isinstance(obj, MappingView):
+        return list(obj)
 
     raise TypeError
 
@@ -78,7 +88,12 @@ class EnvoxyJsonEncoder(json.JSONEncoder):
         if isinstance(o, decimal.Decimal):
             return float(o)
 
-        if isinstance(o, (datetime.date, datetime.datetime)):
+        # datetime before date — datetime is a subclass of date
+        if isinstance(o, datetime.datetime):
+            dt_utc = o if o.tzinfo is None else o.astimezone(datetime.timezone.utc)
+            return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+
+        if isinstance(o, datetime.date):
             return o.isoformat()
 
         return super(EnvoxyJsonEncoder, self).default(o)

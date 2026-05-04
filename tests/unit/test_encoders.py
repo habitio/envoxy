@@ -25,11 +25,11 @@ class TestEnvoxyJsonEncoder:
         assert isinstance(result, float)
 
     def test_datetime_encoding(self):
-        """Test that datetime values are encoded as ISO format strings."""
+        """Test that datetime values are encoded as UTC platform format strings."""
         encoder = EnvoxyJsonEncoder()
         dt = datetime.datetime(2025, 12, 5, 10, 30, 45)
         result = encoder.default(dt)
-        assert result == "2025-12-05T10:30:45"
+        assert result == "2025-12-05T10:30:45.000+0000"
 
     def test_date_encoding(self):
         """Test that date values are encoded as ISO format strings."""
@@ -49,10 +49,10 @@ class TestEnvoxyJsonEncodeDefault:
         assert isinstance(result, float)
 
     def test_datetime_encoding(self):
-        """Test that datetime values are encoded as ISO format strings."""
+        """Test that datetime values are encoded as UTC platform format strings."""
         dt = datetime.datetime(2025, 12, 5, 10, 30, 45)
         result = envoxy_json_encode_default(dt)
-        assert result == "2025-12-05T10:30:45"
+        assert result == "2025-12-05T10:30:45.000+0000"
 
     def test_date_encoding(self):
         """Test that date values are encoded as ISO format strings."""
