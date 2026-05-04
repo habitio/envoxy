@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import json
+from collections.abc import MappingView
 
 import orjson
 
@@ -41,6 +42,10 @@ def envoxy_json_encode_default(obj):
 
     if isinstance(obj, (datetime.datetime, datetime.date)):
         return obj.isoformat()
+
+    # Handle dict views (dict_keys, dict_values, dict_items) that orjson can't serialize natively.
+    if isinstance(obj, MappingView):
+        return list(obj)
 
     raise TypeError
 
