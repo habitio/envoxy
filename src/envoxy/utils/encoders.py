@@ -36,6 +36,33 @@ def _convert_large_integers(obj):
         return obj
 
 
+def _fmt_datetime(dt):
+    """Format a datetime to platform UTC format: YYYY-MM-DDTHH:MM:SS.fff+0000."""
+    dt_utc = dt if dt.tzinfo is None else dt.astimezone(datetime.timezone.utc)
+    return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+
+
+def _convert_datetimes(obj):
+    """
+    Recursively convert datetime objects to the platform UTC string format.
+
+    orjson serializes datetime natively (bypassing the default function),
+    producing inconsistent formats (+00:00, 6 decimal places, non-UTC offsets).
+    Pre-processing ensures all datetime values are normalized before orjson
+    sees them.
+
+    date objects are left as-is — orjson serializes them as 'YYYY-MM-DD'.
+    """
+    if isinstance(obj, datetime.datetime):
+        return _fmt_datetime(obj)
+    elif isinstance(obj, dict):
+        return {key: _convert_datetimes(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(_convert_datetimes(item) for item in obj)
+    else:
+        return obj
+
+
 def envoxy_json_encode_default(obj):
     if isinstance(obj, decimal.Decimal):
         return float(obj)
@@ -59,20 +86,20 @@ def envoxy_json_dumps(obj):
     """
     Serialize object to JSON bytes using orjson.
 
-    Automatically handles large integers (exceeding 64-bit range) by converting
-    them to strings. Uses a try-fast-path approach: attempts direct serialization
-    first, only pre-processing on TypeError to minimize overhead for common cases.
+    orjson handles datetime natively (bypassing the default function), so we
+    pre-process the object tree to normalize all datetime values to the platform
+    UTC format (YYYY-MM-DDTHH:MM:SS.fff+0000) before serialization.
+
+    Also handles large integers (exceeding 64-bit range) by converting them to
+    strings on TypeError, using a try-fast-path to minimize overhead.
     """
+    obj = _convert_datetimes(obj)
     try:
-        # Fast path: try direct serialization (works for 99% of cases)
         return orjson.dumps(obj, default=envoxy_json_encode_default)
     except TypeError as e:
-        # Check if it's an integer overflow issue
         if "Integer exceeds 64-bit range" in str(e):
-            # Slow path: pre-process to convert large integers to strings
             obj = _convert_large_integers(obj)
             return orjson.dumps(obj, default=envoxy_json_encode_default)
-        # Re-raise if it's a different TypeError
         raise
 
 

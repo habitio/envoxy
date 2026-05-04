@@ -151,7 +151,7 @@ class TestEnvoxyJsonEncodeDefault:
         assert decoded["large_int"] == "18446744073709551616"
         assert decoded["float"] == 3.14
         assert decoded["decimal"] == 123.45
-        assert decoded["datetime"] == "2025-12-05T10:30:45"
+        assert decoded["datetime"] == "2025-12-05T10:30:45.000+0000"
         assert decoded["date"] == "2025-12-05"
         assert decoded["string"] == "test"
         assert decoded["bool"] is True
@@ -176,7 +176,7 @@ class TestEnvoxyJsonDumpsLoads:
         data = {"timestamp": dt}
         encoded = envoxy_json_dumps(data)
         decoded = envoxy_json_loads(encoded)
-        assert decoded["timestamp"] == "2025-12-05T10:30:45"
+        assert decoded["timestamp"] == "2025-12-05T10:30:45.000+0000"
 
     @pytest.mark.unit
     def test_bytes_output(self):
