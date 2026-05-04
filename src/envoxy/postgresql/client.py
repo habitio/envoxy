@@ -4,7 +4,7 @@ import uuid
 import re
 from time import sleep
 from threading import BoundedSemaphore as _BoundedSemaphore, Lock, local
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from contextlib import contextmanager
 
 from psycopg2.pool import ThreadedConnectionPool
@@ -22,6 +22,23 @@ from ..constants import (
     DEFAULT_OFFSET_LIMIT,
     DEFAULT_CHUNK_SIZE,
 )
+
+
+def _normalize_row(row: dict) -> dict:
+    """Convert datetime values in a psycopg2 result row to the platform UTC format.
+
+    - datetime (TIMESTAMP / TIMESTAMPTZ): converted to "YYYY-MM-DDTHH:MM:SS.fff+0000"
+    - date (DATE): left as isoformat string "YYYY-MM-DD" — no time component to normalize
+    """
+    for key, value in row.items():
+        if isinstance(value, datetime):
+            # psycopg2 returns naive datetimes for TIMESTAMP (assume UTC)
+            # and aware datetimes for TIMESTAMPTZ (convert to UTC)
+            dt_utc = value if value.tzinfo is None else value.astimezone(timezone.utc)
+            row[key] = dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+        elif isinstance(value, date):
+            row[key] = value.isoformat()
+    return row
 
 
 class SemaphoreThreadedConnectionPool(ThreadedConnectionPool):
@@ -441,7 +458,9 @@ class Client:
                     _rowcount = _cursor.rowcount
                     _rows = _cursor.fetchall()
 
-                    _data.extend(list(map(dict, _rows)))
+                    _data.extend(
+                        [_normalize_row(dict(row)) for row in _rows]
+                    )
 
                     _offset_limit += _chunk_size
                     _local_params.update({"offset_limit": _offset_limit})

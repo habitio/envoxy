@@ -14,16 +14,14 @@ UINT64_MAX = 18446744073709551615  # 2^64 - 1 (max positive)
 INT64_MIN = -9223372036854775808  # -2^63 (min negative)
 
 
+def _fmt_datetime(dt):
+    """Format a datetime to platform UTC format: YYYY-MM-DDTHH:MM:SS.fff+0000."""
+    dt_utc = dt if dt.tzinfo is None else dt.astimezone(datetime.timezone.utc)
+    return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+
+
 def _convert_large_integers(obj):
-    """
-    Recursively convert integers exceeding 64-bit range to strings.
-
-    orjson supports: positive integers [0, 2^64-1], negative integers [-2^63, 0].
-    This function pre-processes data structures to convert any integers outside
-    this range to strings before serialization.
-
-    Optimized to minimize overhead for common cases without large integers.
-    """
+    """Recursively convert integers outside orjson's 64-bit range to strings."""
     if isinstance(obj, int):
         if obj > UINT64_MAX or obj < INT64_MIN:
             return str(obj)
@@ -40,7 +38,14 @@ def envoxy_json_encode_default(obj):
     if isinstance(obj, decimal.Decimal):
         return float(obj)
 
-    if isinstance(obj, (datetime.datetime, datetime.date)):
+    # datetime before date — datetime is a subclass of date.
+    # Called by orjson because we use OPT_PASSTHROUGH_DATETIME, which disables
+    # orjson's native datetime serialisation and routes all datetime/date objects
+    # here so we can emit the platform UTC format.
+    if isinstance(obj, datetime.datetime):
+        return _fmt_datetime(obj)
+
+    if isinstance(obj, datetime.date):
         return obj.isoformat()
 
     # Handle dict views (dict_keys, dict_values, dict_items) that orjson can't serialize natively.
@@ -50,24 +55,27 @@ def envoxy_json_encode_default(obj):
     raise TypeError
 
 
+# OPT_PASSTHROUGH_DATETIME disables orjson's native datetime serialisation,
+# routing datetime/date objects through envoxy_json_encode_default instead.
+# This lets us emit the platform UTC format without a pre-processing tree walk.
+_ORJSON_OPTS = orjson.OPT_PASSTHROUGH_DATETIME
+
+
 def envoxy_json_dumps(obj):
     """
     Serialize object to JSON bytes using orjson.
 
-    Automatically handles large integers (exceeding 64-bit range) by converting
-    them to strings. Uses a try-fast-path approach: attempts direct serialization
-    first, only pre-processing on TypeError to minimize overhead for common cases.
+    datetime/date objects are handled by envoxy_json_encode_default via
+    OPT_PASSTHROUGH_DATETIME — no pre-processing tree walk needed.
+
+    Large integers (outside orjson's 64-bit range) are handled on the slow
+    path: first attempt raises TypeError, then we pre-process and retry.
     """
     try:
-        # Fast path: try direct serialization (works for 99% of cases)
-        return orjson.dumps(obj, default=envoxy_json_encode_default)
+        return orjson.dumps(obj, default=envoxy_json_encode_default, option=_ORJSON_OPTS)
     except TypeError as e:
-        # Check if it's an integer overflow issue
         if "Integer exceeds 64-bit range" in str(e):
-            # Slow path: pre-process to convert large integers to strings
-            obj = _convert_large_integers(obj)
-            return orjson.dumps(obj, default=envoxy_json_encode_default)
-        # Re-raise if it's a different TypeError
+            return orjson.dumps(_convert_large_integers(obj), default=envoxy_json_encode_default, option=_ORJSON_OPTS)
         raise
 
 
@@ -83,7 +91,12 @@ class EnvoxyJsonEncoder(json.JSONEncoder):
         if isinstance(o, decimal.Decimal):
             return float(o)
 
-        if isinstance(o, (datetime.date, datetime.datetime)):
+        # datetime before date — datetime is a subclass of date
+        if isinstance(o, datetime.datetime):
+            dt_utc = o if o.tzinfo is None else o.astimezone(datetime.timezone.utc)
+            return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+
+        if isinstance(o, datetime.date):
             return o.isoformat()
 
         return super(EnvoxyJsonEncoder, self).default(o)
