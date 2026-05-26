@@ -290,11 +290,17 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
     # RC file with exported variables (e.g. /etc/zapata/rc.d/muzzley.rc)
     rc_path = os.environ.get("ENVOXY_RC_PATH", "/etc/zapata/rc.d/muzzley.rc")
     if DEBUG:
-        log.warning("[alembic] checking RC file: %s (exists=%s)", rc_path, os.path.isfile(rc_path))
+        log.warning(
+            "[alembic] checking RC file: %s (exists=%s)",
+            rc_path,
+            os.path.isfile(rc_path),
+        )
     if os.path.isfile(rc_path):
         rc_vars = _load_rc_vars(rc_path)
         if DEBUG:
-            log.warning("[alembic] RC vars loaded: %s", "SUCCESS" if rc_vars else "FAILED")
+            log.warning(
+                "[alembic] RC vars loaded: %s", "SUCCESS" if rc_vars else "FAILED"
+            )
             if rc_vars:
                 log.warning("[alembic] RC keys: %s", list(rc_vars.keys()))
         if rc_vars is not None:
@@ -306,8 +312,13 @@ def _maybe_set_sqlalchemy_url():  # noqa: D401
                 rc_vars.get("MUZZLEY_PGSQL_DB") or user
             )  # assume db = user if absent
             if DEBUG:
-                log.warning("[alembic] RC parsed: host=%s, port=%s, user=%s, dbname=%s", 
-                           host, port, user if user else "NONE", dbname if dbname else "NONE")
+                log.warning(
+                    "[alembic] RC parsed: host=%s, port=%s, user=%s, dbname=%s",
+                    host,
+                    port,
+                    user if user else "NONE",
+                    dbname if dbname else "NONE",
+                )
             if host and user and dbname:
                 user_enc = quote_plus(user)
                 pwd_enc = quote_plus(pwd) if pwd else ""
@@ -440,7 +451,7 @@ def run_migrations_online():
 
         with context.begin_transaction():  # type: ignore[attr-defined]
             context.run_migrations()  # type: ignore[attr-defined]
-        
+
         # Explicitly commit the transaction to persist version table updates
         if not context.is_offline_mode():  # type: ignore[attr-defined]
             try:

@@ -72,10 +72,16 @@ def envoxy_json_dumps(obj):
     path: first attempt raises TypeError, then we pre-process and retry.
     """
     try:
-        return orjson.dumps(obj, default=envoxy_json_encode_default, option=_ORJSON_OPTS)
+        return orjson.dumps(
+            obj, default=envoxy_json_encode_default, option=_ORJSON_OPTS
+        )
     except TypeError as e:
         if "Integer exceeds 64-bit range" in str(e):
-            return orjson.dumps(_convert_large_integers(obj), default=envoxy_json_encode_default, option=_ORJSON_OPTS)
+            return orjson.dumps(
+                _convert_large_integers(obj),
+                default=envoxy_json_encode_default,
+                option=_ORJSON_OPTS,
+            )
         raise
 
 

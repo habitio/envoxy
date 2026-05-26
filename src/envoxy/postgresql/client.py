@@ -458,9 +458,7 @@ class Client:
                     _rowcount = _cursor.rowcount
                     _rows = _cursor.fetchall()
 
-                    _data.extend(
-                        [_normalize_row(dict(row)) for row in _rows]
-                    )
+                    _data.extend([_normalize_row(dict(row)) for row in _rows])
 
                     _offset_limit += _chunk_size
                     _local_params.update({"offset_limit": _offset_limit})

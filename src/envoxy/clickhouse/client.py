@@ -85,7 +85,7 @@ _DEFAULT_SESSION_SETTINGS: dict = {
 
 # Per-query defaults that callers can override via `query_settings=`.
 _DEFAULT_QUERY_SETTINGS: dict = {
-    "max_execution_time": 30,     # seconds before server cancels the query
+    "max_execution_time": 30,  # seconds before server cancels the query
 }
 
 # Retry knobs for transient connectivity failures.
@@ -96,6 +96,7 @@ _DEFAULT_RETRY_DELAY = 1  # seconds (doubles on each attempt)
 # ---------------------------------------------------------------------------
 # Result normalisation
 # ---------------------------------------------------------------------------
+
 
 def _normalize_value(value: object) -> object:
     """Convert a single ClickHouse-typed value to a platform-standard type.
@@ -128,6 +129,7 @@ def _normalize_row(columns: tuple, row: tuple) -> dict:
 # Client
 # ---------------------------------------------------------------------------
 
+
 class Client:
     """
     Singleton ClickHouse client for Envoxy — read-only queries only.
@@ -138,7 +140,9 @@ class Client:
     """
 
     _instance = None
-    _lock = RLock()  # Reentrant: reload_config holds the lock and calls _connect which re-acquires it
+    _lock = (
+        RLock()
+    )  # Reentrant: reload_config holds the lock and calls _connect which re-acquires it
 
     def __new__(cls, *args, **kwargs):
         with cls._lock:
@@ -223,7 +227,7 @@ class Client:
                     compress=bool(conf.get("compress", True)),
                     # HTTP-level socket timeout; ClickHouse server-side timeout
                     # is enforced separately via max_execution_time.
-                    query_limit=0,       # no client-side row cap
+                    query_limit=0,  # no client-side row cap
                     settings=session_settings,
                 )
                 # Verify the connection is actually reachable.
@@ -341,7 +345,9 @@ class Client:
         for attempt in range(attempts):
             try:
                 ch_client = self._get_client(server_key)
-                result = ch_client.query(sql_query, parameters=params, settings=settings)
+                result = ch_client.query(
+                    sql_query, parameters=params, settings=settings
+                )
                 columns = result.column_names
                 return [_normalize_row(columns, row) for row in result.result_rows]
 
@@ -360,9 +366,7 @@ class Client:
                 try:
                     self._connect(self._instances[server_key])
                 except Exception as reconnect_exc:
-                    Log.error(
-                        f"[CH:{server_key}] Reconnect failed: {reconnect_exc!r}"
-                    )
+                    Log.error(f"[CH:{server_key}] Reconnect failed: {reconnect_exc!r}")
                 sleep(delay * math.pow(2, attempt))
 
         raise DatabaseException(

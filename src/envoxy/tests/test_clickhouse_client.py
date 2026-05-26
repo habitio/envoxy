@@ -27,6 +27,7 @@ from envoxy.db.exceptions import DatabaseException
 # Helpers / fakes
 # ---------------------------------------------------------------------------
 
+
 def _make_query_result(columns: tuple, rows: list[tuple]):
     """Build a minimal fake ``QueryResult`` returned by clickhouse_connect."""
     result = MagicMock()
@@ -44,7 +45,7 @@ class FakeChClient:
         self._raise_on_query = raise_on_query
         self._ping_ok = ping_ok
         self.close_called = False
-        self.queries: list[tuple] = []   # (sql, parameters, settings)
+        self.queries: list[tuple] = []  # (sql, parameters, settings)
 
     def ping(self) -> bool:
         return self._ping_ok
@@ -99,8 +100,8 @@ def client_instance(fake_ch_client, monkeypatch):
 # _normalize_value
 # ---------------------------------------------------------------------------
 
-class TestNormalizeValue:
 
+class TestNormalizeValue:
     def test_datetime_naive_becomes_utc_string(self):
         dt = datetime(2024, 6, 15, 12, 30, 45, 123456)
         result = _normalize_value(dt)
@@ -108,6 +109,7 @@ class TestNormalizeValue:
 
     def test_datetime_aware_is_converted_to_utc(self):
         from datetime import timezone as tz, timedelta
+
         eastern = timezone(timedelta(hours=-5))
         dt = datetime(2024, 6, 15, 7, 30, 45, 0, tzinfo=eastern)
         result = _normalize_value(dt)
@@ -147,8 +149,8 @@ class TestNormalizeValue:
 # _normalize_row
 # ---------------------------------------------------------------------------
 
-class TestNormalizeRow:
 
+class TestNormalizeRow:
     def test_produces_dict_with_correct_keys(self):
         cols = ("id", "state", "count")
         row = (uuid.UUID("12345678-1234-5678-1234-567812345678"), "active", 10)
@@ -176,8 +178,8 @@ class TestNormalizeRow:
 # Client.query — happy paths
 # ---------------------------------------------------------------------------
 
-class TestClientQuery:
 
+class TestClientQuery:
     def test_returns_list_of_dicts(self, client_instance):
         c, fake = client_instance
         fake._columns = ("id", "name")
@@ -251,8 +253,8 @@ class TestClientQuery:
 # Client.query — error handling
 # ---------------------------------------------------------------------------
 
-class TestClientQueryErrors:
 
+class TestClientQueryErrors:
     def test_empty_sql_raises_database_exception(self, client_instance):
         c, _ = client_instance
         with pytest.raises(DatabaseException, match="SQL query cannot be empty"):
@@ -268,7 +270,9 @@ class TestClientQueryErrors:
         with pytest.raises(DatabaseException, match="No configuration found"):
             c.query("nonexistent", "SELECT 1")
 
-    def test_database_error_propagates_without_retry(self, client_instance, monkeypatch):
+    def test_database_error_propagates_without_retry(
+        self, client_instance, monkeypatch
+    ):
         """DatabaseError (bad SQL) must propagate immediately, no retry."""
         from clickhouse_connect.driver.exceptions import DatabaseError
 
@@ -328,8 +332,8 @@ class TestClientQueryErrors:
 # Client.reload_config
 # ---------------------------------------------------------------------------
 
-class TestReloadConfig:
 
+class TestReloadConfig:
     def test_new_server_key_is_connected(self, monkeypatch):
         conf = {
             "analytics": {
@@ -436,8 +440,8 @@ class TestReloadConfig:
 # Singleton behaviour
 # ---------------------------------------------------------------------------
 
-class TestSingleton:
 
+class TestSingleton:
     def test_two_constructions_return_same_instance(self):
         conf = {
             "analytics": {
