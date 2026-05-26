@@ -1,4 +1,4 @@
-# ruff: noqa: F403,F401,F405
+# ruff: noqa: F403,F401,F405,E402
 
 # CRITICAL: Process .pth files for editable installs BEFORE any other imports
 # This must run in each worker process (after fork), not just in the master
