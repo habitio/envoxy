@@ -24,6 +24,8 @@ def test_assertz_mandatory_ok(test_payload):
 
     assert assertz_mandatory(test_payload, "password") is None
     assert assertz_mandatory(test_payload["application_ids"], 1) is None
+    # Empty string is a valid value — assertz_mandatory must not raise for it.
+    assert assertz_mandatory(test_payload, "username") is None
 
 
 def test_assertz_mandatory_nok(test_payload):
@@ -35,9 +37,6 @@ def test_assertz_mandatory_nok(test_payload):
     with pytest.raises(ValidationException) as e:
         assertz_mandatory(test_payload, "")
     assert str(e.value) == "Key must not be emtpy"
-
-    with pytest.raises(ValidationException) as e:
-        assertz_mandatory(test_payload, "username")
 
     with pytest.raises(ValidationException) as e:
         assertz_mandatory(test_payload["user"], "last_name")
