@@ -10,6 +10,7 @@ from ..utils.config import Config
 from ..postgresql.client import Client as PgClient
 from ..couchdb.client import Client as CouchDBClient
 from ..redis.client import Client as RedisDBClient
+from ..clickhouse.client import Client as ClickHouseClient
 from ..db.orm import get_manager, session_scope, transactional, get_default_server_key
 
 
@@ -34,6 +35,16 @@ class Connector(Singleton):
             pgsql_client: The client instance for interacting with the PostgreSQL database.
         """
         return self.pgsql_client
+
+    @property
+    def clickhouse(self):
+        """
+        Returns the ClickHouse client instance.
+
+        Returns:
+            ClickHouseClient: The read-only client for ClickHouse analytics queries.
+        """
+        return self.clickhouse_client
 
     @property
     def couchdb(self):
@@ -109,6 +120,26 @@ class Connector(Singleton):
 
         self.redis_client = RedisDBClient(self._redis_confs)
 
+    def start_clickhouse_conn(self):
+        """
+        Initializes a ClickHouse client using configuration settings.
+
+        Retrieves ClickHouse server configurations from ``clickhouse_servers`` in
+        the application config.  Raises an exception if the key is missing.
+        Instantiates a ``ClickHouseClient`` and assigns it to
+        ``self.clickhouse_client``.
+
+        The ClickHouse client is read-only by design: no insert / update /
+        delete methods are exposed.
+        """
+
+        self._ch_confs = Config.get("clickhouse_servers")
+
+        if not self._ch_confs:
+            raise Exception("Error to find ClickHouse Servers config")
+
+        self.clickhouse_client = ClickHouseClient(self._ch_confs)
+
 
 class CouchConnector(Connector):
     """
@@ -150,6 +181,24 @@ class RedisConnector(Connector):
 
     def __init__(self):
         self.start_redis_conn()
+
+
+class ChConnector(Connector):
+    """
+    ChConnector manages a read-only ClickHouse client singleton.
+
+    Reads configuration from ``clickhouse_servers`` in the app config and
+    instantiates a ``ClickHouseClient`` that enforces read-only access at the
+    protocol level (``readonly=2``).
+
+    Methods
+    -------
+    __init__():
+        Initializes the connector by calling ``start_clickhouse_conn()``.
+    """
+
+    def __init__(self):
+        self.start_clickhouse_conn()
 
 
 class PgDispatcher:
@@ -350,3 +399,79 @@ class RedisDBDispatcher:
             redis.client.Redis: A Redis client instance connected to the specified server.
         """
         return RedisConnector.instance().redis.get_client(server_key)
+
+
+class ClickHouseDispatcher:
+    """
+    Static interface for executing read-only analytics queries against ClickHouse.
+
+    This dispatcher mirrors the shape of ``PgDispatcher`` so that call sites can
+    swap between the two with minimal friction.  Only ``query()`` is exposed —
+    there are intentionally no insert / update / delete / transaction methods.
+
+    Usage::
+
+        from envoxy import chsqlc
+
+        results = chsqlc.query(
+            "analytics",
+            "SELECT COUNT(*) AS count FROM raw.policies WHERE toString(application_id) = {app_id:String}",
+            params={"app_id": "some-uuid"},
+        )
+        # results → [{"count": 42}]
+
+    Per-query ClickHouse settings can be overridden::
+
+        results = chsqlc.query(
+            "analytics",
+            heavy_sql,
+            params=params,
+            query_settings={"max_execution_time": 120, "max_threads": 8},
+        )
+    """
+
+    @staticmethod
+    def query(
+        server_key: str,
+        sql: str,
+        params: dict | None = None,
+        query_settings: dict | None = None,
+    ) -> list[dict]:
+        """
+        Execute a read-only SQL query against ClickHouse.
+
+        Args:
+            server_key (str):
+                Config key matching an entry under ``clickhouse_servers``.
+            sql (str):
+                ClickHouse SQL.  Use ``{name:Type}`` placeholders for
+                parameter binding (e.g. ``{app_id:String}``).
+            params (dict | None):
+                Named parameters bound to the query.  Values are Python-typed;
+                ``clickhouse_connect`` converts them to the correct wire format.
+            query_settings (dict | None):
+                Optional per-query ClickHouse server settings, e.g.
+                ``{"max_execution_time": 120}``.  Merged on top of the
+                client-level defaults.
+
+        Returns:
+            list[dict]: Each dict maps column name → normalised Python value.
+
+        Raises:
+            DatabaseException: On connection failure or missing config.
+            clickhouse_connect.driver.exceptions.DatabaseError:
+                Propagated directly for query-level errors (bad SQL, etc.).
+        """
+        return ChConnector.instance().clickhouse.query(
+            server_key, sql, params, query_settings
+        )
+
+    @staticmethod
+    def client() -> "ClickHouseClient":
+        """
+        Return the underlying ``ClickHouseClient`` instance for advanced usage.
+
+        Returns:
+            ClickHouseClient: The singleton client instance.
+        """
+        return ChConnector.instance().clickhouse
