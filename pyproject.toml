@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "envoxy"
-version = "0.6.22"
+version = "0.7.0"
 description = "Envoxy Platform Framework"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -43,6 +43,7 @@ dependencies = [
     "celerybeat-mongo==0.2.0",
     "inflect==7.5.0",
     "alembic==1.17.0",
+    "clickhouse-connect>=1.0.1",
 ]
 
 [project.optional-dependencies]

@@ -149,6 +149,7 @@ from .db.dispatcher import (
     PgDispatcher as pgsqlc,
     CouchDBDispatcher as couchdbc,
     RedisDBDispatcher as redisc,
+    ClickHouseDispatcher as chsqlc,
 )
 from .auth.backends import authenticate_container as authenticate
 from .mqtt.dispatcher import Dispatcher as mqttc
