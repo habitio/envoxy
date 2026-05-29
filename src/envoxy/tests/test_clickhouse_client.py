@@ -91,8 +91,9 @@ def client_instance(fake_ch_client, monkeypatch):
         mock_cc.get_client.return_value = fake_ch_client
         c = Client(conf)
 
-    # Inject the fake directly so later calls don't re-create it.
-    c._instances["analytics"]["ch_client"] = fake_ch_client
+    # Inject the fake into the current thread's local slot so later calls
+    # don't re-create it (thread-local design: one client per thread).
+    c._instances["analytics"]["local"].ch_client = fake_ch_client
     return c, fake_ch_client
 
 
@@ -317,7 +318,7 @@ class TestClientQueryErrors:
         with patch("envoxy.clickhouse.client.clickhouse_connect") as mock_cc:
             mock_cc.get_client.return_value = fake_ch_client
             c = Client(conf)
-            c._instances["analytics"]["ch_client"] = fake_ch_client
+            c._instances["analytics"]["local"].ch_client = fake_ch_client
 
             # Override sleep to speed up test
             monkeypatch.setattr("envoxy.clickhouse.client.sleep", lambda _: None)
@@ -391,7 +392,8 @@ class TestReloadConfig:
         with patch("envoxy.clickhouse.client.clickhouse_connect") as mock_cc:
             mock_cc.get_client.return_value = FakeChClient()
             c = Client(conf)
-            c._instances["reporting"]["ch_client"] = fake_reporting
+            # Inject into the current thread's local slot (thread-local design).
+            c._instances["reporting"]["local"].ch_client = fake_reporting
 
             # Reload with only "analytics" — "reporting" should be removed + closed.
             c.reload_config({"analytics": conf["analytics"]})
@@ -416,7 +418,8 @@ class TestReloadConfig:
         with patch("envoxy.clickhouse.client.clickhouse_connect") as mock_cc:
             mock_cc.get_client.return_value = old_fake
             c = Client(conf)
-            c._instances["analytics"]["ch_client"] = old_fake
+            # Inject into the current thread's local slot (thread-local design).
+            c._instances["analytics"]["local"].ch_client = old_fake
 
             mock_cc.get_client.return_value = new_fake
 
@@ -433,7 +436,9 @@ class TestReloadConfig:
             )
 
         assert old_fake.close_called
-        assert c._instances["analytics"]["ch_client"] is new_fake
+        # After reload, the thread-local is replaced; _get_client for the
+        # current thread returns the new client (created during reload_config).
+        assert c._instances["analytics"]["local"].ch_client is new_fake
 
 
 # ---------------------------------------------------------------------------
