@@ -9,9 +9,11 @@ Design goals and ClickHouse-specific best practices applied here:
    the server itself will reject any data-modification attempt even if a caller
    constructs a raw INSERT/ALTER query string.
 
-2. One HTTP client per server key — `clickhouse_connect` already manages an
-   internal urllib3 connection pool over HTTP(S). We wrap it in a singleton
-   dict keyed by server_key rather than building another pool on top.
+2. One HTTP client per thread per server key — `clickhouse_connect` does NOT
+   support concurrent queries on the same client/session.  We use
+   ``threading.local()`` so each worker thread transparently gets its own
+   client instance.  The main thread's client is created eagerly (startup
+   health-check); worker-thread clients are created lazily on first use.
 
 3. Retry with exponential back-off — only on transient/network errors
    (`OperationalError`).  Query-level errors (`DatabaseError`, bad SQL, type
@@ -56,6 +58,7 @@ Configuration block expected under `clickhouse_servers` in the app config:
 import math
 import uuid
 import decimal
+import threading
 from time import sleep
 from threading import RLock
 from datetime import datetime, date, timezone
@@ -134,9 +137,14 @@ class Client:
     """
     Singleton ClickHouse client for Envoxy — read-only queries only.
 
-    One ``clickhouse_connect.Client`` instance is kept alive per server key.
+    One ``clickhouse_connect.Client`` instance is kept alive **per thread**
+    per server key (via ``threading.local()``).  This sidesteps the
+    ``ProgrammingError: Attempt to execute concurrent queries within the same
+    session`` that occurs when a single client is shared across threads.
+
     The underlying HTTP client manages its own urllib3 connection pool; this
-    wrapper adds retry logic, type normalisation, and unified logging on top.
+    wrapper adds per-thread isolation, retry logic, type normalisation, and
+    unified logging on top.
     """
 
     _instance = None
@@ -159,16 +167,31 @@ class Client:
         self._instances: dict = {}
 
         for server_key, conf in server_conf.items():
+            session_settings = self._build_session_settings(conf)
             with self._lock:
                 self._instances[server_key] = {
                     "server": server_key,
                     "conf": conf,
+                    "session_settings": session_settings,
+                    # Per-thread ch_client storage — each thread gets its own
+                    # clickhouse_connect client to avoid concurrent-session errors.
+                    "local": threading.local(),
                 }
+            # Eager connect on the main thread acts as a startup health-check.
+            # Worker threads will lazy-create their own clients on first use.
             self._connect(self._instances[server_key])
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_session_settings(conf: dict) -> dict:
+        """Compute the session-level ClickHouse settings from a server config."""
+        session_settings = dict(_DEFAULT_SESSION_SETTINGS)
+        if "max_threads" in conf:
+            session_settings["max_threads"] = int(conf["max_threads"])
+        return session_settings
 
     def _connect(
         self,
@@ -176,15 +199,17 @@ class Client:
         reconnect_attempts: int = _DEFAULT_RETRIES,
         reconnect_delay: float = _DEFAULT_RETRY_DELAY,
     ) -> None:
-        """Create and store a ``clickhouse_connect.Client`` for *instance*."""
+        """Create a ``clickhouse_connect.Client`` for the CURRENT THREAD and store it
+        in the instance's ``threading.local()`` slot.
+
+        Each calling thread gets its own isolated client, preventing concurrent-
+        session errors when multiple threads run queries simultaneously.
+        """
 
         conf = instance["conf"]
-
-        # Build session-level settings: enforce read-only plus any extras from
-        # the config (e.g. max_threads, max_result_rows).
-        session_settings = dict(_DEFAULT_SESSION_SETTINGS)
-        if "max_threads" in conf:
-            session_settings["max_threads"] = int(conf["max_threads"])
+        session_settings = instance.get(
+            "session_settings"
+        ) or self._build_session_settings(conf)
 
         ch_client = self._retry_connect(
             conf=conf,
@@ -193,8 +218,8 @@ class Client:
             delay=reconnect_delay,
         )
 
-        with self._lock:
-            instance["ch_client"] = ch_client
+        # Store in the thread-local slot — invisible to other threads.
+        instance["local"].ch_client = ch_client
 
         Log.trace(
             ">>> Connected to CLICKHOUSE: {}, {}:{}".format(
@@ -247,7 +272,10 @@ class Client:
         ) from last_exc
 
     def _get_client(self, server_key: str):
-        """Return the live ``clickhouse_connect.Client`` for *server_key*."""
+        """Return the live ``clickhouse_connect.Client`` for *server_key* in the
+        current thread, creating one lazily if this thread has never queried
+        this server before.
+        """
 
         instance = self._instances.get(server_key)
 
@@ -256,12 +284,13 @@ class Client:
                 f"[CH] No configuration found for server key: '{server_key}'"
             )
 
-        ch_client = instance.get("ch_client")
+        local = instance["local"]
+        ch_client = getattr(local, "ch_client", None)
 
         if ch_client is None:
-            # Lazy initialisation guard (should not normally happen).
+            # First use in this thread — create a dedicated client.
             self._connect(instance)
-            ch_client = instance["ch_client"]
+            ch_client = local.ch_client
 
         return ch_client
 
@@ -357,7 +386,8 @@ class Client:
                 raise
 
             except Exception as exc:
-                # Transient connectivity error — attempt to reconnect and retry.
+                # Transient connectivity error — attempt to reconnect for this
+                # thread and retry.
                 last_exc = exc
                 Log.error(
                     f"[CH:{server_key}] Query attempt {attempt + 1}/{attempts} failed: "
@@ -377,16 +407,17 @@ class Client:
         """
         Hot-reload server configuration without restarting the process.
 
-        - New keys are connected immediately.
-        - Existing keys whose config changed get a fresh client.
-        - Removed keys have their client closed gracefully.
+        - New keys are connected immediately (current thread).
+        - Existing keys whose config changed get a fresh thread-local object
+          so every thread will lazy-create a new client on next use.
+        - Removed keys have the current thread's client closed gracefully.
         """
 
         with self._lock:
             existing_keys = set(self._instances)
             new_keys = set(server_conf)
 
-            # Close clients for removed servers.
+            # Close this thread's client for removed servers.
             for removed_key in existing_keys - new_keys:
                 self._close_client(self._instances.pop(removed_key, {}))
 
@@ -394,9 +425,14 @@ class Client:
                 if server_key in self._instances:
                     old_conf = self._instances[server_key]["conf"]
                     if old_conf != conf:
-                        # Config changed — close the old client and reconnect.
+                        # Config changed — close this thread's client, replace
+                        # the thread-local object so all threads lazy-reconnect.
                         self._close_client(self._instances[server_key])
                         self._instances[server_key]["conf"] = conf
+                        self._instances[server_key]["session_settings"] = (
+                            self._build_session_settings(conf)
+                        )
+                        self._instances[server_key]["local"] = threading.local()
                         try:
                             self._connect(self._instances[server_key])
                         except Exception as exc:
@@ -405,9 +441,12 @@ class Client:
                                 f"after config change: {exc!r}"
                             )
                 else:
+                    session_settings = self._build_session_settings(conf)
                     self._instances[server_key] = {
                         "server": server_key,
                         "conf": conf,
+                        "session_settings": session_settings,
+                        "local": threading.local(),
                     }
                     try:
                         self._connect(self._instances[server_key])
@@ -418,10 +457,15 @@ class Client:
 
     @staticmethod
     def _close_client(instance: dict) -> None:
-        """Best-effort close of a ``clickhouse_connect.Client``."""
-        ch_client = instance.get("ch_client")
+        """Best-effort close of the current thread's ``clickhouse_connect.Client``."""
+        local = instance.get("local")
+        if local is None:
+            return
+        ch_client = getattr(local, "ch_client", None)
         if ch_client is not None:
             try:
                 ch_client.close()
             except Exception as exc:
                 Log.error(f"[CH] Error closing client: {exc!r}")
+            finally:
+                local.ch_client = None
