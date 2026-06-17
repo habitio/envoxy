@@ -16,7 +16,7 @@ billiard==4.2.2
     # via celery
 blinker==1.9.0
     # via flask
-cachetools==6.2.1
+cachetools==6.2.2
     # via envoxy (pyproject.toml)
 celery==5.5.3
     # via
