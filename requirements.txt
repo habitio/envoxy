@@ -87,7 +87,7 @@ mongoengine==0.29.1
     # via celerybeat-mongo
 more-itertools==10.8.0
     # via inflect
-orjson==3.11.3
+orjson==3.11.4
     # via envoxy (pyproject.toml)
 packaging==25.0
     # via kombu
