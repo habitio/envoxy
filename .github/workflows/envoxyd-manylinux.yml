@@ -37,7 +37,7 @@ jobs:
           ls -lah dist/
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: envoxyd-sdist
           path: vendors/dist/*.tar.gz
