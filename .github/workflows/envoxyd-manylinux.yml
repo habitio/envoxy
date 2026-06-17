@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
       - name: Download sdist
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: envoxyd-sdist
           path: dist
@@ -101,7 +101,7 @@ jobs:
             exit 1
           fi
       - name: Download sdist
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: envoxyd-sdist
           path: dist
