@@ -116,7 +116,7 @@ python-dateutil==2.9.0.post0
     #   upnpclient
 pyzmq==27.1.0
     # via envoxy (pyproject.toml)
-redis==6.4.0
+redis==7.1.0
     # via envoxy (pyproject.toml)
 requests==2.32.5
     # via
