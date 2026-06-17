@@ -12,7 +12,7 @@ amqp==5.3.1
     #   kombu
 astroid==4.0.1
     # via pylint
-billiard==4.2.2
+billiard==4.2.3
     # via celery
 blinker==1.9.0
     # via flask
