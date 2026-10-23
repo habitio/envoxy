@@ -7,7 +7,8 @@ except ImportError:
 
     class DefaultLog:
         def log(self, text):
-            logger.debug(text)
+            # Already redacted by Log.format_log/Log.system: skip RedactingFilter
+            logger.debug(text, extra={"envoxy_redacted": True})
 
         @property
         def opt(self):
@@ -21,6 +22,7 @@ import os
 import multiprocessing
 from inspect import getframeinfo, stack
 from .config import Config
+from .redaction import get_redactor, install_logging_redaction
 
 _host = socket.gethostname()
 
@@ -259,13 +261,31 @@ class Log:
 
     @staticmethod
     def system(text, max_lines=None):
-        uwsgi.log(Log.truncate_text(text, max_lines))
+        text = Log.truncate_text(text, max_lines)
+        if isinstance(text, str):
+            text = get_redactor().redact(text)
+        uwsgi.log(text)
+
+    @staticmethod
+    def redact(text):
+        """Mask secrets in ``text`` using the configured ``log.redact`` rules."""
+        return get_redactor().redact(text)
+
+    @staticmethod
+    def redact_mapping(mapping):
+        """Mask secrets in a mapping (e.g. HTTP headers) by key name."""
+        return get_redactor().redact_mapping(mapping)
+
+    @staticmethod
+    def install_logging_redaction(logger=None):
+        """Attach the redaction filter to the handlers of stdlib ``logger``."""
+        return install_logging_redaction(logger)
 
     @staticmethod
     def format_log(text, log_level, caller):
         _level = int.from_bytes(log_level, "little")
         _file = ".".join(caller.filename.split("/")[-3:])
-        text = str(text).replace('"', '\\"').replace("\n", "\\n")
+        text = get_redactor().redact(str(text)).replace('"', '\\"').replace("\n", "\\n")
         _exec_name = (
             Config.get("boot")[0]["name"]
             if Config and len(Config.get("boot"))
