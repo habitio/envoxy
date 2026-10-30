@@ -95,7 +95,7 @@ type-check:
 
 security-check:
 	@bandit -r src/ -ll
-	@safety check
+	@pip-audit --desc
 
 deps-check:
 	@pip-audit --desc

@@ -37,7 +37,7 @@ Envoxy uses GitHub Actions for continuous integration and deployment with compre
 
 **Jobs:**
 
-- **Dependency Check**: Safety + pip-audit for vulnerable packages
+- **Dependency Check**: pip-audit for vulnerable packages
 - **Code Security**: Bandit for security issues in code
 - **CodeQL**: GitHub's advanced security analysis
 - **Trivy Scan**: Vulnerability scanning for dependencies and Docker images
@@ -354,8 +354,8 @@ pip install -e .[dev,test]
 
 ```bash
 # Run locally
-pip install safety bandit
-safety check
+pip install pip-audit bandit
+pip-audit --desc
 bandit -r src/
 ```
 
