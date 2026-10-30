@@ -469,7 +469,8 @@ def before_request():
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
-            _outputs.append(f'Headers:{dict(request.headers)}')
+            _outputs.append(
+                f'Headers:{envoxy.log.redact_mapping(dict(request.headers))}')
 
             if request.data:
                 _outputs.append(
@@ -507,7 +508,8 @@ def after_request(response):
 
         if envoxy.log.is_gte_log_level(envoxy.log.VERBOSE):
 
-            _outputs.append(f'Headers{dict(response.headers)}')
+            _outputs.append(
+                f'Headers{envoxy.log.redact_mapping(dict(response.headers))}')
 
             if response.data:
                 _outputs.append(

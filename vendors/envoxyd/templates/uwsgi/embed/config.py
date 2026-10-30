@@ -43,6 +43,13 @@ if 'conf' in uwsgi.opt:
         if _log_conf and _log_conf.get('format'):
             uwsgi.opt['log-format'] = _log_conf['format']
 
+        # Rebuild redaction rules from the just-loaded configuration (it may
+        # have been created with defaults by an earlier log call) and mask
+        # secrets also in records emitted through stdlib logging
+        from envoxy.utils import redaction as _redaction
+        _redaction.reset()
+        envoxy.log.install_logging_redaction()
+
     else:
 
         envoxy.log.emergency(
