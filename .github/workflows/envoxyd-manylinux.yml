@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -37,7 +37,7 @@ jobs:
           ls -lah dist/
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: envoxyd-sdist
           path: vendors/dist/*.tar.gz
@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
       - name: Download sdist
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: envoxyd-sdist
           path: dist
@@ -101,7 +101,7 @@ jobs:
             exit 1
           fi
       - name: Download sdist
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: envoxyd-sdist
           path: dist
