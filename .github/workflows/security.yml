@@ -25,26 +25,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install safety pip-audit
-
-      - name: Run Safety check
-        run: |
-          safety check --json --output safety-report.json || true
-          safety check || true
-        continue-on-error: true
+          pip install pip-audit
 
       - name: Run pip-audit
         run: |
           pip-audit --desc --format json --output pip-audit-report.json || true
           pip-audit --desc || true
         continue-on-error: true
-
-      - name: Upload Safety report
-        uses: actions/upload-artifact@v6
-        with:
-          name: safety-report
-          path: safety-report.json
-        if: always()
 
       - name: Upload pip-audit report
         uses: actions/upload-artifact@v6

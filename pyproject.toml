@@ -62,8 +62,9 @@ dev = [
     "ruff>=0.7.0",
     "mypy>=1.14.0",
     "bandit[toml]>=1.8.0",
-    "safety>=3.2.0",
     "pip-audit>=2.7.0",
+    "filelock>=4.2.1",
+    "virtualenv>=21.14.9",
 ]
 test = [
     "pytest==9.0.3",

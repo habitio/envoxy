@@ -97,7 +97,7 @@ more-itertools==10.8.0
     # via inflect
 orjson==3.11.9
     # via envoxy (pyproject.toml)
-packaging==25.0
+packaging==26.3
     # via kombu
 paho-mqtt==2.1.0
     # via envoxy (pyproject.toml)
